@@ -6,10 +6,16 @@
 import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import GameControlPanel from '../components/GameControlPanel';
+import {
+  MissionAutomationEngine,
+  DEFAULT_AUTOMATION_CONFIG,
+  AutomationConfig,
+} from '../automation/missionAutomation';
 
 console.log('🎮 Sword & Supper Game script loaded in iframe:', window.location.href);
 
 let root: Root | null = null;
+let automationEngine: MissionAutomationEngine | null = null;
 
 /**
  * Analyze the game page structure
@@ -162,6 +168,62 @@ function getClickableElements(): Element[] {
   return clickable;
 }
 
+/**
+ * Initialize mission automation
+ */
+function initializeAutomation(): void {
+  if (automationEngine) {
+    console.log('⚠️ Automation engine already initialized');
+    return;
+  }
+
+  console.log('🤖 Initializing mission automation engine...');
+
+  // Load config from storage
+  chrome.storage.local.get(['automationConfig'], (result) => {
+    const config: AutomationConfig = result.automationConfig || DEFAULT_AUTOMATION_CONFIG;
+    automationEngine = new MissionAutomationEngine(config);
+    automationEngine.startConsoleMonitoring();
+
+    console.log('✅ Mission automation engine initialized');
+    console.log('⚙️ Config:', config);
+
+    // Notify parent window that automation is ready
+    window.parent.postMessage(
+      { type: 'SS_AUTOMATION_READY', config },
+      '*'
+    );
+  });
+}
+
+/**
+ * Toggle automation on/off
+ */
+function toggleAutomation(enabled: boolean): void {
+  if (!automationEngine) {
+    console.error('❌ Automation engine not initialized');
+    return;
+  }
+
+  automationEngine.setEnabled(enabled);
+  console.log(enabled ? '▶️ Automation started' : '⏸️ Automation paused');
+}
+
+/**
+ * Update automation configuration
+ */
+function updateAutomationConfig(config: Partial<AutomationConfig>): void {
+  if (!automationEngine) {
+    console.error('❌ Automation engine not initialized');
+    return;
+  }
+
+  automationEngine.updateConfig(config);
+
+  // Save to storage
+  chrome.storage.local.set({ automationConfig: config });
+}
+
 // Listen for messages from the main page
 window.addEventListener('message', (event) => {
   console.log('📨 Game script received message:', event.data);
@@ -173,6 +235,20 @@ window.addEventListener('message', (event) => {
     injectControlPanel();
   } else if (event.data.type === 'SS_BOT_CLICK_BUTTON') {
     clickButton(event.data.buttonText);
+  } else if (event.data.type === 'SS_START_AUTOMATION') {
+    toggleAutomation(true);
+  } else if (event.data.type === 'SS_STOP_AUTOMATION') {
+    toggleAutomation(false);
+  } else if (event.data.type === 'SS_UPDATE_AUTOMATION_CONFIG') {
+    updateAutomationConfig(event.data.config);
+  } else if (event.data.type === 'SS_GET_AUTOMATION_STATE') {
+    if (automationEngine) {
+      const state = automationEngine.getState();
+      window.parent.postMessage(
+        { type: 'SS_AUTOMATION_STATE', state },
+        '*'
+      );
+    }
   }
 });
 
@@ -185,6 +261,9 @@ setTimeout(() => {
   analyzeGamePage();
   extractGameState();
 
+  // Initialize mission automation
+  initializeAutomation();
+
   // Auto-inject control panel
   // injectControlPanel();
 }, 2000);
@@ -196,6 +275,11 @@ setTimeout(() => {
   clickButton,
   injectControls: injectControlPanel,
   getClickable: getClickableElements,
+  // Automation functions
+  startAutomation: () => toggleAutomation(true),
+  stopAutomation: () => toggleAutomation(false),
+  getAutomationState: () => automationEngine?.getState(),
+  resetAutomation: () => automationEngine?.reset(),
 };
 
 console.log('💡 Bot functions available in console via window.ssBot');

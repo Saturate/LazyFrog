@@ -93,9 +93,13 @@ The `encounters` array defines the mission structure. Each encounter is one of:
   }
 }
 ```
-**UI**: Shows treasure/reward screen
-**Action**: Usually automatic or single "Collect" button
-**Result**: Items added to inventory, mission complete
+**UI**: Shows victory screen with:
+- Large "VICTORY" banner with crown graphic
+- Message: "You found the [FoodName] recommended by u/[AuthorName]!"
+- "FLAVOR ESSENCES" section displaying reward items with quantities
+- Blue "Continue" button at bottom
+**Action**: Click "Continue" button to complete mission
+**Result**: Items added to inventory, mission marked as cleared, can close and return to Reddit feed
 
 ### 3. Combat Details
 
@@ -125,9 +129,16 @@ darkBat-0-0 is dead!
 ### 4. Mission Completion
 
 **After all encounters**:
-- Final treasure encounter awards rewards
-- Mission marked as "cleared"
-- Can close mission and return to Reddit feed
+- Game automatically transitions to treasure encounter (no button click needed)
+- Victory screen displays with:
+  - Crown graphic and "VICTORY" banner
+  - Food reward message
+  - List of essence rewards with quantities
+  - Blue "Continue" button
+- Click "Continue" to finalize mission completion
+- No console log for treasure encounter result (unlike enemy encounters)
+- Mission marked as "cleared" after clicking Continue
+- Can close mission dialog and return to Reddit feed
 
 ## Automation Strategy
 
@@ -184,11 +195,15 @@ function handleEncounter(encounterData, encounterIndex) {
 - Simple strategy: Accept if positive > negative OR if early in mission
 
 **For Ability Choices**:
-- Prioritize based on player build:
-  - Offensive builds: choose damage abilities
-  - Defensive builds: choose healing/tanking abilities
-  - Balanced: choose utility abilities
-- Can maintain a preference list
+- Use a configurable ability tier list system
+- Users can rank abilities by preference
+- Automation selects the highest-ranked available ability
+- Example tier list strategy (offensive focus):
+  1. `IceKnifeOnTurnStart` - High damage, kills enemies faster (reduces damage taken)
+  2. `LightningOnCrit` - Additional damage on critical hits
+  3. `HealOnFirstTurn` - Defensive fallback option
+- Tier list should be stored in extension settings
+- Format: Array of abilityId strings in preference order
 
 ### Phase 4: Progress Tracking
 
@@ -246,9 +261,21 @@ The game runs in `devvit.net` domain iframe - we **cannot** directly access its 
 
 ## Next Steps
 
-1. ✅ Document mission flow
-2. ⬜ Add console log listener to extension
-3. ⬜ Create mission metadata parser
-4. ⬜ Implement button click automation for encounters
-5. ⬜ Add decision logic for skill bargains and abilities
-6. ⬜ Test full mission auto-play
+1. ✅ Document mission flow (COMPLETE - observed all 7 encounters)
+2. ✅ Document ability tier list system (COMPLETE - added to automation strategy)
+3. ⬜ Add console log listener to extension
+4. ⬜ Create mission metadata parser
+5. ⬜ Implement button click automation for encounters
+6. ⬜ Add decision logic for skill bargains and abilities
+7. ⬜ Implement ability tier list configuration UI
+8. ⬜ Test full mission auto-play
+
+## Summary of Observations
+
+**Complete Mission Playthrough Observed**:
+- ✅ Enemy encounters (4 total) - All show "Battle" button, auto-combat with console logs
+- ✅ Skill Bargain - Shows text choice buttons, immediate HP effect visible
+- ✅ Ability Choice - Shows 3 ability name buttons, Ice Knife chosen for offensive strategy
+- ✅ Treasure - Victory screen with essences, "Continue" button to complete
+
+**Key Insight**: Ice Knife (`IceKnifeOnTurnStart`) is highly effective as it deals massive damage at turn start, killing enemies faster and reducing total damage taken. This should be prioritized in the ability tier list.
