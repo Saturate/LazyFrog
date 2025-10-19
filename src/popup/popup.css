@@ -1,0 +1,231 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: #333;
+  background: #f5f5f5;
+}
+
+.popup-container {
+  background: white;
+}
+
+.popup-header {
+  background: linear-gradient(135deg, #ff4500 0%, #ff6347 100%);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.popup-header h1 {
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.status {
+  padding: 15px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9e9e9e;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.running .dot {
+  background: #4caf50;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.section {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.section h3 {
+  font-size: 16px;
+  margin-bottom: 15px;
+  color: #ff4500;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.form-group input[type='number'],
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-group input[type='number']:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #ff4500;
+}
+
+.form-group input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #ff4500;
+  color: white;
+  flex: 1;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #e03e00;
+}
+
+.btn-secondary {
+  background: #757575;
+  color: white;
+  flex: 1;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #616161;
+}
+
+.btn-outline {
+  width: 100%;
+  background: white;
+  color: #ff4500;
+  border: 2px solid #ff4500;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: #fff5f0;
+}
+
+.results-content {
+  font-size: 13px;
+  color: #666;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.result-item {
+  padding: 10px;
+  background: #f9f9f9;
+  border-left: 3px solid #4caf50;
+  margin-bottom: 8px;
+  border-radius: 3px;
+}
+
+.result-item strong {
+  color: #333;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.result-item small {
+  color: #999;
+}
+
+.more {
+  margin-top: 10px;
+  font-style: italic;
+}
+
+footer {
+  padding: 15px 20px;
+  background: #fafafa;
+  text-align: center;
+}
+
+footer p {
+  font-size: 12px;
+  color: #666;
+}
+
+footer a {
+  color: #ff4500;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+.small {
+  font-size: 12px;
+}

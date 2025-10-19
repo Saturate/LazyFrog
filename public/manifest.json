@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Sword & Supper Bot",
+  "version": "2.0.0",
+  "description": "Automation bot for the Sword & Supper Reddit game with TypeScript and React",
+
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+
+  "host_permissions": [
+    "https://www.reddit.com/*"
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.reddit.com/r/SwordAndSupperGame/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.devvit.net/*"],
+      "js": ["game.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sword-supper-bot@example.com"
+    }
+  }
+}
