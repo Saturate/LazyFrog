@@ -4,13 +4,18 @@
 
 import React, { useState, useEffect } from "react";
 import { LevelFilters, Level } from "../types";
-import { getAllMissions, getFilteredUnclearedMissions, MissionRecord } from "../utils/storage";
+import {
+  getAllMissions,
+  getFilteredUnclearedMissions,
+  MissionRecord,
+} from "../utils/storage";
 import { knownAbilities, knownBlessingStats } from "../data";
 import {
   VERSION,
   getTimeSinceBuild,
   getBuildTimestamp,
 } from "../utils/buildInfo";
+import { Gamepad2, Settings, FileText, Target, BarChart3, Play, Star } from "lucide-react";
 import "./popup.css";
 
 interface AutomationConfig {
@@ -431,7 +436,7 @@ const PopupApp: React.FC = () => {
   return (
     <div className="popup-container">
       <header className="popup-header">
-        <h1>⚔️ AutoSupper</h1>
+        <h1>AutoSupper</h1>
         <p className="subtitle" title={`Build: ${getBuildTimestamp()}`}>
           v{VERSION} • Built {buildAge}
         </p>
@@ -453,19 +458,22 @@ const PopupApp: React.FC = () => {
           className={`tab ${currentTab === "control" ? "active" : ""}`}
           onClick={() => setCurrentTab("control")}
         >
-          🎮 Control
+          <Gamepad2 size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          Control
         </button>
         <button
           className={`tab ${currentTab === "missions" ? "active" : ""}`}
           onClick={() => setCurrentTab("missions")}
         >
-          📋 Missions ({missionStats.uncleared}/{missionStats.total})
+          <FileText size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          Missions ({missionStats.uncleared}/{missionStats.total})
         </button>
         <button
           className={`tab ${currentTab === "options" ? "active" : ""}`}
           onClick={() => setCurrentTab("options")}
         >
-          ⚙️ Options
+          <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          Options
         </button>
       </div>
 
@@ -493,7 +501,7 @@ const PopupApp: React.FC = () => {
                 onClick={handleOpenIframe}
                 style={{ marginBottom: "8px" }}
               >
-                2️⃣ Open Devvit Iframe (Start Mission)
+                2️⃣ Open Dialog (Start Mission)
               </button>
 
               <button
@@ -609,7 +617,8 @@ const PopupApp: React.FC = () => {
                 onClick={handleStart}
                 disabled={isRunning}
               >
-                ▶️ Start Bot{" "}
+                <Play size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                Start Bot{" "}
                 {(() => {
                   const matchingMissions = missions.filter((m) => {
                     if (m.cleared) return false;
@@ -668,7 +677,7 @@ const PopupApp: React.FC = () => {
           )}
 
           <div className="section">
-            <h3>🎯 Next 5 Missions</h3>
+            <h3><Target size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Next 5 Missions</h3>
             <p className="help-text">
               These are the next missions the bot will play when you press
               Start:
@@ -685,71 +694,75 @@ const PopupApp: React.FC = () => {
               </p>
             ) : (
               <div style={{ maxHeight: "400px", overflowY: "auto" }}>
-                {filteredMissions
-                  .slice(0, 5)
-                  .map((mission, index) => (
+                {filteredMissions.slice(0, 5).map((mission, index) => (
+                  <div
+                    key={mission.postId}
+                    style={{
+                      padding: "12px",
+                      marginBottom: "8px",
+                      background: "rgba(33, 150, 243, 0.05)",
+                      border: "1px solid #2196F3",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      if (mission.permalink) {
+                        chrome.tabs.update({ url: mission.permalink });
+                      }
+                    }}
+                  >
                     <div
-                      key={mission.postId}
                       style={{
-                        padding: "12px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "start",
                         marginBottom: "8px",
-                        background: "rgba(33, 150, 243, 0.05)",
-                        border: "1px solid #2196F3",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => {
-                        if (mission.permalink) {
-                          chrome.tabs.update({ url: mission.permalink });
-                        }
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "start",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: "bold",
-                              color: "#2196F3",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            #{index + 1} in Queue
-                          </div>
-                          <div style={{ fontSize: "11px", color: "#999" }}>
-                            Scanned:{" "}
-                            {new Date(mission.timestamp).toLocaleString()}
-                          </div>
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                            color: "#2196F3",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          #{index + 1} in Queue
+                        </div>
+                        <div style={{ fontSize: "11px", color: "#999" }}>
+                          Scanned:{" "}
+                          {new Date(mission.timestamp).toLocaleString()}
                         </div>
                       </div>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          marginBottom: "4px",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {mission.tags || mission.foodName || mission.postId}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#666" }}>
-                        {mission.difficulty
-                          ? `${mission.difficulty}⭐`
-                          : "No difficulty"}
-                        {mission.minLevel && mission.maxLevel
-                          ? ` | Lvl ${mission.minLevel}-${mission.maxLevel}`
-                          : ""}
-                        {mission.environment ? ` | ${mission.environment}` : ""}
-                        {mission.username ? ` | by ${mission.username}` : ""}
-                      </div>
                     </div>
-                  ))}
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        marginBottom: "4px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {mission.tags || mission.foodName || mission.postId}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#666", display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {mission.difficulty ? (
+                        <>
+                          {Array.from({ length: mission.difficulty }).map((_, i) => (
+                            <Star key={i} size={10} fill="#fbbf24" color="#fbbf24" />
+                          ))}
+                        </>
+                      ) : (
+                        "No difficulty"
+                      )}
+                      {mission.minLevel && mission.maxLevel
+                        ? ` | Lvl ${mission.minLevel}-${mission.maxLevel}`
+                        : ""}
+                      {mission.environment ? ` | ${mission.environment}` : ""}
+                      {mission.username ? ` | by ${mission.username}` : ""}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -760,7 +773,7 @@ const PopupApp: React.FC = () => {
       {currentTab === "missions" && (
         <>
           <div className="section">
-            <h3>📊 Mission Stats</h3>
+            <h3><BarChart3 size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Mission Stats</h3>
             <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
               <div
                 style={{

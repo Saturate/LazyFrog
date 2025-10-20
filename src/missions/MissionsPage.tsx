@@ -5,6 +5,7 @@ import {
   MissionRecord,
 } from "../utils/storage";
 import { generateMissionMarkdown } from "./missionMarkdown";
+import { Settings, RefreshCw, Check, BarChart3, Star } from "lucide-react";
 import "./missions.css";
 
 interface SortConfig {
@@ -296,7 +297,13 @@ const MissionsPage: React.FC = () => {
   const renderStars = (difficulty: number | undefined) => {
     if (!difficulty || difficulty === 0)
       return <span className="no-difficulty">No difficulty</span>;
-    return "⭐".repeat(difficulty);
+    return (
+      <span style={{ display: 'flex', gap: '2px' }}>
+        {Array.from({ length: difficulty }).map((_, i) => (
+          <Star key={i} size={12} fill="#fbbf24" color="#fbbf24" />
+        ))}
+      </span>
+    );
   };
 
   return (
@@ -310,10 +317,12 @@ const MissionsPage: React.FC = () => {
             }
             className="btn-secondary"
           >
-            ⚙️ Settings
+            <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+            Settings
           </button>
           <button onClick={loadMissions} className="btn-secondary">
-            🔄 Refresh
+            <RefreshCw size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+            Refresh
           </button>
         </div>
       </header>
@@ -335,7 +344,11 @@ const MissionsPage: React.FC = () => {
         {[1, 2, 3, 4, 5].map((diff) => (
           <div key={diff} className="stat-card">
             <div className="stat-value">{stats.byDifficulty[diff] || 0}</div>
-            <div className="stat-label">{"⭐".repeat(diff)}</div>
+            <div className="stat-label" style={{ display: 'flex', gap: '2px', justifyContent: 'center' }}>
+              {Array.from({ length: diff }).map((_, i) => (
+                <Star key={i} size={12} fill="#fbbf24" color="#fbbf24" />
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -388,7 +401,11 @@ const MissionsPage: React.FC = () => {
                   }
                 }}
               />
-              {"⭐".repeat(diff)}
+              <span style={{ display: 'inline-flex', gap: '2px', marginLeft: '4px' }}>
+                {Array.from({ length: diff }).map((_, i) => (
+                  <Star key={i} size={10} fill="#fbbf24" color="#fbbf24" />
+                ))}
+              </span>
             </label>
           ))}
         </div>
@@ -499,11 +516,11 @@ const MissionsPage: React.FC = () => {
                 <td style={{ textAlign: 'center' }}>
                   {mission.metadata?.mission?.encounters ? (
                     <span title={`${mission.metadata.mission.encounters.length} encounters`} style={{ cursor: 'help' }}>
-                      ✅
+                      <Check size={16} color="#22c55e" />
                     </span>
                   ) : (
                     <span title="No metadata - play mission to capture" style={{ cursor: 'help', opacity: 0.4 }}>
-                      📊
+                      <BarChart3 size={16} color="#666" />
                     </span>
                   )}
                 </td>

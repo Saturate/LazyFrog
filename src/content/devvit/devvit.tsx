@@ -3,9 +3,6 @@
  * This is where we interact with the actual Sword & Supper game
  */
 
-import React from 'react';
-import { createRoot, Root } from 'react-dom/client';
-import GameControlPanel from '../../components/GameControlPanel';
 import {
   SimpleAutomationEngine,
   DEFAULT_SIMPLE_CONFIG,
@@ -34,7 +31,6 @@ devvitLogger.log('Devvit content script loaded', {
   loadTime: new Date().toISOString(),
 });
 
-let root: Root | null = null;
 let simpleAutomation: SimpleAutomationEngine | null = null;
 let metadataEngine: MissionAutomationEngine | null = null; // For capturing metadata only
 
@@ -73,38 +69,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 
 devvitLogger.log('[Devvit] Early message listener installed');
 
-/**
- * Inject React control panel into the game
- */
-function injectControlPanel(): void {
-  devvitLogger.log('Injecting control panel');
-
-  // Remove existing container if any
-  let container = document.getElementById('ss-game-control-root');
-  if (container) {
-    container.remove();
-  }
-
-  // Create new container
-  container = document.createElement('div');
-  container.id = 'ss-game-control-root';
-
-  // Try to find #app element and insert before it, otherwise append to body
-  const appElement = document.getElementById('app');
-  if (appElement && appElement.parentElement) {
-    appElement.parentElement.insertBefore(container, appElement);
-    devvitLogger.log('Injecting control panel before #app');
-  } else {
-    document.body.appendChild(container);
-    devvitLogger.log('Injecting control panel to body');
-  }
-
-  // Create root and render
-  root = createRoot(container);
-  root.render(<GameControlPanel gameState={extractGameState()} />);
-
-  devvitLogger.log('Control panel injected successfully');
-}
+// Control panel removed - now using BotControlPanel in reddit context
 
 /**
  * Initialize automation engines
@@ -256,10 +221,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Keep channel open for async response
 });
 
-// Inject control panel as early as possible
-setTimeout(() => {
-  injectControlPanel();
-}, 500);
+// Control panel removed - now handled in reddit context
 
 // Initial analysis after a delay
 setTimeout(() => {
@@ -276,7 +238,6 @@ setTimeout(() => {
   analyze: analyzeGamePage,
   getState: extractGameState,
   clickButton,
-  injectControls: injectControlPanel,
   getClickable: getClickableElements,
   // Automation functions
   startAutomation: () => toggleAutomation(true),

@@ -47,12 +47,12 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       state.isRunning = true;
       state.filters = message.filters;
 
-      // Get automation config and set pending automation flag
+      // Get automation config and mark bot session as active
       chrome.storage.local.get(['automationConfig'], (result) => {
-        // Set pending automation so it continues after navigation
+        // Mark bot session as active so automation continues after navigation
         // Include filters so they're available after page reload
         chrome.storage.local.set({
-          pendingAutomation: true,
+          activeBotSession: true,
           automationConfig: result.automationConfig || {},
           automationFilters: message.filters
         });
@@ -104,8 +104,8 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'STOP_BOT':
       state.isRunning = false;
 
-      // Clear pending automation flag and filters
-      chrome.storage.local.remove(['pendingAutomation', 'automationFilters']);
+      // Clear active bot session flag and filters
+      chrome.storage.local.remove(['activeBotSession', 'automationFilters']);
 
       // Forward to reddit-content script
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

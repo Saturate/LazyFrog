@@ -191,9 +191,9 @@ export class SimpleAutomationEngine {
 
         this.broadcastStatus('Navigating to mission %missionId%', nextMission.postId);
 
-        // Set pending automation flag so automation continues after navigation
+        // Keep bot session active so automation continues after navigation
         chrome.storage.local.set({
-          pendingAutomation: true,
+          activeBotSession: true,
           automationConfig: this.config
         });
 

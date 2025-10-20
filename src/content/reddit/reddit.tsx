@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import LevelControlPanel from '../../components/LevelControlPanel';
+import BotControlPanel from '../../components/BotControlPanel';
 import { Level, LevelFilters, ChromeMessage } from '../../types';
 import {
   findGameIframe,
@@ -16,7 +16,7 @@ import {
   exploreGameLoader,
 } from './utils/reddit';
 import { redditLogger } from '../../utils/logger';
-import { getNextUnclearedMission } from '../../utils/storage';
+import { getNextUnclearedMission, checkMissionClearedInDOM, markMissionCleared } from '../../utils/storage';
 
 // Version and build info (replaced by webpack at build time)
 declare const __VERSION__: string;
@@ -31,6 +31,7 @@ redditLogger.log('Sword & Supper Bot content script loaded', {
 
 let root: Root | null = null;
 let isRunning = false;
+let currentStatus = 'Idle';
 let filters: LevelFilters = {
   stars: [1, 2], // Default: 1-2 stars (easiest)
   minLevel: 1,
@@ -41,7 +42,7 @@ let filters: LevelFilters = {
 /**
  * Render the React control panel
  */
-function renderControlPanel(levels: Level[]): void {
+function renderControlPanel(): void {
   // Remove existing container if any
   let container = document.getElementById('ss-bot-react-root');
   if (container) {
@@ -56,24 +57,40 @@ function renderControlPanel(levels: Level[]): void {
   // Create root and render
   root = createRoot(container);
   root.render(
-    <LevelControlPanel
-      levels={levels}
-      filters={filters}
+    <BotControlPanel
       isRunning={isRunning}
-      onFilterChange={(newFilters) => {
-        filters = newFilters;
-        chrome.storage.local.set({ filters });
-        processLevels();
-      }}
+      status={currentStatus}
       onStart={() => {
+        redditLogger.log('Bot started from control panel');
         isRunning = true;
-        processLevels();
+        currentStatus = 'Starting bot...';
+        renderControlPanel();
+
+        // Get automation config and start bot
+        chrome.storage.local.get(['automationConfig', 'filters'], (result) => {
+          chrome.runtime.sendMessage({
+            type: 'START_BOT',
+            filters: result.filters || filters,
+          });
+        });
       }}
       onStop={() => {
+        redditLogger.log('Bot stopped from control panel');
         isRunning = false;
-        unmountControlPanel();
+        currentStatus = 'Idle';
+        renderControlPanel();
+
+        chrome.runtime.sendMessage({
+          type: 'STOP_BOT',
+        });
       }}
-      onLevelClick={clickLevel}
+      onOpenSettings={() => {
+        redditLogger.log('Opening settings');
+        // Open the missions page in a new tab
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('missions.html'),
+        });
+      }}
     />
   );
 }
@@ -91,38 +108,13 @@ function unmountControlPanel(): void {
 }
 
 /**
- * Main processing function
+ * Update status and re-render control panel
  */
-function processLevels(): void {
-  if (!isRunning) return;
-
-  redditLogger.log('Processing levels with filters', { filters });
-
-  // Get all levels
-  const allLevels = getAllLevels();
-
-  // Filter levels
-  const filteredLevels = filterLevels(allLevels, filters);
-
-  redditLogger.log('Filtered levels', { count: filteredLevels.length });
-
-  // Render React component
-  renderControlPanel(filteredLevels);
-
-  // Send results to popup
-  chrome.runtime.sendMessage({
-    type: 'LEVELS_FOUND',
-    levels: filteredLevels.map((l) => ({
-      title: l.title,
-      stars: l.stars,
-      levelNumber: l.levelNumber,
-      levelRange: l.levelRange,
-      levelRangeMin: l.levelRangeMin,
-      levelRangeMax: l.levelRangeMax,
-      cleared: l.cleared,
-      href: l.href,
-    })),
-  });
+function updateStatus(status: string): void {
+  currentStatus = status;
+  if (root) {
+    renderControlPanel();
+  }
 }
 
 // Listen for messages from background script and popup
@@ -130,16 +122,21 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
   redditLogger.log('Received Chrome message', { type: message.type });
 
   switch (message.type) {
+    case 'STATUS_UPDATE':
+      updateStatus((message as any).status);
+      sendResponse({ success: true });
+      break;
+
     case 'START_PROCESSING':
       isRunning = true;
       filters = { ...filters, ...message.filters };
-      // Don't open the control panel - automation happens via other messages
+      updateStatus('Bot started');
       sendResponse({ success: true });
       break;
 
     case 'STOP_PROCESSING':
       isRunning = false;
-      unmountControlPanel();
+      updateStatus('Idle');
       sendResponse({ success: true });
       break;
 
@@ -195,7 +192,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
           if (firstMission.href) {
             // Store that we need to start automation after page loads
             chrome.storage.local.set({
-              pendingAutomation: true,
+              activeBotSession: true,
               automationConfig: playMsg.config
             });
 
@@ -217,7 +214,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
         // Store that we need to start automation when iframe appears
         chrome.storage.local.set({
-          pendingAutomation: true,
+          activeBotSession: true,
           automationConfig: playMsg.config
         });
 
@@ -424,10 +421,11 @@ chrome.storage.local.get(['filters'], (result) => {
 (window as any).autoSupperDebug = {
   getAllLevels,
   parseLevelFromPost,
-  processLevels,
   filterLevels,
   filters,
   isRunning,
+  currentStatus,
+  renderControlPanel,
   testSelectors: () => {
     redditLogger.log('Testing selectors');
     const selectors = [
@@ -446,22 +444,153 @@ chrome.storage.local.get(['filters'], (result) => {
 
 redditLogger.log('Debug functions available: window.autoSupperDebug');
 
-// Initial scan when page loads
-setTimeout(() => {
-  redditLogger.log('Initial page scan starting');
-  const levels = getAllLevels();
-  redditLogger.log('Scan complete', { levelsFound: levels.length });
+// Use MutationObserver to detect when game loader appears instead of fixed delay
+const initializeAutomation = () => {
+  redditLogger.log('Checking for active bot session');
 
-  // Check if we have pending automation from a previous page
-  chrome.storage.local.get(['pendingAutomation', 'automationConfig'], (result) => {
-    if (result.pendingAutomation) {
-      redditLogger.log('Found pending automation, waiting for iframe');
+  chrome.storage.local.get(['activeBotSession', 'automationConfig'], (result) => {
+    if (result.activeBotSession) {
+      redditLogger.log('Active bot session detected, automatically opening mission');
 
+      // Broadcast friendly status
+      chrome.runtime.sendMessage({
+        type: 'STATUS_UPDATE',
+        status: 'Loading next mission...',
+      });
+
+      // First check if iframe already exists (e.g., after a manual refresh)
+      const checkForExistingIframe = (): HTMLIFrameElement | null => {
+        let gameIframe = document.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
+        if (gameIframe) return gameIframe;
+
+        const loader = document.querySelector('shreddit-devvit-ui-loader');
+        if (loader?.shadowRoot) {
+          gameIframe = loader.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
+          if (gameIframe) return gameIframe;
+
+          const webView = loader.shadowRoot.querySelector('devvit-blocks-web-view');
+          if (webView?.shadowRoot) {
+            gameIframe = webView.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
+            if (gameIframe) return gameIframe;
+          }
+        }
+        return null;
+      };
+
+      const existingIframe = checkForExistingIframe();
+      if (existingIframe) {
+        redditLogger.log('Iframe already exists (page was refreshed), starting automation immediately');
+
+        // Wait a bit for game to be ready, then start automation
+        setTimeout(() => {
+          const clearedImage = checkMissionClearedInDOM();
+
+          if (clearedImage) {
+            redditLogger.warn('Mission already cleared, skipping');
+            chrome.storage.local.remove(['activeBotSession']);
+
+            const postIdMatch = window.location.pathname.match(/\/comments\/([^/]+)/);
+            if (postIdMatch) {
+              const postId = 't3_' + postIdMatch[1];
+              markMissionCleared(postId).then(() => {
+                chrome.storage.local.get(['filters'], (filterResult) => {
+                  chrome.runtime.sendMessage({
+                    type: 'NAVIGATE_TO_MISSION',
+                    filters: filterResult.filters,
+                  });
+                });
+              });
+            }
+          } else {
+            redditLogger.log('Starting automation on existing iframe');
+            chrome.storage.local.remove(['activeBotSession']);
+            chrome.runtime.sendMessage({
+              type: 'START_MISSION_AUTOMATION',
+              config: result.automationConfig
+            });
+          }
+        }, 2000);
+        return;
+      }
+
+      // No iframe found, need to click to open it
       // Broadcast status
       chrome.runtime.sendMessage({
         type: 'STATUS_UPDATE',
-        status: 'Waiting for mission to be ready',
+        status: 'Opening mission...',
       });
+
+      // First, try to click the game UI to open it
+      const tryClickGame = () => {
+        const loader = document.querySelector('shreddit-devvit-ui-loader');
+        if (!loader) {
+          redditLogger.log('No loader found yet, will retry');
+          return false;
+        }
+
+        // Navigate deep into shadow DOM to find clickable container
+        const surface = loader.shadowRoot?.querySelector('devvit-surface');
+        const renderer = surface?.shadowRoot?.querySelector('devvit-blocks-renderer');
+
+        redditLogger.log('Shadow DOM elements found:', {
+          hasLoader: !!loader,
+          hasSurface: !!surface,
+          hasRenderer: !!renderer,
+          rendererHasShadowRoot: !!renderer?.shadowRoot
+        });
+
+        const clickableContainer = renderer?.shadowRoot?.querySelector('.cursor-pointer');
+
+        if (clickableContainer) {
+          redditLogger.log('Found clickable game container, clicking to open mission');
+          (clickableContainer as HTMLElement).click();
+
+          // Wait for modal to open, then click fullscreen
+          setTimeout(() => {
+            const fullscreenControls = document.querySelector('devvit-fullscreen-web-view-controls');
+            const sizeControls = fullscreenControls?.shadowRoot?.querySelector('devvit-web-view-preview-size-controls');
+            const fullscreenButton = sizeControls?.shadowRoot?.querySelector('button[aria-label="Toggle fullscreen web view"]');
+
+            if (fullscreenButton) {
+              redditLogger.log('Clicking fullscreen button');
+              (fullscreenButton as HTMLElement).click();
+            } else {
+              redditLogger.warn('Fullscreen button not found');
+            }
+          }, 1000);
+
+          return true;
+        }
+
+        redditLogger.log('Clickable container not found yet, will retry');
+        return false;
+      };
+
+      // Try clicking immediately
+      const clickedImmediately = tryClickGame();
+      redditLogger.log('First click attempt result:', { clicked: clickedImmediately });
+
+      if (!clickedImmediately) {
+        redditLogger.log('Starting retry loop for game click...');
+        // If we couldn't click immediately, keep trying for longer
+        let clickAttempts = 0;
+        const maxClickAttempts = 20; // 10 seconds total (enough time for Reddit to load)
+        const clickInterval = setInterval(() => {
+          clickAttempts++;
+          if (tryClickGame() || clickAttempts >= maxClickAttempts) {
+            clearInterval(clickInterval);
+            if (clickAttempts >= maxClickAttempts) {
+              redditLogger.error('Could not find game to click after 10 seconds. Reddit page may not have loaded properly.');
+              // Clear pending automation since we failed
+              chrome.storage.local.remove(['activeBotSession']);
+              chrome.runtime.sendMessage({
+                type: 'STATUS_UPDATE',
+                status: 'Failed to open mission. Try manually refreshing the page.',
+              });
+            }
+          }
+        }, 500);
+      }
 
       // Function to find iframe in nested shadow DOMs
       const findGameIframe = (): HTMLIFrameElement | null => {
@@ -491,19 +620,66 @@ setTimeout(() => {
         const gameIframe = findGameIframe();
 
         if (gameIframe) {
-          redditLogger.log('Iframe loaded, starting automation');
-          redditLogger.log('Iframe src', { src: gameIframe.src.substring(0, 100) });
+          redditLogger.log('Iframe found, waiting a moment for game to initialize');
           clearInterval(checkIframe);
 
-          // Clear pending flag
-          chrome.storage.local.remove(['pendingAutomation']);
+          // Wait a bit for the game UI to fully load before checking cleared status
+          setTimeout(() => {
+            redditLogger.log('Checking if mission is already cleared');
 
-          // Start automation via background
-          chrome.runtime.sendMessage({
-            type: 'START_MISSION_AUTOMATION',
-            config: result.automationConfig
-          });
-          redditLogger.log('Sent START_MISSION_AUTOMATION message');
+            // Check if this mission is already cleared
+            const clearedImage = checkMissionClearedInDOM();
+
+            if (clearedImage) {
+              redditLogger.warn('Mission is already cleared! Updating database and moving to next mission');
+              chrome.storage.local.remove(['activeBotSession']);
+
+            // Extract post ID from URL
+            const postIdMatch = window.location.pathname.match(/\/comments\/([^/]+)/);
+            if (postIdMatch) {
+              const postId = 't3_' + postIdMatch[1];
+
+              // Mark as cleared in database
+              markMissionCleared(postId).then(() => {
+                redditLogger.log('Marked mission as cleared', { postId });
+
+                // Broadcast status and navigate to next mission
+                chrome.runtime.sendMessage({
+                  type: 'STATUS_UPDATE',
+                  status: 'Mission already cleared, finding next mission...',
+                });
+
+                // Get filters from automationConfig if available
+                chrome.storage.local.get(['filters'], (filterResult) => {
+                  const filters = filterResult.filters;
+
+                  // Navigate to next mission
+                  chrome.runtime.sendMessage({
+                    type: 'NAVIGATE_TO_MISSION',
+                    filters: filters,
+                  });
+                });
+              });
+            } else {
+              redditLogger.error('Could not extract post ID from URL');
+            }
+            return;
+          }
+
+            // Mission is not cleared, proceed with automation
+            redditLogger.log('Mission not cleared, starting automation');
+            redditLogger.log('Iframe src', { src: gameIframe.src.substring(0, 100) });
+
+            // Clear pending flag
+            chrome.storage.local.remove(['activeBotSession']);
+
+            // Start automation via background
+            chrome.runtime.sendMessage({
+              type: 'START_MISSION_AUTOMATION',
+              config: result.automationConfig
+            });
+            redditLogger.log('Sent START_MISSION_AUTOMATION message');
+          }, 2000); // Wait 2 seconds for game UI to initialize
         }
       }, 500); // Check every 500ms
 
@@ -514,7 +690,53 @@ setTimeout(() => {
       }, 10000);
     }
   });
-}, 3000); // Increased to 3 seconds
+};
+
+// Set up MutationObserver to watch for game loader appearing in DOM
+let automationInitialized = false;
+
+const observer = new MutationObserver((mutations) => {
+  // Check if game loader has appeared
+  const loader = document.querySelector('shreddit-devvit-ui-loader');
+
+  if (loader && !automationInitialized) {
+    redditLogger.log('Game loader detected in DOM, initializing automation');
+    automationInitialized = true;
+    observer.disconnect(); // Stop observing once we've found it
+
+    // Give shadow DOM a moment to render, then initialize
+    setTimeout(() => {
+      initializeAutomation();
+    }, 1000);
+  }
+});
+
+// Start observing the document for changes
+observer.observe(document.body, {
+  childList: true,
+  subtree: true
+});
+
+// Also try immediately in case the loader is already there
+const existingLoader = document.querySelector('shreddit-devvit-ui-loader');
+if (existingLoader) {
+  redditLogger.log('Game loader already in DOM, initializing immediately');
+  automationInitialized = true;
+  observer.disconnect();
+  setTimeout(() => {
+    initializeAutomation();
+  }, 1000);
+}
+
+// Fallback: if nothing happens within 10 seconds, try anyway
+setTimeout(() => {
+  if (!automationInitialized) {
+    redditLogger.warn('Timeout waiting for game loader, attempting initialization anyway');
+    automationInitialized = true;
+    observer.disconnect();
+    initializeAutomation();
+  }
+}, 10000);
 
 // Track which posts we've already scanned
 const scannedPostIds = new Set<string>();
@@ -555,3 +777,9 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 redditLogger.log('Scroll-based scanning enabled');
+
+// Initialize control panel on page load
+setTimeout(() => {
+  redditLogger.log('Initializing control panel');
+  renderControlPanel();
+}, 1000);
