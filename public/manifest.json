@@ -6,11 +6,13 @@
 
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
 
   "host_permissions": [
-    "https://www.reddit.com/*"
+    "https://www.reddit.com/*",
+    "https://*.devvit.net/*"
   ],
 
   "action": {
@@ -25,14 +27,14 @@
 
   "content_scripts": [
     {
-      "matches": ["https://www.reddit.com/r/SwordAndSupperGame/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": ["https://www.reddit.com/*"],
+      "js": ["reddit-content.js"],
+      "run_at": "document_end"
     },
     {
       "matches": ["https://*.devvit.net/*"],
-      "js": ["game.js"],
-      "run_at": "document_idle",
+      "js": ["devvit-content.js"],
+      "run_at": "document_start",
       "all_frames": true
     }
   ],

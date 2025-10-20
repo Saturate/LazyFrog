@@ -45,7 +45,14 @@ export type MessageType =
   | 'LEVELS_FOUND'
   | 'GET_LEVELS'
   | 'START_PROCESSING'
-  | 'STOP_PROCESSING';
+  | 'STOP_PROCESSING'
+  | 'PLAY_CURRENT_MISSION'
+  | 'NAVIGATE_TO_MISSION'
+  | 'OPEN_MISSION_IFRAME'
+  | 'START_MISSION_AUTOMATION'
+  | 'STOP_MISSION_AUTOMATION'
+  | 'AUTOMATION_READY'
+  | 'START_EMULATE_MODE';
 
 export interface ChromeMessage extends Message {
   type: MessageType;
@@ -64,4 +71,10 @@ export interface StartBotMessage extends ChromeMessage {
 export interface LevelsFoundMessage extends ChromeMessage {
   type: 'LEVELS_FOUND';
   levels: Level[];
+}
+
+export interface PlayCurrentMissionMessage extends ChromeMessage {
+  type: 'PLAY_CURRENT_MISSION';
+  config: any; // AutomationConfig
+  filters?: LevelFilters;
 }

@@ -5,8 +5,8 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
   entry: {
     popup: './src/popup/index.tsx',
-    content: './src/content/index.tsx',
-    game: './src/game/index.tsx',
+    'reddit-content': './src/content/reddit/reddit.tsx',
+    'devvit-content': './src/content/devvit/devvit.tsx',
     background: './src/background/index.ts',
   },
   output: {

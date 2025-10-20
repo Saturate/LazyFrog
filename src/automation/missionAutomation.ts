@@ -3,6 +3,8 @@
  * Handles automatic mission playback based on mission metadata
  */
 
+import { devvitLogger } from '../utils/logger';
+
 export interface MissionMetadata {
   mission: {
     environment: string;
@@ -19,7 +21,7 @@ export interface MissionMetadata {
 }
 
 export interface Encounter {
-  type: 'enemy' | 'skillBargain' | 'abilityChoice' | 'treasure';
+  type: 'enemy' | 'skillBargain' | 'abilityChoice' | 'statsChoice' | 'crossroadsFight' | 'treasure';
   // Enemy encounter fields
   enemies?: Array<{
     id: string;
@@ -28,20 +30,22 @@ export interface Encounter {
   }>;
   // Skill bargain fields
   positiveEffect?: {
+    id?: string;
     type: string;
     stat?: string;
     amount: number;
   };
   negativeEffect?: {
+    id?: string;
     type: string;
     stat?: string;
     amount: number;
   };
   // Ability choice fields
   isEnchanted?: boolean;
-  optionA?: { type: string; abilityId: string };
-  optionB?: { type: string; abilityId: string };
-  optionC?: { type: string; abilityId: string };
+  optionA?: { id?: string; type: string; abilityId?: string; stat?: string; amount?: number };
+  optionB?: { id?: string; type: string; abilityId?: string; stat?: string; amount?: number };
+  optionC?: { id?: string; type: string; abilityId?: string; stat?: string; amount?: number };
   // Treasure fields
   missionType?: string;
   reward?: {
@@ -145,6 +149,23 @@ export class MissionAutomationEngine {
           console.log('✅ Mission metadata captured:', data.missionMetadata);
           console.log(`📋 Mission has ${data.missionMetadata.mission.encounters.length} encounters`);
 
+          // Send full metadata to logging server for analysis
+          devvitLogger.log('[MissionMetadata] Captured mission data', {
+            metadata: data.missionMetadata,
+            postId: data.postId,
+            username: data.username,
+            encounterCount: data.missionMetadata.mission.encounters.length,
+            encounterTypes: data.missionMetadata.mission.encounters.map((e: Encounter) => e.type),
+          });
+
+          // Log each encounter type separately for easier analysis
+          data.missionMetadata.mission.encounters.forEach((encounter: Encounter, index: number) => {
+            devvitLogger.log(`[MissionMetadata] Encounter ${index + 1}`, {
+              type: encounter.type,
+              details: encounter,
+            });
+          });
+
           // If automation is enabled, start processing
           if (this.config.enabled) {
             this.processNextEncounter();
@@ -153,6 +174,7 @@ export class MissionAutomationEngine {
       }
     } catch (error) {
       console.error('❌ Failed to parse mission metadata:', error);
+      devvitLogger.error('[MissionMetadata] Failed to parse', { error });
     }
   }
 
