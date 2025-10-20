@@ -4,6 +4,8 @@
  */
 
 import { devvitLogger } from '../utils/logger';
+import { saveMission, MissionRecord, markMissionCompleted } from '../utils/storage';
+import { enemyNames, mapNames } from '../data';
 
 export interface SimpleAutomationConfig {
   enabled: boolean;
@@ -33,8 +35,165 @@ export class SimpleAutomationEngine {
   private missionMetadata: any = null;
 
   constructor(config: SimpleAutomationConfig) {
-    this.config = { ...DEFAULT_SIMPLE_CONFIG, ...config };
+    // Deep merge config, ensuring arrays are properly preserved
+    this.config = {
+      ...DEFAULT_SIMPLE_CONFIG,
+      ...config,
+      // Ensure arrays are properly set, falling back to defaults if not provided
+      abilityTierList: Array.isArray(config.abilityTierList) 
+        ? config.abilityTierList 
+        : DEFAULT_SIMPLE_CONFIG.abilityTierList,
+      blessingStatPriority: Array.isArray(config.blessingStatPriority)
+        ? config.blessingStatPriority
+        : DEFAULT_SIMPLE_CONFIG.blessingStatPriority,
+    };
     this.setupMessageListener();
+  }
+
+  /**
+   * Emit state change event for UI components
+   */
+  private emitStateChange(): void {
+    window.dispatchEvent(new CustomEvent('SS_AUTOMATION_STATE_CHANGE', {
+      detail: this.getState(),
+    }));
+  }
+
+  /**
+   * Save mission to Chrome storage database
+   */
+  private async saveMissionToDatabase(postId: string, username: string, metadata: any): Promise<void> {
+    try {
+      const mission = metadata.mission;
+      if (!mission) return;
+
+      // Generate tags for the mission
+      const tags = this.generateMissionTags(metadata);
+
+      // Build permalink URL from postId (e.g., t3_1obdqvw -> /r/SwordAndSupperGame/comments/1obdqvw/)
+      const permalink = postId.startsWith('t3_')
+        ? `https://www.reddit.com/r/SwordAndSupperGame/comments/${postId.slice(3)}/`
+        : undefined;
+
+      const record: MissionRecord = {
+        postId,
+        username,
+        timestamp: Date.now(),
+        metadata,
+        tags,
+        difficulty: mission.difficulty,
+        environment: mission.environment,
+        minLevel: mission.minLevel,
+        maxLevel: mission.maxLevel,
+        foodName: mission.foodName,
+        permalink,
+        completed: false,
+      };
+
+      await saveMission(record);
+      devvitLogger.log('[SimpleAutomation] Mission saved to database', {
+        postId,
+        difficulty: record.difficulty,
+        environment: record.environment,
+        tags,
+        permalink,
+      });
+    } catch (error) {
+      devvitLogger.error('[SimpleAutomation] Failed to save mission', { error: String(error) });
+    }
+  }
+
+  /**
+   * Mark mission as completed in database
+   */
+  private async markMissionAsCompleted(postId: string): Promise<void> {
+    try {
+      await markMissionCompleted(postId);
+      devvitLogger.log('[SimpleAutomation] Mission marked as completed', { postId });
+    } catch (error) {
+      devvitLogger.error('[SimpleAutomation] Failed to mark mission completed', { error: String(error) });
+    }
+  }
+
+  /**
+   * Navigate directly to the next uncompleted mission
+   * This avoids going back to the listing page
+   */
+  private async navigateToNextMission(): Promise<void> {
+    try {
+      devvitLogger.log('[SimpleAutomation] Getting next uncompleted mission...');
+
+      // Dynamically import to avoid circular dependencies
+      const { getNextUncompletedMission } = await import('../utils/storage');
+      const nextMission = await getNextUncompletedMission();
+
+      if (nextMission && nextMission.permalink) {
+        devvitLogger.log('[SimpleAutomation] Navigating to next mission', {
+          postId: nextMission.postId,
+          tags: nextMission.tags,
+          permalink: nextMission.permalink,
+        });
+
+        // Navigate directly to next mission (avoids listing page reload)
+        window.location.href = nextMission.permalink;
+      } else {
+        devvitLogger.log('[SimpleAutomation] No more uncompleted missions - automation complete!');
+        this.stop();
+      }
+    } catch (error) {
+      devvitLogger.error('[SimpleAutomation] Failed to navigate to next mission', { error: String(error) });
+    }
+  }
+
+  /**
+   * Generate mission tags (same logic as GameControlPanel)
+   */
+  private generateMissionTags(metadata: any): string {
+    if (!metadata?.mission) return '';
+
+    const mission = metadata.mission;
+    const encounters = mission.encounters || [];
+    const tags: string[] = [];
+
+    // Stars
+    tags.push(`${mission.difficulty}*`);
+
+    // Level range
+    tags.push(`${mission.minLevel} - ${mission.maxLevel}`);
+
+    // Map name
+    if (mission.environment && mapNames[mission.environment]) {
+      tags.push(mapNames[mission.environment]);
+    }
+
+    // Food name
+    if (mission.foodName) {
+      tags.push(mission.foodName);
+    }
+
+    // Boss rush
+    if (mission.type === 'bossRush') {
+      tags.push('boss rush');
+    }
+
+    // Process encounters
+    encounters.forEach((encounter: any) => {
+      if (encounter.type === 'crossroadsFight' && encounter.enemies?.[0]) {
+        let minibossTag = `miniboss ${enemyNames[encounter.enemies[0].type] || encounter.enemies[0].type}`;
+        if (mission.minLevel > 60) {
+          minibossTag = '2k ' + minibossTag;
+        } else if (mission.minLevel > 40) {
+          minibossTag = '1k ' + minibossTag;
+        }
+        tags.push(minibossTag);
+      } else if ((encounter.type === 'boss' || encounter.type === 'rushBoss') && encounter.enemies?.[0]) {
+        tags.push(`${enemyNames[encounter.enemies[0].type] || encounter.enemies[0].type} boss`);
+      } else if (encounter.type === 'investigate') {
+        tags.push('hut');
+      }
+    });
+
+    return tags.join(' | ');
   }
 
   /**
@@ -69,22 +228,43 @@ export class SimpleAutomationEngine {
         // Check for initialData message (mission metadata)
         if (event.data?.data?.message?.type === 'initialData') {
           this.missionMetadata = event.data.data.message.data?.missionMetadata;
+          const postId = event.data.data.message.data?.postId;
+          const username = event.data.data.message.data?.username;
+
           devvitLogger.log('[SimpleAutomation] Mission metadata received', {
             difficulty: this.missionMetadata?.mission?.difficulty,
             environment: this.missionMetadata?.mission?.environment,
             encounters: this.missionMetadata?.mission?.encounters?.length,
           });
+
+          // Save mission to database
+          if (this.missionMetadata && postId) {
+            this.saveMissionToDatabase(postId, username, this.missionMetadata);
+          }
+
+          this.emitStateChange(); // Notify UI
         }
 
         // Check for combat events
         if (event.data?.type === 'COMBAT_START') {
           this.inCombat = true;
           devvitLogger.log('[SimpleAutomation] Combat started - pausing button clicks');
+          this.emitStateChange(); // Notify UI
         }
 
         if (event.data?.type === 'COMBAT_END') {
           this.inCombat = false;
           devvitLogger.log('[SimpleAutomation] Combat ended - resuming automation');
+          this.emitStateChange(); // Notify UI
+        }
+
+        // Check for mission completion (missionComplete message)
+        if (event.data?.data?.message?.type === 'missionComplete') {
+          const postId = event.data.data.message.data?.postId;
+          if (postId && this.missionMetadata) {
+            devvitLogger.log('[SimpleAutomation] Mission completed!', { postId });
+            this.markMissionAsCompleted(postId);
+          }
         }
       } catch (error) {
         // Log parsing errors
@@ -105,12 +285,14 @@ export class SimpleAutomationEngine {
     devvitLogger.log('[SimpleAutomation] Starting button-clicking automation');
     this.config.enabled = true;
 
-    // Check for buttons every 500ms
+    // Check for buttons every 1500ms (1.5 seconds)
+    // This is a fallback since we're not relying on messages
+    // Increased from 500ms to reduce performance impact and logs
     this.intervalId = window.setInterval(() => {
       if (this.config.enabled && !this.isProcessing) {
         this.processButtons();
       }
-    }, 500);
+    }, 1500);
   }
 
   /**
@@ -142,13 +324,14 @@ export class SimpleAutomationEngine {
       isProcessing: this.isProcessing,
       inCombat: this.inCombat,
       hasMissionMetadata: !!this.missionMetadata,
+      missionMetadata: this.missionMetadata, // Include full metadata
       missionDifficulty: this.missionMetadata?.mission?.difficulty,
       missionEnvironment: this.missionMetadata?.mission?.environment,
     };
   }
 
   /**
-   * Main logic - find and click appropriate buttons
+   * Main logic - detect game state first, then click appropriate button
    */
   private async processButtons(): Promise<void> {
     this.isProcessing = true;
@@ -167,40 +350,110 @@ export class SimpleAutomationEngine {
         return;
       }
 
-      // Log buttons with element info for console inspection
-      const buttonInfo = buttons.map(b => ({
-        text: b.textContent?.trim(),
-        tagName: b.tagName,
-        className: b.className,
-        element: b // This will be available in browser console but simplified in remote logs
-      }));
-
+      // Log buttons for debugging (less verbose than before)
       devvitLogger.log('[SimpleAutomation] Found buttons', {
-        buttons: buttons.map(b => `${b.tagName}.${b.className}: "${b.textContent?.trim()}"`),
+        buttons: buttons.map(b => `${b.className}: "${b.textContent?.trim()}"`),
         count: buttons.length
       });
 
-      // Also log to console with actual DOM references
-      console.log('[SimpleAutomation] Button elements:', buttonInfo);
+      // STEP 1: Detect game state based on available buttons
+      const gameState = this.detectGameState(buttons);
 
-      // Priority order for clicking buttons (matching userscript logic)
-      const clickedButton =
-        this.tryClickSkip(buttons) ||        // Skip intro/dialogue
-        this.tryClickBattle(buttons) ||      // Advance/Battle buttons
-        this.tryClickCrossroads(buttons) ||  // Crossroads mini boss (Fight/Skip)
-        this.tryClickAbility(buttons) ||     // Skill/Ability choices (includes blessings)
-        this.tryClickSkillBargain(buttons) || // Accept/Decline bargains
-        this.tryClickContinue(buttons);      // Continue/Finish
+      if (gameState === 'unknown') {
+        devvitLogger.log('[SimpleAutomation] Unknown game state, skipping', {
+          buttonClasses: buttons.map(b => b.className)
+        });
+        this.isProcessing = false;
+        return;
+      }
+
+      devvitLogger.log('[SimpleAutomation] Detected game state', { state: gameState });
+
+      // STEP 2: Click the appropriate button based on detected state
+      const clickedButton = this.clickForState(gameState, buttons);
 
       if (clickedButton) {
-        devvitLogger.log('[SimpleAutomation] Clicked button', { button: clickedButton });
-        // Wait a bit before processing next button
+        devvitLogger.log('[SimpleAutomation] Clicked button', {
+          state: gameState,
+          button: clickedButton
+        });
+        // Wait before next check
         await this.delay(this.config.clickDelay);
       }
     } catch (error) {
       devvitLogger.error('[SimpleAutomation] Error processing buttons', { error });
     } finally {
       this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Detect current game state based on available buttons
+   */
+  private detectGameState(buttons: HTMLElement[]): string {
+    const buttonTexts = buttons.map(b => b.textContent?.trim().toLowerCase() || '');
+    const buttonClasses = buttons.map(b => b.className);
+
+    // Check for skip button (intro/dialogue)
+    if (buttonClasses.some(c => c.includes('skip-button'))) {
+      return 'skip';
+    }
+
+    // Check for finish button (mission complete)
+    if (buttonTexts.some(t => t === 'finish' || t.includes('finish'))) {
+      return 'finish';
+    }
+
+    // Check for continue button (intermediate screens)
+    if (buttonTexts.some(t => t === 'continue') ||
+        buttonClasses.some(c => c.includes('continue-button'))) {
+      return 'continue';
+    }
+
+    // Check for crossroads (Fight/Skip mini boss)
+    if (buttonTexts.includes('fight') && buttonTexts.includes('skip')) {
+      return 'crossroads';
+    }
+
+    // Check for skill bargains (Accept/Decline)
+    if (buttonTexts.includes('accept') && buttonTexts.includes('decline')) {
+      return 'skill_bargain';
+    }
+
+    // Check for ability choices (multiple skill buttons)
+    if (buttonClasses.filter(c => c.includes('skill-button')).length > 1) {
+      return 'ability_choice';
+    }
+
+    // Check for battle/advance buttons
+    if (buttonClasses.some(c => c.includes('advance-button'))) {
+      return 'battle';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Click the appropriate button for the detected game state
+   */
+  private clickForState(state: string, buttons: HTMLElement[]): string | null {
+    switch (state) {
+      case 'skip':
+        return this.tryClickSkip(buttons);
+      case 'finish':
+        return this.tryClickContinue(buttons); // Handles finish button
+      case 'continue':
+        return this.tryClickContinue(buttons);
+      case 'crossroads':
+        return this.tryClickCrossroads(buttons);
+      case 'skill_bargain':
+        return this.tryClickSkillBargain(buttons);
+      case 'ability_choice':
+        return this.tryClickAbility(buttons);
+      case 'battle':
+        return this.tryClickBattle(buttons);
+      default:
+        return null;
     }
   }
 
@@ -339,7 +592,12 @@ export class SimpleAutomationEngine {
 
     if (isBlessing) {
       // Handle blessing stat choices based on priority
-      for (const stat of this.config.blessingStatPriority) {
+      // Safety check: ensure blessingStatPriority is an array
+      const statPriority = Array.isArray(this.config.blessingStatPriority) 
+        ? this.config.blessingStatPriority 
+        : DEFAULT_SIMPLE_CONFIG.blessingStatPriority;
+
+      for (const stat of statPriority) {
         const blessingButton = skillButtons.find(b => {
           const text = b.textContent?.trim() || '';
           return text.includes(`Increase ${stat}`);
@@ -353,7 +611,12 @@ export class SimpleAutomationEngine {
     }
 
     // Look for ability names from our tier list
-    for (const abilityId of this.config.abilityTierList) {
+    // Safety check: ensure abilityTierList is an array
+    const abilityList = Array.isArray(this.config.abilityTierList)
+      ? this.config.abilityTierList
+      : DEFAULT_SIMPLE_CONFIG.abilityTierList;
+
+    for (const abilityId of abilityList) {
       const abilityButton = skillButtons.find(b => {
         const text = b.textContent?.trim() || '';
         // Match ability ID or readable name
@@ -411,9 +674,35 @@ export class SimpleAutomationEngine {
   }
 
   /**
-   * Try to click "Continue" button
+   * Try to click "Continue" or "Finish" button
    */
   private tryClickContinue(buttons: HTMLElement[]): string | null {
+    // Check for "Finish" button first (mission complete)
+    const finishButton = buttons.find(b => {
+      const text = b.textContent?.trim().toLowerCase() || '';
+      return text === 'finish' || text.includes('finish');
+    });
+
+    if (finishButton) {
+      this.clickElement(finishButton);
+
+      // Mark mission as completed when clicking Finish
+      if (this.missionMetadata?.postId) {
+        devvitLogger.log('[SimpleAutomation] Mission completed! Clicking Finish button', {
+          postId: this.missionMetadata.postId
+        });
+        this.markMissionAsCompleted(this.missionMetadata.postId);
+
+        // Navigate to next mission after a short delay
+        setTimeout(() => {
+          this.navigateToNextMission();
+        }, 2000);
+      }
+
+      return 'Finish (Mission Complete!)';
+    }
+
+    // Then check for "Continue" button
     const continueButton = buttons.find(b => {
       // Check text content
       const text = b.textContent?.trim().toLowerCase() || '';

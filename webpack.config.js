@@ -5,6 +5,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
   entry: {
     popup: './src/popup/index.tsx',
+    missions: './src/missions/index.tsx',
     'reddit-content': './src/content/reddit/reddit.tsx',
     'devvit-content': './src/content/devvit/devvit.tsx',
     background: './src/background/index.ts',
@@ -35,6 +36,11 @@ module.exports = {
       template: './src/popup/popup.html',
       filename: 'popup.html',
       chunks: ['popup'],
+    }),
+    new HtmlWebpackPlugin({
+      template: './public/missions.html',
+      filename: 'missions.html',
+      chunks: ['missions'],
     }),
     new CopyPlugin({
       patterns: [

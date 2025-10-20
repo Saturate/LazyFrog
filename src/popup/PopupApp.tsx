@@ -4,11 +4,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { LevelFilters, Level } from '../types';
+import { getAllMissions, MissionRecord } from '../utils/storage';
 import './popup.css';
 
 interface AutomationConfig {
   enabled: boolean;
   abilityTierList: string[];
+  blessingStatPriority: string[];
   autoAcceptSkillBargains: boolean;
   skillBargainStrategy: 'always' | 'positive-only' | 'never';
   emulateMode: boolean;
@@ -33,6 +35,7 @@ const PopupApp: React.FC = () => {
   const [automationConfig, setAutomationConfig] = useState<AutomationConfig>({
     enabled: false,
     abilityTierList: ['IceKnifeOnTurnStart', 'LightningOnCrit', 'HealOnFirstTurn'],
+    blessingStatPriority: ['Speed', 'Attack', 'Crit', 'Health', 'Defense', 'Dodge'],
     autoAcceptSkillBargains: true,
     skillBargainStrategy: 'positive-only',
     emulateMode: false,
@@ -40,7 +43,29 @@ const PopupApp: React.FC = () => {
     debugMode: false,
     remoteLogging: true,
   });
-  const [currentTab, setCurrentTab] = useState<'control' | 'options'>('control');
+  const [currentTab, setCurrentTab] = useState<'control' | 'options' | 'missions'>('control');
+  const [missions, setMissions] = useState<MissionRecord[]>([]);
+  const [missionStats, setMissionStats] = useState({ total: 0, completed: 0, uncompleted: 0 });
+
+  // Load missions from storage
+  const loadMissions = async () => {
+    try {
+      const allMissions = await getAllMissions();
+      const missionList = Object.values(allMissions).sort((a, b) => b.timestamp - a.timestamp); // Newest first
+      setMissions(missionList);
+
+      const completed = missionList.filter(m => m.completed).length;
+      const uncompleted = missionList.filter(m => !m.completed).length;
+
+      setMissionStats({
+        total: missionList.length,
+        completed,
+        uncompleted,
+      });
+    } catch (error) {
+      console.error('[POPUP] Failed to load missions:', error);
+    }
+  };
 
   // Load saved filters and automation config on mount
   useEffect(() => {
@@ -49,9 +74,19 @@ const PopupApp: React.FC = () => {
         setFilters(result.filters);
       }
       if (result.automationConfig) {
-        setAutomationConfig(result.automationConfig);
+        // Merge saved config with defaults to ensure new fields exist
+        setAutomationConfig((prev) => ({
+          ...prev,
+          ...result.automationConfig,
+          // Ensure arrays exist with defaults if not in saved config
+          abilityTierList: result.automationConfig.abilityTierList || prev.abilityTierList,
+          blessingStatPriority: result.automationConfig.blessingStatPriority || prev.blessingStatPriority,
+        }));
       }
     });
+
+    // Load missions
+    loadMissions();
 
     // Listen for messages
     const messageListener = (message: any) => {
@@ -151,19 +186,18 @@ const PopupApp: React.FC = () => {
     updateAutomationConfig('abilityTierList', newTierList);
   };
 
-  // Debug Step 1: Navigate to mission permalink from queue
+  // Debug Step 1: Navigate to next uncompleted mission from database
   const handleNavigateToMission = () => {
-    console.log('[POPUP] 🔵 Debug Step 1: Navigate to mission');
+    console.log('[POPUP] 🔵 Debug Step 1: Navigate to next mission');
     chrome.runtime.sendMessage({
       type: 'NAVIGATE_TO_MISSION',
-      filters,
     }, (response) => {
       if (chrome.runtime.lastError) {
         console.error('[POPUP] ❌ Error:', chrome.runtime.lastError.message);
       } else if (response?.error) {
         console.error('[POPUP] ❌ Error:', response.error);
       } else if (response?.success) {
-        console.log('[POPUP] ✅', response.message || 'Navigating to mission');
+        console.log('[POPUP] ✅', response.message || 'Navigating to next mission');
       }
     });
   };
@@ -224,6 +258,12 @@ const PopupApp: React.FC = () => {
           🎮 Control
         </button>
         <button
+          className={`tab ${currentTab === 'missions' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('missions')}
+        >
+          📋 Missions ({missionStats.uncompleted}/{missionStats.total})
+        </button>
+        <button
           className={`tab ${currentTab === 'options' ? 'active' : ''}`}
           onClick={() => setCurrentTab('options')}
         >
@@ -243,7 +283,7 @@ const PopupApp: React.FC = () => {
               </p>
 
               <button className="btn btn-outline" onClick={handleNavigateToMission} style={{ marginBottom: '8px' }}>
-                1️⃣ Navigate to Mission Permalink
+                1️⃣ Navigate to Next Mission
               </button>
 
               <button className="btn btn-outline" onClick={handleOpenIframe} style={{ marginBottom: '8px' }}>
@@ -268,91 +308,80 @@ const PopupApp: React.FC = () => {
           </div>
 
           <div className="section">
-            <h3>Level Scanner</h3>
-            <h4 style={{ fontSize: '14px', marginBottom: '10px', marginTop: '15px' }}>Filters</h4>
-
-        <div className="form-group">
-          <label>Star Difficulty:</label>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '8px' }}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <label key={star} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={filters.stars.includes(star)}
-                  onChange={(e) => {
-                    const newStars = e.target.checked
-                      ? [...filters.stars, star]
-                      : filters.stars.filter((s) => s !== star);
-                    updateFilter('stars', newStars.sort());
-                  }}
-                  disabled={isRunning}
-                />
-                <span style={{ fontSize: '14px' }}>{'★'.repeat(star)}</span>
-              </label>
-            ))}
+            <h3>Mission Scanner</h3>
+            <p className="help-text">
+              Scanner runs automatically as you scroll Reddit. All missions are saved to the database.
+            </p>
+            <button className="btn btn-outline" onClick={handleScan} style={{ width: '100%' }}>
+              🔍 Force Scan Current Page
+            </button>
           </div>
-        </div>
 
-        <div className="form-group">
-          <label htmlFor="minLevel">Min Level:</label>
-          <input
-            type="number"
-            id="minLevel"
-            value={filters.minLevel}
-            onChange={(e) => updateFilter('minLevel', parseInt(e.target.value) || 1)}
-            disabled={isRunning}
-            min="1"
-          />
-        </div>
+          <div className="section">
+            <h3>Automation Bot</h3>
+            <p className="help-text">
+              Configure filters for which missions the bot should play:
+            </p>
 
-        <div className="form-group">
-          <label htmlFor="maxLevel">Max Level:</label>
-          <input
-            type="number"
-            id="maxLevel"
-            value={filters.maxLevel}
-            onChange={(e) => updateFilter('maxLevel', parseInt(e.target.value) || 340)}
-            disabled={isRunning}
-            min="1"
-          />
-        </div>
+            <h4 style={{ fontSize: '14px', marginBottom: '10px', marginTop: '15px' }}>Mission Filters</h4>
 
-        <div className="form-group checkbox">
-          <label>
-            <input
-              type="checkbox"
-              checked={filters.onlyIncomplete}
-              onChange={(e) => updateFilter('onlyIncomplete', e.target.checked)}
-              disabled={isRunning}
-            />
-            Only show incomplete levels
-          </label>
-        </div>
+            <div className="form-group">
+              <label>Star Difficulty:</label>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '8px' }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <label key={star} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={filters.stars.includes(star)}
+                      onChange={(e) => {
+                        const newStars = e.target.checked
+                          ? [...filters.stars, star]
+                          : filters.stars.filter((s) => s !== star);
+                        updateFilter('stars', newStars.sort());
+                      }}
+                      disabled={isRunning}
+                    />
+                    <span style={{ fontSize: '14px' }}>{'★'.repeat(star)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        <div className="form-group checkbox">
-          <label>
-            <input
-              type="checkbox"
-              checked={filters.autoProcess || false}
-              onChange={(e) => updateFilter('autoProcess', e.target.checked)}
-              disabled={isRunning}
-            />
-            Auto-process levels
-          </label>
-        </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="minLevel">Min Level:</label>
+                <input
+                  type="number"
+                  id="minLevel"
+                  value={filters.minLevel}
+                  onChange={(e) => updateFilter('minLevel', parseInt(e.target.value) || 1)}
+                  disabled={isRunning}
+                  min="1"
+                />
+              </div>
 
-        <div className="button-group" style={{ marginTop: '15px' }}>
-          <button className="btn btn-primary" onClick={handleStart} disabled={isRunning}>
-            Start Bot
-          </button>
-          <button className="btn btn-secondary" onClick={handleStop} disabled={!isRunning}>
-            Stop Bot
-          </button>
-        </div>
-        <button className="btn btn-outline" onClick={handleScan}>
-          Scan Levels
-        </button>
-      </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="maxLevel">Max Level:</label>
+                <input
+                  type="number"
+                  id="maxLevel"
+                  value={filters.maxLevel}
+                  onChange={(e) => updateFilter('maxLevel', parseInt(e.target.value) || 340)}
+                  disabled={isRunning}
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div className="button-group" style={{ marginTop: '15px' }}>
+              <button className="btn btn-primary" onClick={handleStart} disabled={isRunning}>
+                ▶️ Start Bot
+              </button>
+              <button className="btn btn-secondary" onClick={handleStop} disabled={!isRunning}>
+                ⏹️ Stop Bot
+              </button>
+            </div>
+          </div>
 
           {showResults && (
             <div className="section">
@@ -386,6 +415,99 @@ const PopupApp: React.FC = () => {
         </>
       )}
 
+      {/* Missions Tab */}
+      {currentTab === 'missions' && (
+        <>
+          <div className="section">
+            <h3>📊 Mission Stats</h3>
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ flex: 1, padding: '12px', background: 'rgba(255, 69, 0, 0.1)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF4500' }}>{missionStats.total}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Total Scanned</div>
+              </div>
+              <div style={{ flex: 1, padding: '12px', background: 'rgba(0, 200, 0, 0.1)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00c800' }}>{missionStats.completed}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Completed</div>
+              </div>
+              <div style={{ flex: 1, padding: '12px', background: 'rgba(255, 165, 0, 0.1)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffa500' }}>{missionStats.uncompleted}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Remaining</div>
+              </div>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('missions.html') })}
+              style={{ width: '100%', marginBottom: '8px' }}
+            >
+              📋 Open Mission Manager
+            </button>
+          </div>
+
+          <div className="section">
+            <h3>🎯 Next 5 Missions</h3>
+            <p className="help-text">
+              These are the next missions the bot will play when you press Start:
+            </p>
+            {missions.length === 0 ? (
+              <p className="help-text">No missions scanned yet. Play some missions to populate the database!</p>
+            ) : missions.filter(m => !m.completed && (m.difficulty ?? 0) > 0).length === 0 ? (
+              <p className="help-text">No uncompleted missions with difficulty data. Scroll Reddit to scan more!</p>
+            ) : (
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {missions
+                  .filter(m => !m.completed && (m.difficulty ?? 0) > 0)
+                  .filter(m => {
+                    // Apply current filters
+                    if (!filters.stars.includes(m.difficulty || 0)) return false;
+                    if (m.minLevel && m.minLevel < filters.minLevel) return false;
+                    if (m.maxLevel && m.maxLevel > filters.maxLevel) return false;
+                    return true;
+                  })
+                  .slice(0, 5)
+                  .map((mission, index) => (
+                  <div
+                    key={mission.postId}
+                    style={{
+                      padding: '12px',
+                      marginBottom: '8px',
+                      background: 'rgba(33, 150, 243, 0.05)',
+                      border: '1px solid #2196F3',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      if (mission.permalink) {
+                        chrome.tabs.update({ url: mission.permalink });
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#2196F3', marginBottom: '4px' }}>
+                          #{index + 1} in Queue
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#999' }}>
+                          Scanned: {new Date(mission.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '13px', marginBottom: '4px', fontWeight: 500 }}>
+                      {mission.tags || mission.foodName || mission.postId}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666' }}>
+                      {mission.difficulty ? `${mission.difficulty}⭐` : 'No difficulty'}
+                      {mission.minLevel && mission.maxLevel ? ` | Lvl ${mission.minLevel}-${mission.maxLevel}` : ''}
+                      {mission.environment ? ` | ${mission.environment}` : ''}
+                      {mission.username ? ` | by ${mission.username}` : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {/* Options Tab */}
       {currentTab === 'options' && (
         <>
@@ -405,6 +527,42 @@ const PopupApp: React.FC = () => {
                   <span className="tier-drag-handle">⋮⋮</span>
                   <span className="tier-rank">{index + 1}</span>
                   <span className="tier-name">{ability}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="section">
+            <h3>Blessing Stat Priority</h3>
+            <p className="help-text">Drag to reorder. Stats will be prioritized in this order when choosing blessings:</p>
+            <div className="tier-list">
+              {automationConfig.blessingStatPriority.map((stat, index) => (
+                <div
+                  key={index}
+                  className="tier-item"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', index.toString());
+                  }}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const dropIndex = index;
+
+                    if (dragIndex === dropIndex) return;
+
+                    const newPriority = [...automationConfig.blessingStatPriority];
+                    const [draggedItem] = newPriority.splice(dragIndex, 1);
+                    newPriority.splice(dropIndex, 0, draggedItem);
+
+                    updateAutomationConfig('blessingStatPriority', newPriority);
+                  }}
+                >
+                  <span className="tier-drag-handle">⋮⋮</span>
+                  <span className="tier-rank">{index + 1}</span>
+                  <span className="tier-name">{stat}</span>
                 </div>
               ))}
             </div>
@@ -454,6 +612,23 @@ const PopupApp: React.FC = () => {
               <p className="help-text" style={{ marginTop: '8px', marginLeft: '24px' }}>
                 Sends logs to http://localhost:7856/log for debugging and AI integration
               </p>
+            </div>
+
+            <div style={{ marginTop: '16px' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={async () => {
+                  if (confirm('Are you sure you want to clear ALL missions from the database? This cannot be undone.')) {
+                    const { clearAllMissions } = await import('../utils/storage');
+                    await clearAllMissions();
+                    await loadMissions();
+                    alert('All missions cleared!');
+                  }
+                }}
+                style={{ width: '100%' }}
+              >
+                🗑️ Clear All Missions
+              </button>
             </div>
           </div>
         </>

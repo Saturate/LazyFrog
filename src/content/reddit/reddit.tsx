@@ -16,6 +16,7 @@ import {
   exploreGameLoader,
 } from './utils/reddit';
 import { redditLogger } from '../../utils/logger';
+import { getNextUncompletedMission } from '../../utils/storage';
 
 redditLogger.log('Sword & Supper Bot content script loaded');
 redditLogger.log('Current URL', { url: window.location.href });
@@ -259,26 +260,34 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     }
 
     case 'NAVIGATE_TO_MISSION': {
-      redditLogger.log('Debug Step 1: Navigate to mission permalink');
-      const debugMsg = message as any;
-      const allLevels = getAllLevels();
-      const filteredLevels = filterLevels(allLevels, debugMsg.filters || filters);
+      redditLogger.log('Debug Step 1: Navigate to next uncompleted mission');
 
-      if (filteredLevels.length > 0) {
-        const firstMission = filteredLevels[0];
-        redditLogger.log('Found mission', { title: firstMission.title });
+      // Get next uncompleted mission from database
+      getNextUncompletedMission().then((mission) => {
+        if (mission && mission.permalink) {
+          redditLogger.log('Found uncompleted mission in database', {
+            postId: mission.postId,
+            tags: mission.tags,
+            difficulty: mission.difficulty,
+            permalink: mission.permalink,
+          });
 
-        if (firstMission.href) {
-          redditLogger.log('Navigating to', { href: firstMission.href });
-          window.location.href = firstMission.href;
-          sendResponse({ success: true, message: `Navigating to: ${firstMission.title}` });
+          window.location.href = mission.permalink;
+          sendResponse({
+            success: true,
+            message: `Navigating to: ${mission.tags || mission.postId}`,
+          });
+        } else if (mission) {
+          redditLogger.warn('Mission found but has no permalink', { postId: mission.postId });
+          sendResponse({ error: 'Mission has no permalink URL' });
         } else {
-          sendResponse({ error: 'Mission has no URL' });
+          redditLogger.warn('No uncompleted missions in database');
+          sendResponse({ error: 'No uncompleted missions found in database. Play some missions to populate the database.' });
         }
-      } else {
-        redditLogger.warn('No missions found matching filters');
-        sendResponse({ error: 'No missions found matching filters' });
-      }
+      }).catch((error) => {
+        redditLogger.error('Error fetching next mission', { error: String(error) });
+        sendResponse({ error: 'Failed to fetch next mission: ' + String(error) });
+      });
       break;
     }
 
@@ -399,9 +408,6 @@ setTimeout(() => {
   redditLogger.log('Initial page scan starting');
   const levels = getAllLevels();
   redditLogger.log('Scan complete', { levelsFound: levels.length });
-  if (levels.length > 0) {
-    redditLogger.log('First 3 levels', { levels: levels.slice(0, 3) });
-  }
 
   // Check if we have pending automation from a previous page
   chrome.storage.local.get(['pendingAutomation', 'automationConfig'], (result) => {
@@ -460,3 +466,43 @@ setTimeout(() => {
     }
   });
 }, 3000); // Increased to 3 seconds
+
+// Track which posts we've already scanned
+const scannedPostIds = new Set<string>();
+
+// Debounced scroll handler to scan for new missions
+let scrollTimeout: number | null = null;
+let lastScrollScan = 0;
+const SCROLL_SCAN_DELAY = 2000; // Wait 2 seconds after scrolling stops
+const SCROLL_SCAN_COOLDOWN = 5000; // Don't scan more than once every 5 seconds
+
+function scanForNewMissions(reason: string = 'scroll'): void {
+  const now = Date.now();
+
+  // Cooldown check - don't scan too frequently
+  if (now - lastScrollScan < SCROLL_SCAN_COOLDOWN) {
+    redditLogger.log('Skipping scan - too soon since last scan', { reason });
+    return;
+  }
+
+  lastScrollScan = now;
+  redditLogger.log(`Scan triggered: ${reason}`);
+
+  const levels = getAllLevels();
+  redditLogger.log('Scan complete', { levelsFound: levels.length, reason });
+}
+
+window.addEventListener('scroll', () => {
+  // Clear existing timeout
+  if (scrollTimeout !== null) {
+    clearTimeout(scrollTimeout);
+  }
+
+  // Set new timeout - scan when user stops scrolling
+  scrollTimeout = window.setTimeout(() => {
+    scanForNewMissions('scroll');
+    scrollTimeout = null;
+  }, SCROLL_SCAN_DELAY);
+}, { passive: true });
+
+redditLogger.log('Scroll-based scanning enabled');

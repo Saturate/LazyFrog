@@ -5,6 +5,8 @@
 export interface Level {
   title: string;
   href: string | null;
+  postId?: string; // Reddit post ID (e.g., "t3_1obdqvw")
+  author?: string; // Reddit username
   levelNumber: number | null; // Specific level number from title
   levelRange: string | null; // Flair like "Level 1-5", "Level 6-20"
   levelRangeMin: number | null;

@@ -85,14 +85,20 @@ function parseLevelFromPost(post: Element): Level | null {
       }
     }
 
-    // Count stars in title
-    const starMatch = title.match(/[★⭐✦✧]/g);
-    const stars = starMatch ? Math.min(starMatch.length, 5) : 0;
-
-    const starsTextMatch = title.match(/(\d+)\s*stars?/i);
-    const starsFromText = starsTextMatch ? parseInt(starsTextMatch[1]) : 0;
-
-    const finalStars = Math.max(stars, starsFromText);
+    // ⭐ NEW: Extract star difficulty from Devvit preview (shadow DOM)
+    let starDifficulty = 0;
+    const devvitLoader = post.querySelector('shreddit-devvit-ui-loader');
+    if (devvitLoader?.shadowRoot) {
+      const surface = devvitLoader.shadowRoot.querySelector('devvit-surface');
+      if (surface?.shadowRoot) {
+        const renderer = surface.shadowRoot.querySelector('devvit-blocks-renderer');
+        if (renderer?.shadowRoot) {
+          // Count filled star images
+          const filledStars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
+          starDifficulty = filledStars.length;
+        }
+      }
+    }
 
     const href = permalink ? `https://www.reddit.com${permalink}` : null;
 
@@ -103,7 +109,7 @@ function parseLevelFromPost(post: Element): Level | null {
       levelRange,
       levelRangeMin,
       levelRangeMax,
-      stars: finalStars,
+      stars: starDifficulty,
       isCompleted: false, // Can add logic for this
       element: post,
     };
@@ -216,8 +222,66 @@ To avoid breaking when Reddit updates their UI again:
    window.autoSupperDebug.getAllLevels()
    ```
 
+## Star Difficulty Detection (Updated Method)
+
+### OLD Method ❌ (Unreliable)
+Previously, the extension tried to detect stars from:
+- Unicode star symbols in title: `[★⭐✦✧]`
+- Text patterns like "5 stars" in title
+
+**Problem**: Most Reddit posts don't include stars in the title text.
+
+### NEW Method ✅ (Accurate)
+
+Star difficulty is now extracted from Devvit preview **images** rendered in nested shadow DOMs:
+
+#### DOM Navigation Path (6 Levels Deep!)
+```
+post
+  → shreddit-devvit-ui-loader
+    → loader.shadowRoot
+      → devvit-surface
+        → surface.shadowRoot
+          → devvit-blocks-renderer
+            → renderer.shadowRoot
+              → img[src*="ap8a5ghsvyre1.png"] ← COUNT THESE
+```
+
+#### Implementation
+```typescript
+const devvitLoader = post.querySelector('shreddit-devvit-ui-loader');
+if (devvitLoader?.shadowRoot) {
+  const surface = devvitLoader.shadowRoot.querySelector('devvit-surface');
+  if (surface?.shadowRoot) {
+    const renderer = surface.shadowRoot.querySelector('devvit-blocks-renderer');
+    if (renderer?.shadowRoot) {
+      const filledStars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
+      const starDifficulty = filledStars.length; // 1-5
+    }
+  }
+}
+```
+
+#### Star Image URLs
+- **Filled stars** (count these): `https://i.redd.it/ap8a5ghsvyre1.png`
+- **Empty stars** (ignore): `https://i.redd.it/v9yitshsvyre1.png`
+
+Example: A 3-star mission shows 3 filled + 2 empty star images = difficulty 3
+
+#### Timing Challenge
+Devvit previews take 10-15+ seconds to fully load star images:
+
+1. Preview element appears immediately: `<shreddit-devvit-ui-loader>`
+2. Initial content shows "Loading ..."
+3. After 10-15 seconds, star images render
+
+**Solution**: Extension scans on scroll (2-second debounce), catching stars as they become available. Missions are saved immediately even without star data (difficulty: 0), and updated on subsequent scans.
+
 ## Related Files Changed
 
-- `src/content/index.tsx` - Updated `parseLevelFromPost()`
+- `src/content/reddit/reddit.tsx` - Scroll-based scanning
+- `src/content/reddit/utils/reddit.ts` - Updated `parseLevelFromPost()` with shadow DOM navigation
+- `src/utils/storage.ts` - Mission storage and filtering
 - `docs/SELECTOR_FIXES.md` - This document
+- `docs/REDDIT_DATA_STRUCTURE.md` - Complete shadow DOM documentation
 - `docs/DEBUGGING.md` - Updated troubleshooting guide

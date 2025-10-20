@@ -4,6 +4,8 @@
  */
 
 import { Level, LevelFilters } from '../../../types';
+import { saveMission, MissionRecord } from '../../../utils/storage';
+import { redditLogger } from '../../../utils/logger';
 
 /**
  * Find game iframe in nested shadow DOMs
@@ -39,17 +41,18 @@ export function parseLevelFromPost(post: Element): Level | null {
     // Reddit's new UI uses shreddit-post elements with attributes
     const title = post.getAttribute('post-title') || '';
     const permalink = post.getAttribute('permalink') || '';
+    const postId = post.getAttribute('id') || ''; // e.g., "t3_1obdqvw"
+    const author = post.getAttribute('author') || '';
 
     if (!title) {
-      console.warn('[REDDIT] Post has no title:', post);
+      redditLogger.warn('Post has no title', { post });
       return null;
     }
 
     // Skip meta levels that aren't playable missions
-    // "The Inn" is a utility level for when you have no lives left
     const metaLevels = ['The Inn'];
     if (metaLevels.some(meta => title === meta)) {
-      console.log(`[REDDIT] ⏭️  Skipping meta level: "${title}"`);
+      redditLogger.log(`Skipping meta level: "${title}"`);
       return null;
     }
 
@@ -72,15 +75,47 @@ export function parseLevelFromPost(post: Element): Level | null {
       }
     }
 
-    // Count stars (★ characters) in the title for difficulty
-    const starMatch = title.match(/[★⭐✦✧]/g);
-    const stars = starMatch ? Math.min(starMatch.length, 5) : 0;
-
-    // Alternative: Look for "X stars" or "X star" text
-    const starsTextMatch = title.match(/(\d+)\s*stars?/i);
-    const starsFromText = starsTextMatch ? parseInt(starsTextMatch[1]) : 0;
-
-    const finalStars = Math.max(stars, starsFromText);
+    // Parse star difficulty from Devvit preview (if loaded)
+    // Stars are deep in nested shadow DOMs:
+    // post -> loader -> loader.shadowRoot -> surface -> surface.shadowRoot -> renderer -> renderer.shadowRoot
+    let starDifficulty = 0;
+    
+    const devvitLoader = post.querySelector('shreddit-devvit-ui-loader');
+    if (devvitLoader) {
+      // Check if preview is still loading
+      const isLoading = devvitLoader.textContent?.includes('Loading');
+      
+      // Navigate through nested shadow DOMs to find the renderer
+      if (devvitLoader.shadowRoot) {
+        const surface = devvitLoader.shadowRoot.querySelector('devvit-surface');
+        if (surface?.shadowRoot) {
+          const renderer = surface.shadowRoot.querySelector('devvit-blocks-renderer');
+          if (renderer?.shadowRoot) {
+            // Count filled star images (ap8a5ghsvyre1.png)
+            const filledStars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
+            starDifficulty = filledStars.length;
+            
+            // DEBUG: Log successful parse
+            if (starDifficulty > 0) {
+              redditLogger.log('Parsed star difficulty', {
+                title: title.substring(0, 50),
+                postId,
+                stars: starDifficulty,
+              });
+            }
+          }
+        }
+      }
+      
+      // Warn if preview loaded but star detection failed
+      if (starDifficulty === 0 && !isLoading) {
+        redditLogger.warn('Preview loaded but no stars detected', {
+          title: title.substring(0, 50),
+          postId,
+          isLoading,
+        });
+      }
+    }
 
     // Check for completion indicators in title
     const isCompleted =
@@ -95,17 +130,73 @@ export function parseLevelFromPost(post: Element): Level | null {
     return {
       title,
       href,
+      postId,
+      author,
       levelNumber,
       levelRange,
       levelRangeMin,
       levelRangeMax,
-      stars: finalStars,
+      stars: starDifficulty,
       isCompleted,
       element: post,
     };
   } catch (error) {
-    console.error('[REDDIT] Error parsing level:', error);
+    redditLogger.error('Error parsing level', { error: String(error) });
     return null;
+  }
+}
+
+/**
+ * Save basic mission info from scanned level (without full metadata)
+ */
+async function saveScannedMission(level: Level): Promise<void> {
+  if (!level.postId || !level.href) {
+    redditLogger.warn('Skipping mission - missing data', {
+      title: level.title.substring(0, 50),
+      postId: level.postId,
+      href: level.href,
+      starDifficulty: level.stars,
+    });
+    return;
+  }
+
+  try {
+    const record: MissionRecord = {
+      postId: level.postId,
+      username: level.author || 'unknown',
+      timestamp: Date.now(),
+      metadata: null, // Will be filled when mission is played
+      tags: undefined,
+      difficulty: level.stars, // May be 0 if preview hasn't loaded yet
+      environment: undefined, // Unknown until played
+      minLevel: level.levelRangeMin || undefined,
+      maxLevel: level.levelRangeMax || undefined,
+      foodName: level.title, // Use title as placeholder until we have real food name
+      permalink: level.href,
+      completed: false,
+    };
+
+    await saveMission(record);
+    
+    // COMBINED LOG: Parse + Save success
+    redditLogger.log(`Saved mission: ${level.postId}`, {
+      title: level.title.substring(0, 50),
+      starDifficulty: level.stars,
+      levelRange: level.levelRange,
+      author: level.author,
+    });
+  } catch (error) {
+    // ERROR LOG: Show full object
+    redditLogger.error('Failed to save mission', {
+      error: String(error),
+      level: {
+        title: level.title,
+        postId: level.postId,
+        starDifficulty: level.stars,
+        href: level.href,
+        author: level.author,
+      },
+    });
   }
 }
 
@@ -115,15 +206,60 @@ export function parseLevelFromPost(post: Element): Level | null {
 export function getAllLevels(): Level[] {
   const posts = document.querySelectorAll('shreddit-post');
   const levels: Level[] = [];
+  let savedCount = 0;
+  let skippedCount = 0;
+  let parseFailedCount = 0;
+  let missingDataCount = 0;
 
-  posts.forEach((post) => {
+  redditLogger.log('Found posts on page, parsing...', { postsCount: posts.length });
+
+  posts.forEach((post, index) => {
     const level = parseLevelFromPost(post);
     if (level) {
+      // Check if level has required data
+      if (!level.postId || !level.href) {
+        missingDataCount++;
+        redditLogger.warn(`Post ${index + 1} missing data`, {
+          title: level.title.substring(0, 50),
+          hasPostId: !!level.postId,
+          hasHref: !!level.href,
+        });
+        return;
+      }
+
       levels.push(level);
+
+      // Save basic mission info to database
+      saveScannedMission(level)
+        .then(() => {
+          savedCount++;
+        })
+        .catch(err => {
+          redditLogger.error('Failed to save mission', { error: String(err) });
+          skippedCount++;
+        });
+    } else {
+      parseFailedCount++;
     }
   });
 
-  console.log(`[REDDIT] Found ${levels.length} levels on page`);
+  redditLogger.log('Parsed valid missions from posts', { 
+    validMissions: levels.length, 
+    totalPosts: posts.length 
+  });
+  redditLogger.log('Parse stats', { 
+    parseFailedCount, 
+    missingDataCount 
+  });
+
+  // Log summary after a delay to let saves complete
+  setTimeout(() => {
+    redditLogger.log('Save summary', { 
+      savedCount, 
+      skippedCount 
+    });
+  }, 2000); // Increased timeout to 2 seconds
+
   return levels;
 }
 

@@ -50,10 +50,42 @@ interface Level {
 - **Selector**: `[data-test-id="post-flair"]`
 - **Pattern**: `/Level\s+(\d+)-(\d+)/i` - Extracts level range
 
-#### 5. **Star Rating Detection**
-- **Unicode Stars**: `[★⭐✦✧]` - Counts star symbols in post
-- **Text Pattern**: `/(\d+)\s*stars?/i` - Finds "X stars" in text
-- **Final Value**: `Math.max(unicode count, text number)` - Takes higher value
+#### 5. **Star Rating Detection** ⭐ NEW TECHNIQUE
+
+Star difficulty (1-5 stars) is extracted from Devvit preview images rendered in deeply nested shadow DOMs.
+
+**Challenge**: Reddit renders game previews inside multiple layers of shadow DOM, and the star images take 10-15+ seconds to load.
+
+**Solution**: Navigate through shadow DOM hierarchy to find star images:
+
+```typescript
+// DOM Navigation Path (6 levels deep!):
+// post → loader → loader.shadowRoot → surface → surface.shadowRoot → renderer → renderer.shadowRoot
+
+const loader = post.querySelector('shreddit-devvit-ui-loader');
+if (loader?.shadowRoot) {
+  const surface = loader.shadowRoot.querySelector('devvit-surface');
+  if (surface?.shadowRoot) {
+    const renderer = surface.shadowRoot.querySelector('devvit-blocks-renderer');
+    if (renderer?.shadowRoot) {
+      // Count filled star images
+      const filledStars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
+      const starDifficulty = filledStars.length; // 1-5
+    }
+  }
+}
+```
+
+**Image URLs**:
+- **Filled stars**: `https://i.redd.it/ap8a5ghsvyre1.png` (count these for difficulty)
+- **Empty stars**: `https://i.redd.it/v9yitshsvyre1.png` (ignore these)
+
+**Timing Considerations**:
+- Previews appear immediately but are initially empty ("Loading ...")
+- Star images render 10-15 seconds after preview element appears
+- Extension scans on scroll (2-second debounce), catching stars when they become available
+- Missions without star data are saved to database anyway (difficulty: 0)
+- Auto-play filters out missions without star difficulty
 
 #### 6. **Completion Status**
 - **Text Keywords**:
@@ -278,6 +310,108 @@ function parseLevelFromPostEnhanced(post: Element): ExtendedLevel | null {
 - Game-specific data
 
 Your extension is well-architected with separate scripts for:
-1. **Content script** (`content/index.tsx`) - Handles Reddit page
-2. **Game script** (`game/index.tsx`) - Handles game iframe
-3. **Background script** (`background/index.ts`) - Coordinates between them
+1. **Content script** (`content/reddit/reddit.tsx`) - Handles Reddit page scanning
+2. **Game script** (`content/devvit/devvit.tsx`) - Handles game iframe automation
+3. **Background script** (`background/index.ts`) - Coordinates between contexts
+
+---
+
+## Mission Scanning & Storage Architecture
+
+### Overview
+
+The extension uses a "scan everything, filter on use" approach:
+
+1. **Scanner** (`src/content/reddit/utils/reddit.ts`):
+   - Scans ALL mission posts as user scrolls
+   - Saves missions to database immediately, even without star data
+   - Updates existing missions when star data becomes available
+
+2. **Database** (`src/utils/storage.ts`):
+   - Stores missions in Chrome local storage
+   - Indexed by `postId` (e.g., "t3_1obdqvw")
+   - Tracks completion status, star difficulty, metadata
+
+3. **Auto-Play Filter** (`getNextUncompletedMission()`):
+   - Only selects missions with `difficulty > 0` for automation
+   - Ensures bot only plays missions with known difficulty
+   - Skips incomplete/pending scan data
+
+### Scanning Flow
+
+```typescript
+// 1. User scrolls Reddit page
+window.addEventListener('scroll', debounced_scan);
+
+// 2. Scanner finds posts and parses data
+const posts = document.querySelectorAll('shreddit-post');
+posts.forEach(post => {
+  const level = parseLevelFromPost(post); // Includes shadow DOM star detection
+  if (level.postId && level.href) {
+    saveMission(level); // Saves even if difficulty === 0
+  }
+});
+
+// 3. Later scans update star difficulty as previews load
+// (Same postId overwrites, updating difficulty field)
+
+// 4. Auto-play selects missions with difficulty > 0
+const nextMission = await getNextUncompletedMission();
+// Returns: mission with difficulty > 0 && !completed
+```
+
+### Mission Record Structure
+
+```typescript
+interface MissionRecord {
+  postId: string;              // Reddit post ID (unique key)
+  username: string;            // Mission author
+  timestamp: number;           // When scanned
+  permalink: string;           // Full Reddit URL
+
+  // Scanned data (available immediately):
+  foodName: string;            // Mission title
+  difficulty?: number;         // Star rating (0 if not loaded yet)
+  minLevel?: number;           // From flair
+  maxLevel?: number;           // From flair
+
+  // Enriched data (available after playing):
+  metadata: MissionMetadata | null;  // Full mission data from game
+  tags?: string;               // Generated tags
+  environment?: string;        // Map type
+
+  // Progress tracking:
+  completed: boolean;
+  completedAt?: number;
+}
+```
+
+### Why This Approach?
+
+**Problem**: Star images take 10-15+ seconds to load, making it impractical to wait for all previews.
+
+**Solution**:
+- ✅ Scan fast, save immediately (even incomplete data)
+- ✅ Update on subsequent scans as data becomes available
+- ✅ Filter incomplete data only when automation starts
+- ✅ User sees all missions in UI (with "No difficulty" label)
+- ✅ Auto-play only uses missions with valid difficulty
+
+### Logging
+
+All scanning operations log to remote HTTP server at `http://localhost:7856/logs`:
+
+```json
+{
+  "timestamp": "2025-10-20T09:28:27.798Z",
+  "context": "REDDIT",
+  "level": "log",
+  "message": "Saved mission: t3_1obfde6",
+  "data": {
+    "title": "Shoyu Chicken Ramen and Thoughts",
+    "starDifficulty": 3,
+    "levelRange": "Level 1-5",
+    "author": "WrongdoerOk4912"
+  }
+}
+```

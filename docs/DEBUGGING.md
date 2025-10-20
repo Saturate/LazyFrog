@@ -1,5 +1,86 @@
 # Debugging Guide - AutoSupper Extension
 
+## Remote Logging Server (SQLite3)
+
+The extension includes a powerful logging server with persistent storage for debugging across sessions:
+
+### Starting the Server
+
+```bash
+node debug-server.js
+```
+
+The server will show:
+```
+🚀 AutoSupper Debug Server (SQLite3)
+   Listening on http://localhost:7856
+📦 Database: /Users/AKJ/code/AutoSupper/debug-logs.db
+📊 Total logs in database: 13
+```
+
+### Using the Logging Server
+
+**View recent logs:**
+```bash
+curl -s http://localhost:7856/logs?limit=20 | jq
+curl -s "http://localhost:7856/logs?context=REDDIT&limit=10" | jq
+```
+
+**Search logs:**
+```bash
+curl -s "http://localhost:7856/logs/search?q=mission" | jq
+curl -s "http://localhost:7856/logs/search?q=error" | jq
+```
+
+**Get summary:**
+```bash
+curl -s http://localhost:7856/logs/summary | jq
+```
+
+**Export all logs:**
+```bash
+curl http://localhost:7856/logs/export -o debug-export.json
+```
+
+**Clear logs:**
+```bash
+curl -X POST http://localhost:7856/logs/clear
+```
+
+### Features
+
+- ✅ **Persistent Storage** - Logs survive server restarts (stored in `debug-logs.db`)
+- ✅ **Unlimited Logs** - SQLite database can store millions of log entries
+- ✅ **Fast Search** - Full-text search across messages and data
+- ✅ **Indexed Queries** - Fast filtering by context (REDDIT, DEVVIT, EXT), level, time
+- ✅ **Export Capability** - Download all logs as JSON for analysis
+- ✅ **Color-coded Console** - Terminal output is color-coded by log level
+
+### Log Contexts
+
+The extension logs from multiple contexts:
+- **REDDIT** - Reddit content script (mission scanning, DOM parsing)
+- **DEVVIT** - Game iframe script (gameplay automation)
+- **EXT** - Background script (coordination between contexts)
+
+### Example Queries
+
+Find all mission scanning logs:
+```bash
+curl -s "http://localhost:7856/logs/search?q=Saved+mission" | jq '.logs[] | {timestamp, message, data}'
+```
+
+Find errors:
+```bash
+curl -s "http://localhost:7856/logs?level=error" | jq
+```
+
+Find logs from last hour:
+```bash
+SINCE=$(date -u -v-1H +"%Y-%m-%dT%H:%M:%SZ")
+curl -s "http://localhost:7856/logs?since=$SINCE" | jq
+```
+
 ## Why Levels Aren't Being Detected
 
 There are several reasons why the extension might not detect levels on Reddit:

@@ -5,12 +5,16 @@ A modern Firefox/Chrome browser extension built with **TypeScript** and **React*
 ## 🎮 Features
 
 - **TypeScript**: Full type safety and IntelliSense
-- **React Components**: Injected control panel directly on Reddit pages
-- **Smart Level Filtering**: Filter by difficulty, rank range, and completion status
-- **Visual UI**: Beautiful React-based popup and on-page control panel
-- **Real-time Updates**: Live filtering and level detection
+- **React Components**: Injected control panel directly on Reddit pages and game iframe
+- **Smart Mission Scanning**: Automatic detection and storage of Reddit mission posts
+- **Star Difficulty Detection**: Deep shadow DOM navigation to extract 1-5 star ratings from Devvit previews
+- **Mission Database**: Local storage of all scanned missions with metadata
+- **Automated Gameplay**: Full mission automation with configurable strategies
+- **Visual UI**: Beautiful React-based popup and in-game control panel
+- **Real-time Updates**: Live mission scanning as you scroll
 - **Cross-Browser**: Works on Firefox and Chrome
 - **Modern Build System**: Webpack-based build with hot reload support
+- **Remote Logging**: HTTP-based logging server for easy debugging
 
 ## 🚀 Development Setup
 
@@ -87,18 +91,32 @@ AutoSupper/
 
 ## 🎯 Usage
 
-1. **Navigate** to [r/SwordAndSupperGame](https://www.reddit.com/r/SwordAndSupperGame/)
+### Mission Scanning
 
-2. **Open extension** by clicking the toolbar icon
+1. **Navigate** to [r/SwordAndSupperGame](https://www.reddit.com/r/SwordAndSupperGame/) with a level filter (e.g., Level 1-5)
 
-3. **Configure filters:**
-   - Difficulty: Easy/Medium/Hard/Extreme
-   - Rank Range: Min/Max
-   - Only incomplete levels: ✓
+2. **Scroll the page** - The extension automatically scans and saves all mission posts as you scroll
+   - Missions are saved to local database immediately
+   - Star difficulty is detected from Devvit preview images (takes 10+ seconds to load)
+   - All missions are saved, even those without star data yet
 
-4. **Start the bot** - A React control panel will appear on the page!
+3. **View missions** in the extension popup:
+   - Click the extension icon
+   - Go to "Missions" tab
+   - See all scanned missions with their metadata
 
-5. **Interact** with filtered levels directly in the control panel
+### Auto-Play
+
+1. **Configure automation** in the Options tab:
+   - Set ability tier list (drag to reorder)
+   - Set blessing stat priority
+   - Enable debug mode for step-by-step testing
+
+2. **Start automation**:
+   - Use debug controls to test each step individually, OR
+   - Use "Start Bot" to begin full automation
+   - The bot will navigate to uncompleted missions and play them automatically
+   - Only missions with detected star difficulty will be played
 
 ## 🛠️ Development
 
@@ -175,18 +193,41 @@ The extension uses Webpack to:
 
 **See [docs/DEBUGGING.md](docs/DEBUGGING.md) for the complete debugging guide.**
 
-### Quick Start
+### Remote Logging Server
 
-1. **Check console logs** on Reddit page (F12)
-2. **Test selectors** in browser console:
-   ```javascript
-   document.querySelectorAll('shreddit-post').length
-   ```
-3. **Test debug functions**:
-   ```javascript
-   window.autoSupperDebug.getAllLevels()
-   window.autoSupperDebug.testSelectors()
-   ```
+The extension uses an HTTP-based logging server with **SQLite3 persistent storage** for easy debugging:
+
+```bash
+# Start the server
+node debug-server.js
+
+# Access logs at:
+http://localhost:7856/logs
+
+# Or use curl with jq:
+curl -s http://localhost:7856/logs | jq
+
+# Search logs:
+curl -s "http://localhost:7856/logs/search?q=mission" | jq
+
+# Get summary:
+curl -s http://localhost:7856/logs/summary | jq
+
+# Export all logs:
+curl http://localhost:7856/logs/export -o logs.json
+
+# Clear logs:
+curl -X POST http://localhost:7856/logs/clear
+```
+
+**Features:**
+- ✅ **Persistent storage** - Logs survive server restarts
+- ✅ **Unlimited logs** - SQLite database can store millions of log entries
+- ✅ **Fast search** - Full-text search across messages and data
+- ✅ **Export capability** - Download all logs as JSON
+- ✅ **Indexed queries** - Fast filtering by context, level, and time
+
+All logs from the extension are sent here with timestamps, context, and structured data. Database stored at `debug-logs.db`.
 
 ### Remote Debugging with Claude Code
 
@@ -200,25 +241,47 @@ This allows Claude Code to connect and debug your extension automatically!
 
 See [CHROME_DEBUGGING_SETUP.md](CHROME_DEBUGGING_SETUP.md) for details.
 
+### Debug Functions
+
+Test directly in browser console (on Reddit page):
+
+```javascript
+// Get all scanned levels
+window.autoSupperDebug.getAllLevels()
+
+// Force a scan
+window.autoSupperDebug.forceScan()
+
+// Test selectors
+window.autoSupperDebug.testSelectors()
+```
+
 ### Contexts to Check
 
 1. **Background Script**: `chrome://extensions/` → Inspect views → background page
-2. **Content Script**: DevTools on Reddit page (F12)
-3. **Popup**: Right-click extension icon → Inspect Popup
+2. **Content Script (Reddit)**: DevTools on Reddit page (F12)
+3. **Content Script (Game)**: DevTools on Reddit page → Find iframe → Inspect iframe context
+4. **Popup**: Right-click extension icon → Inspect Popup
 
-### If Levels Aren't Being Detected
+### Understanding Star Detection
 
-The extension now includes a **Reddit API module** that's more reliable than DOM scraping:
+Star difficulty is extracted from nested shadow DOMs in Reddit's Devvit previews:
 
-- See [docs/REDDIT_API_USAGE.md](docs/REDDIT_API_USAGE.md) for migration guide
-- See [docs/REDDIT_DATA_STRUCTURE.md](docs/REDDIT_DATA_STRUCTURE.md) for available data
+1. **DOM Path**: `post → loader → loader.shadowRoot → surface → surface.shadowRoot → renderer → renderer.shadowRoot`
+2. **Image URL**: Filled stars use `https://i.redd.it/ap8a5ghsvyre1.png`
+3. **Loading Time**: Previews take 10-15+ seconds to fully render star images
+4. **Detection**: Extension counts `<img>` elements with the star image URL
+
+See [docs/REDDIT_DATA_STRUCTURE.md](docs/REDDIT_DATA_STRUCTURE.md) for complete details on shadow DOM navigation.
 
 ### Common Issues
 
-- **"Levels found: []"** → Reddit changed their DOM or API is better
+- **"No star difficulty detected"** → Preview hasn't loaded yet, scroll slowly or wait longer
+- **"Skipping mission - missing data"** → Post missing postId or permalink
 - **Extension not loading** → Check icons exist (not 0 bytes)
 - **Script doesn't run** → Check URL matches manifest pattern
 - **React not rendering** → Check console for errors
+- **Automation not starting** → Check debug mode logs, ensure mission has star difficulty
 
 ## 📝 Type Safety
 

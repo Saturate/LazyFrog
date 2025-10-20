@@ -21,6 +21,7 @@ import {
   getClickableElements,
 } from './utils/dom';
 import { devvitLogger } from '../../utils/logger';
+import * as storage from '../../utils/storage';
 
 devvitLogger.log('Script loaded', { url: window.location.href });
 
@@ -189,6 +190,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Keep channel open for async response
 });
 
+// Inject control panel as early as possible
+setTimeout(() => {
+  injectControlPanel();
+}, 500);
+
 // Initial analysis after a delay
 setTimeout(() => {
   devvitLogger.log('Running initial game analysis');
@@ -197,11 +203,6 @@ setTimeout(() => {
 
   // Initialize mission automation
   initializeAutomation();
-
-  // Auto-inject control panel after a bit more delay to ensure DOM is ready
-  setTimeout(() => {
-    injectControlPanel();
-  }, 1000);
 }, 2000);
 
 // Export functions for use in console
@@ -216,6 +217,19 @@ setTimeout(() => {
   stopAutomation: () => toggleAutomation(false),
   getAutomationState: () => simpleAutomation?.getState(),
   getMetadata: () => metadataEngine?.getState(),
+  // Storage/database functions
+  storage: {
+    getAllMissions: storage.getAllMissions,
+    getMission: storage.getMission,
+    searchMissions: storage.searchMissions,
+    clearAllMissions: storage.clearAllMissions,
+    getStats: storage.getStorageStats,
+    getUserOptions: storage.getUserOptions,
+    saveUserOptions: storage.saveUserOptions,
+    getNextUncompletedMission: storage.getNextUncompletedMission,
+    getUncompletedMissions: storage.getUncompletedMissions,
+    markCompleted: storage.markMissionCompleted,
+  },
 };
 
 devvitLogger.log('Bot functions available in console via window.ssBot');
