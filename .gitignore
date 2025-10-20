@@ -14,10 +14,6 @@ build/
 .env.local
 .env.*.local
 
-# Session data
-data/
-cookies.json
-
 # Logs
 logs/
 *.log
