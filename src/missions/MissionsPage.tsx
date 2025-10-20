@@ -222,6 +222,11 @@ const MissionsPage: React.FC = () => {
     });
   };
 
+  const formatItemName = (itemId: string): string => {
+    // Convert camelCase/PascalCase to readable format
+    return itemId.replace(/([A-Z])/g, ' $1').trim();
+  };
+
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -463,6 +468,7 @@ const MissionsPage: React.FC = () => {
                 Level {getSortIcon("minLevel")}
               </th>
               <th>Metadata</th>
+              <th>Rewards</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -498,6 +504,18 @@ const MissionsPage: React.FC = () => {
                     <span title="No metadata - play mission to capture" style={{ cursor: 'help', opacity: 0.4 }}>
                       📊
                     </span>
+                  )}
+                </td>
+                <td style={{ textAlign: 'center' }}>
+                  {mission.finalLoot && mission.finalLoot.length > 0 ? (
+                    <span
+                      title={mission.finalLoot.map(item => `${item.quantity}× ${formatItemName(item.id)}`).join(', ')}
+                      style={{ cursor: 'help', fontSize: '18px' }}
+                    >
+                      🎁
+                    </span>
+                  ) : (
+                    <span title="No rewards captured" style={{ opacity: 0.3 }}>—</span>
                   )}
                 </td>
                 <td>

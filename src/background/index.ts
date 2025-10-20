@@ -46,21 +46,36 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'START_BOT':
       state.isRunning = true;
       state.filters = message.filters;
-      // Forward to reddit-content script
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          extensionLogger.log('Forwarding START_PROCESSING to reddit-content');
-          chrome.tabs.sendMessage(tabs[0].id, {
-            type: 'START_PROCESSING',
-            filters: message.filters,
-          });
-        }
+
+      // Get automation config and set pending automation flag
+      chrome.storage.local.get(['automationConfig'], (result) => {
+        // Set pending automation so it continues after navigation
+        chrome.storage.local.set({
+          pendingAutomation: true,
+          automationConfig: result.automationConfig || {}
+        });
+
+        // Start full automation: navigate to first mission
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]?.id) {
+            extensionLogger.log('Starting automation - navigating to first mission');
+            chrome.tabs.sendMessage(tabs[0].id, {
+              type: 'NAVIGATE_TO_MISSION',
+              filters: message.filters,
+            });
+          }
+        });
       });
+
       sendResponse({ success: true });
       break;
 
     case 'STOP_BOT':
       state.isRunning = false;
+
+      // Clear pending automation flag
+      chrome.storage.local.remove(['pendingAutomation']);
+
       // Forward to reddit-content script
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
@@ -68,6 +83,14 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
           chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_PROCESSING' });
         }
       });
+
+      // Also stop mission automation if running
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_MISSION_AUTOMATION' });
+        }
+      });
+
       sendResponse({ success: true });
       break;
 

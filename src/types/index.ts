@@ -54,7 +54,8 @@ export type MessageType =
   | 'START_MISSION_AUTOMATION'
   | 'STOP_MISSION_AUTOMATION'
   | 'AUTOMATION_READY'
-  | 'START_EMULATE_MODE';
+  | 'START_EMULATE_MODE'
+  | 'STATUS_UPDATE';
 
 export interface ChromeMessage extends Message {
   type: MessageType;
@@ -79,4 +80,11 @@ export interface PlayCurrentMissionMessage extends ChromeMessage {
   type: 'PLAY_CURRENT_MISSION';
   config: any; // AutomationConfig
   filters?: LevelFilters;
+}
+
+export interface StatusUpdateMessage extends ChromeMessage {
+  type: 'STATUS_UPDATE';
+  status: string; // Status text to display
+  missionId?: string; // Optional mission ID
+  encounter?: { current: number; total: number }; // Optional encounter progress
 }

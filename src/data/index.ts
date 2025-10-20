@@ -5,3 +5,4 @@
 
 export * from './enemies';
 export * from './maps';
+export * from './abilities';

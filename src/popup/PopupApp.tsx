@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { LevelFilters, Level } from '../types';
 import { getAllMissions, MissionRecord } from '../utils/storage';
+import { knownAbilities, knownBlessingStats } from '../data';
 import './popup.css';
 
 interface AutomationConfig {
@@ -13,6 +14,7 @@ interface AutomationConfig {
   blessingStatPriority: string[];
   autoAcceptSkillBargains: boolean;
   skillBargainStrategy: 'always' | 'positive-only' | 'never';
+  crossroadsStrategy: 'fight' | 'skip'; // Whether to fight or skip miniboss encounters
   emulateMode: boolean;
   emulateDelaySeconds: number;
   debugMode: boolean;
@@ -23,6 +25,7 @@ const PopupApp: React.FC = () => {
   console.log('[POPUP] 🔵 PopupApp component loaded');
 
   const [isRunning, setIsRunning] = useState(false);
+  const [statusText, setStatusText] = useState('Idle');
   const [filters, setFilters] = useState<LevelFilters>({
     stars: [1, 2],
     minLevel: 1,
@@ -38,6 +41,7 @@ const PopupApp: React.FC = () => {
     blessingStatPriority: ['Speed', 'Attack', 'Crit', 'Health', 'Defense', 'Dodge'],
     autoAcceptSkillBargains: true,
     skillBargainStrategy: 'positive-only',
+    crossroadsStrategy: 'fight',
     emulateMode: false,
     emulateDelaySeconds: 3,
     debugMode: false,
@@ -46,6 +50,60 @@ const PopupApp: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<'control' | 'options' | 'missions'>('control');
   const [missions, setMissions] = useState<MissionRecord[]>([]);
   const [missionStats, setMissionStats] = useState({ total: 0, cleared: 0, uncleared: 0 });
+
+  // Extract all unique abilities from mission metadata
+  const extractUniqueAbilities = (missions: MissionRecord[]): string[] => {
+    const abilitiesSet = new Set<string>();
+
+    // Start with known abilities from data
+    knownAbilities.forEach(ability => abilitiesSet.add(ability));
+
+    // Extract from mission metadata
+    missions.forEach(mission => {
+      if (!mission.metadata?.mission?.encounters) return;
+
+      mission.metadata.mission.encounters.forEach((encounter: any) => {
+        if (encounter.type === 'abilityChoice') {
+          if (encounter.optionA?.abilityId) abilitiesSet.add(encounter.optionA.abilityId);
+          if (encounter.optionB?.abilityId) abilitiesSet.add(encounter.optionB.abilityId);
+          if (encounter.optionC?.abilityId) abilitiesSet.add(encounter.optionC.abilityId);
+        }
+      });
+    });
+
+    return Array.from(abilitiesSet).sort();
+  };
+
+  // Extract all unique blessing stats from mission metadata
+  const extractUniqueBlessingStats = (missions: MissionRecord[]): string[] => {
+    const statsSet = new Set<string>();
+
+    // Start with known blessing stats from data
+    knownBlessingStats.forEach(stat => statsSet.add(stat));
+
+    // Extract from mission metadata
+    missions.forEach(mission => {
+      if (!mission.metadata?.mission?.encounters) return;
+
+      mission.metadata.mission.encounters.forEach((encounter: any) => {
+        if (encounter.type === 'skillBargain') {
+          if (encounter.positiveEffect?.stat) statsSet.add(encounter.positiveEffect.stat);
+          if (encounter.negativeEffect?.stat) statsSet.add(encounter.negativeEffect.stat);
+        }
+        if (encounter.type === 'statsChoice') {
+          if (encounter.optionA?.stat) statsSet.add(encounter.optionA.stat);
+          if (encounter.optionB?.stat) statsSet.add(encounter.optionB.stat);
+        }
+      });
+    });
+
+    // Format stat names (capitalize first letter)
+    const formatted = Array.from(statsSet).map(stat => {
+      return stat.charAt(0).toUpperCase() + stat.slice(1);
+    });
+
+    return formatted.sort();
+  };
 
   // Load missions from storage
   const loadMissions = async () => {
@@ -61,6 +119,37 @@ const PopupApp: React.FC = () => {
         total: missionList.length,
         cleared,
         uncleared,
+      });
+
+      // Update ability tier list and blessing stat priority with discovered items
+      // Only add new items that aren't already in the list
+      const discoveredAbilities = extractUniqueAbilities(missionList);
+      const discoveredStats = extractUniqueBlessingStats(missionList);
+
+      setAutomationConfig(prev => {
+        const newAbilities = discoveredAbilities.filter(a => !prev.abilityTierList.includes(a));
+        const newStats = discoveredStats.filter(s => !prev.blessingStatPriority.includes(s));
+
+        // Log newly discovered items
+        if (newAbilities.length > 0) {
+          console.log('[POPUP] 🆕 NEW ABILITIES DISCOVERED:', newAbilities);
+          console.log('[POPUP] Total abilities now:', discoveredAbilities.length);
+        }
+        if (newStats.length > 0) {
+          console.log('[POPUP] 🆕 NEW BLESSING STATS DISCOVERED:', newStats);
+          console.log('[POPUP] Total stats now:', discoveredStats.length);
+        }
+
+        // If there are new items, add them to the end of the list
+        if (newAbilities.length > 0 || newStats.length > 0) {
+          return {
+            ...prev,
+            abilityTierList: [...prev.abilityTierList, ...newAbilities],
+            blessingStatPriority: [...prev.blessingStatPriority, ...newStats],
+          };
+        }
+
+        return prev;
       });
     } catch (error) {
       console.error('[POPUP] Failed to load missions:', error);
@@ -93,6 +182,16 @@ const PopupApp: React.FC = () => {
       if (message.type === 'LEVELS_FOUND') {
         setLevels(message.levels);
         setShowResults(true);
+      } else if (message.type === 'STATUS_UPDATE') {
+        let status = message.status;
+        if (message.missionId) {
+          status = status.replace('%missionId%', message.missionId);
+        }
+        if (message.encounter) {
+          status = status.replace('%current%', message.encounter.current);
+          status = status.replace('%total%', message.encounter.total);
+        }
+        setStatusText(status);
       }
     };
     chrome.runtime.onMessage.addListener(messageListener);
@@ -120,6 +219,7 @@ const PopupApp: React.FC = () => {
       },
       () => {
         setIsRunning(true);
+        setStatusText('Starting automation...');
       }
     );
   };
@@ -131,6 +231,7 @@ const PopupApp: React.FC = () => {
       },
       () => {
         setIsRunning(false);
+        setStatusText('Idle');
       }
     );
   };
@@ -303,7 +404,7 @@ const PopupApp: React.FC = () => {
           <div className="status">
             <div className={`status-indicator ${isRunning ? 'running' : ''}`}>
               <span className="dot"></span>
-              <span>{isRunning ? 'Running' : 'Idle'}</span>
+              <span>{statusText}</span>
             </div>
           </div>
 
@@ -375,7 +476,18 @@ const PopupApp: React.FC = () => {
 
             <div className="button-group" style={{ marginTop: '15px' }}>
               <button className="btn btn-primary" onClick={handleStart} disabled={isRunning}>
-                ▶️ Start Bot
+                ▶️ Start Bot {(() => {
+                  const matchingMissions = missions.filter(m => {
+                    if (m.cleared) return false;
+                    if ((m.difficulty ?? 0) === 0) return false;
+                    if (!filters.stars.includes(m.difficulty || 0)) return false;
+                    if (m.minLevel && m.minLevel < filters.minLevel) return false;
+                    if (m.maxLevel && m.maxLevel > filters.maxLevel) return false;
+                    return true;
+                  });
+                  const percentage = missions.length > 0 ? Math.round((matchingMissions.length / missions.length) * 100) : 0;
+                  return `(${matchingMissions.length}/${missions.length} - ${percentage}%)`;
+                })()}
               </button>
               <button className="btn btn-secondary" onClick={handleStop} disabled={!isRunning}>
                 ⏹️ Stop Bot
@@ -513,98 +625,77 @@ const PopupApp: React.FC = () => {
         <>
           <div className="section">
             <h3>Ability Tier List</h3>
-            <p className="help-text">Drag to reorder. Abilities will be selected in this order of preference:</p>
-            <div className="tier-list">
-              {automationConfig.abilityTierList.map((ability, index) => (
-                <div
-                  key={index}
-                  className="tier-item"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, index)}
-                >
-                  <span className="tier-drag-handle">⋮⋮</span>
-                  <span className="tier-rank">{index + 1}</span>
-                  <span className="tier-name">{ability}</span>
-                  <button
-                    className="btn-remove"
-                    onClick={() => {
-                      const newList = automationConfig.abilityTierList.filter((_, i) => i !== index);
-                      updateAutomationConfig('abilityTierList', newList);
-                    }}
-                    title="Remove ability"
+            <p className="help-text">
+              Drag to reorder. Abilities will be selected in this order of preference.
+              All abilities discovered from mission metadata are shown below:
+            </p>
+            {automationConfig.abilityTierList.length === 0 ? (
+              <p className="help-text" style={{ marginTop: '12px', fontStyle: 'italic', color: '#999' }}>
+                No abilities discovered yet. Play missions or scan Reddit to discover abilities!
+              </p>
+            ) : (
+              <div className="tier-list">
+                {automationConfig.abilityTierList.map((ability, index) => (
+                  <div
+                    key={index}
+                    className="tier-item"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, index)}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="form-group" style={{ marginTop: '12px' }}>
-              <label htmlFor="addAbility">Add ability:</label>
-              <select
-                id="addAbility"
-                onChange={(e) => {
-                  if (e.target.value && !automationConfig.abilityTierList.includes(e.target.value)) {
-                    updateAutomationConfig('abilityTierList', [...automationConfig.abilityTierList, e.target.value]);
-                  }
-                  e.target.value = '';
-                }}
-                defaultValue=""
-              >
-                <option value="">-- Select ability to add --</option>
-                <option value="IceKnifeOnTurnStart">Ice Knife (Turn Start)</option>
-                <option value="LightningOnTurnStart">Lightning (Turn Start)</option>
-                <option value="LightningOnCrit">Lightning (On Crit)</option>
-                <option value="DoubleLightningOnTurn">Double Lightning (On Turn)</option>
-                <option value="HealOnFirstTurn">Heal (First Turn)</option>
-                <option value="HealOnTurnStart">Heal (Turn Start)</option>
-                <option value="ShieldOnTurnStart">Shield (Turn Start)</option>
-                <option value="DodgeOnTurnStart">Dodge (Turn Start)</option>
-                <option value="CounterOnHit">Counter (On Hit)</option>
-                <option value="LifeStealOnHit">Life Steal (On Hit)</option>
-                <option value="BurnOnHit">Burn (On Hit)</option>
-                <option value="PoisonOnHit">Poison (On Hit)</option>
-                <option value="BleedOnCrit">Bleed (On Crit)</option>
-                <option value="FreezeOnHit">Freeze (On Hit)</option>
-              </select>
-            </div>
+                    <span className="tier-drag-handle">⋮⋮</span>
+                    <span className="tier-rank">{index + 1}</span>
+                    <span className="tier-name">{ability}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="section">
             <h3>Blessing Stat Priority</h3>
-            <p className="help-text">Drag to reorder. Stats will be prioritized in this order when choosing blessings:</p>
-            <div className="tier-list">
-              {automationConfig.blessingStatPriority.map((stat, index) => (
-                <div
-                  key={index}
-                  className="tier-item"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', index.toString());
-                  }}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                    const dropIndex = index;
+            <p className="help-text">
+              Drag to reorder. Stats will be prioritized in this order when choosing blessings.
+              All stats discovered from mission metadata are shown below:
+            </p>
+            {automationConfig.blessingStatPriority.length === 0 ? (
+              <p className="help-text" style={{ marginTop: '12px', fontStyle: 'italic', color: '#999' }}>
+                No blessing stats discovered yet. Play missions or scan Reddit to discover stats!
+              </p>
+            ) : (
+              <div className="tier-list">
+                {automationConfig.blessingStatPriority.map((stat, index) => (
+                  <div
+                    key={index}
+                    className="tier-item"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', index.toString());
+                    }}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                      const dropIndex = index;
 
-                    if (dragIndex === dropIndex) return;
+                      if (dragIndex === dropIndex) return;
 
-                    const newPriority = [...automationConfig.blessingStatPriority];
-                    const [draggedItem] = newPriority.splice(dragIndex, 1);
-                    newPriority.splice(dropIndex, 0, draggedItem);
+                      const newPriority = [...automationConfig.blessingStatPriority];
+                      const [draggedItem] = newPriority.splice(dragIndex, 1);
+                      newPriority.splice(dropIndex, 0, draggedItem);
 
-                    updateAutomationConfig('blessingStatPriority', newPriority);
-                  }}
-                >
-                  <span className="tier-drag-handle">⋮⋮</span>
-                  <span className="tier-rank">{index + 1}</span>
-                  <span className="tier-name">{stat}</span>
-                </div>
-              ))}
-            </div>
+                      updateAutomationConfig('blessingStatPriority', newPriority);
+                    }}
+                  >
+                    <span className="tier-drag-handle">⋮⋮</span>
+                    <span className="tier-rank">{index + 1}</span>
+                    <span className="tier-name">{stat}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="section">
@@ -619,6 +710,21 @@ const PopupApp: React.FC = () => {
                 <option value="always">Always Accept</option>
                 <option value="positive-only">Accept if Positive &gt; Negative</option>
                 <option value="never">Never Accept</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="section">
+            <h3>Crossroads Strategy</h3>
+            <div className="form-group">
+              <label htmlFor="crossroadsStrategy">What to do at miniboss encounters (crossroads):</label>
+              <select
+                id="crossroadsStrategy"
+                value={automationConfig.crossroadsStrategy}
+                onChange={(e) => updateAutomationConfig('crossroadsStrategy', e.target.value as 'fight' | 'skip')}
+              >
+                <option value="fight">Fight Miniboss</option>
+                <option value="skip">Skip Miniboss</option>
               </select>
             </div>
           </div>

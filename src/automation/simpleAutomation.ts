@@ -61,6 +61,22 @@ export class SimpleAutomationEngine {
   }
 
   /**
+   * Broadcast status update to popup
+   */
+  private broadcastStatus(status: string, missionId?: string, encounter?: { current: number; total: number }): void {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'STATUS_UPDATE',
+        status,
+        missionId,
+        encounter,
+      });
+    } catch (error) {
+      // Silently fail if popup is closed
+    }
+  }
+
+  /**
    * Save mission to Chrome storage database
    * Public so it can be called from content script when initialData is captured early
    */
@@ -162,10 +178,19 @@ export class SimpleAutomationEngine {
           permalink: nextMission.permalink,
         });
 
+        this.broadcastStatus('Navigating to mission %missionId%', nextMission.postId);
+
+        // Set pending automation flag so automation continues after navigation
+        chrome.storage.local.set({
+          pendingAutomation: true,
+          automationConfig: this.config
+        });
+
         // Navigate directly to next mission (avoids listing page reload)
         window.location.href = nextMission.permalink;
       } else {
         devvitLogger.log('[SimpleAutomation] No more uncleared missions - automation complete!');
+        this.broadcastStatus('Idle');
         alert('No more uncleared missions available. Automation stopped.');
         this.stop();
       }
@@ -270,6 +295,10 @@ export class SimpleAutomationEngine {
             encounters: this.missionMetadata?.mission?.encounters?.length,
           });
 
+          // Broadcast status
+          const encounterCount = this.missionMetadata?.mission?.encounters?.length || 0;
+          this.broadcastStatus('Starting mission clearing', postId, { current: 0, total: encounterCount });
+
           // Save mission to database
           if (this.missionMetadata && postId) {
             this.saveMissionToDatabase(postId, username, this.missionMetadata);
@@ -304,6 +333,16 @@ export class SimpleAutomationEngine {
             lootCount: encounterResult.encounterLoot?.length,
           });
 
+          // Update status with encounter progress
+          const encounterIndex = encounterResult.encounterAction?.encounterIndex;
+          const encounterCount = this.missionMetadata?.mission?.encounters?.length || 0;
+          if (encounterIndex !== undefined && encounterCount > 0) {
+            this.broadcastStatus('Clearing %missionId% encounter %current% of %total%', this.currentPostId || undefined, {
+              current: encounterIndex + 1,
+              total: encounterCount,
+            });
+          }
+
           // If this is a victory and has loot, store it
           if (encounterResult.victory && encounterResult.encounterLoot && this.currentPostId) {
             devvitLogger.log('[SimpleAutomation] Storing final loot', {
@@ -325,6 +364,7 @@ export class SimpleAutomationEngine {
           const postId = event.data.data.message.data?.postId;
           if (postId) {
             devvitLogger.log('[SimpleAutomation] Mission cleared!', { postId });
+            this.broadcastStatus('Finished mission, waiting');
             this.markMissionAsCleared(postId);
           }
         }
@@ -346,6 +386,7 @@ export class SimpleAutomationEngine {
 
     devvitLogger.log('[SimpleAutomation] Starting button-clicking automation');
     this.config.enabled = true;
+    this.broadcastStatus('Waiting for mission to be ready');
 
     // Check for buttons every 1500ms (1.5 seconds)
     // This is a fallback since we're not relying on messages

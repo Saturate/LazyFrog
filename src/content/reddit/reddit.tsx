@@ -133,7 +133,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'START_PROCESSING':
       isRunning = true;
       filters = { ...filters, ...message.filters };
-      processLevels();
+      // Don't open the control panel - automation happens via other messages
       sendResponse({ success: true });
       break;
 
@@ -269,6 +269,12 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'NAVIGATE_TO_MISSION': {
       redditLogger.log('Debug Step 1: Navigate to next uncompleted mission');
 
+      // Broadcast status
+      chrome.runtime.sendMessage({
+        type: 'STATUS_UPDATE',
+        status: 'Looking for next mission...',
+      });
+
       // Get next uncompleted mission from database
       getNextUnclearedMission().then((mission: any) => {
         if (mission && mission.permalink) {
@@ -279,6 +285,12 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
             permalink: mission.permalink,
           });
 
+          chrome.runtime.sendMessage({
+            type: 'STATUS_UPDATE',
+            status: 'Navigating to mission %missionId%',
+            missionId: mission.postId,
+          });
+
           window.location.href = mission.permalink;
           sendResponse({
             success: true,
@@ -286,13 +298,25 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
           });
         } else if (mission) {
           redditLogger.warn('Mission found but has no permalink', { postId: mission.postId });
+          chrome.runtime.sendMessage({
+            type: 'STATUS_UPDATE',
+            status: 'Idle',
+          });
           sendResponse({ error: 'Mission has no permalink URL' });
         } else {
           redditLogger.warn('No uncompleted missions in database');
+          chrome.runtime.sendMessage({
+            type: 'STATUS_UPDATE',
+            status: 'Idle',
+          });
           sendResponse({ error: 'No uncompleted missions found in database. Play some missions to populate the database.' });
         }
       }).catch((error) => {
         redditLogger.error('Error fetching next mission', { error: String(error) });
+        chrome.runtime.sendMessage({
+          type: 'STATUS_UPDATE',
+          status: 'Idle',
+        });
         sendResponse({ error: 'Failed to fetch next mission: ' + String(error) });
       });
       break;
@@ -420,6 +444,12 @@ setTimeout(() => {
   chrome.storage.local.get(['pendingAutomation', 'automationConfig'], (result) => {
     if (result.pendingAutomation) {
       redditLogger.log('Found pending automation, waiting for iframe');
+
+      // Broadcast status
+      chrome.runtime.sendMessage({
+        type: 'STATUS_UPDATE',
+        status: 'Waiting for mission to be ready',
+      });
 
       // Function to find iframe in nested shadow DOMs
       const findGameIframe = (): HTMLIFrameElement | null => {
