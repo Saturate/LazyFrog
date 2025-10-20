@@ -127,6 +127,13 @@ function initializeAutomation(): void {
       if (missionMetadata && postId && simpleAutomation) {
         // Save the captured mission data to database
         await simpleAutomation.saveMissionToDatabase(postId, username, missionMetadata);
+
+        // IMPORTANT: Also set currentPostId so it's available when mission completes
+        // This is normally set by the message listener, but since we captured it early, we need to set it manually
+        (simpleAutomation as any).currentPostId = postId;
+        (simpleAutomation as any).missionMetadata = missionMetadata;
+
+        devvitLogger.log('[Devvit] Set currentPostId from captured initialData', { postId });
       }
 
       // Clear the captured data

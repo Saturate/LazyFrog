@@ -153,10 +153,22 @@ export class SimpleAutomationEngine {
    */
   private async markMissionAsCleared(postId: string): Promise<void> {
     try {
+      devvitLogger.log('[SimpleAutomation] Attempting to mark mission as cleared', { 
+        postId,
+        hasChromeRuntime: !!chrome.runtime,
+        hasChromeRuntimeId: !!chrome.runtime?.id,
+        hasChromeStorage: !!chrome.storage,
+        hasChromeStorageLocal: !!chrome.storage?.local
+      });
+      
       await markMissionCleared(postId);
       devvitLogger.log('[SimpleAutomation] Mission marked as cleared', { postId });
     } catch (error) {
-      devvitLogger.error('[SimpleAutomation] Failed to mark mission cleared', { error: String(error) });
+      devvitLogger.error('[SimpleAutomation] Failed to mark mission cleared', { 
+        error: String(error),
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
     }
   }
 
@@ -460,8 +472,8 @@ export class SimpleAutomationEngine {
       if (postId) {
         devvitLogger.log('[SimpleAutomation] Marking mission as cleared', { postId });
         this.markMissionAsCleared(postId);
-        // Clear the postId so we don't mark it again
-        this.currentPostId = null;
+        // DON'T clear currentPostId here - we need it later when clicking Finish button
+        // It will be cleared in tryClickContinue after we trigger navigation
       } else {
         devvitLogger.warn('[SimpleAutomation] Mission appears cleared but no postId available');
       }
@@ -545,8 +557,10 @@ export class SimpleAutomationEngine {
       return 'skip';
     }
 
-    // Check for finish/dismiss button (mission complete)
-    if (buttonTexts.some(t => t === 'finish' || t.includes('finish') || t === 'dismiss' || t.includes('dismiss'))) {
+    // Check for finish/dismiss button (mission complete) - check classes first, then text
+    // This should come before 'continue' check to prioritize mission completion
+    if (buttonClasses.some(c => c.includes('dismiss-button')) ||
+        buttonTexts.some(t => t === 'finish' || t.includes('finish') || t === 'dismiss' || t.includes('dismiss'))) {
       return 'finish';
     }
 
@@ -828,26 +842,48 @@ export class SimpleAutomationEngine {
    * Try to click "Continue" or "Finish" button
    */
   private tryClickContinue(buttons: HTMLElement[]): string | null {
-    // Check for "Finish" button first (mission complete)
+    // Check for "Finish" button or "dismiss-button" class first (mission complete)
     const finishButton = buttons.find(b => {
+      // Check for dismiss-button class
+      if (b.classList.contains('dismiss-button')) return true;
+      
+      // Check text content
       const text = b.textContent?.trim().toLowerCase() || '';
-      return text === 'finish' || text.includes('finish');
+      return text === 'finish' || text.includes('finish') || text === 'dismiss' || text.includes('dismiss');
     });
 
     if (finishButton) {
       this.clickElement(finishButton);
 
-      // Mark mission as cleared when clicking Finish
-      if (this.missionMetadata?.postId) {
-        devvitLogger.log('[SimpleAutomation] Mission cleared! Clicking Finish button', {
-          postId: this.missionMetadata.postId
+      // Mark mission as cleared when clicking Finish/Dismiss
+      const postId = this.currentPostId || this.missionMetadata?.postId;
+      
+      devvitLogger.log('[SimpleAutomation] Finish button clicked, checking postId', {
+        currentPostId: this.currentPostId,
+        metadataPostId: this.missionMetadata?.postId,
+        finalPostId: postId
+      });
+
+      if (postId) {
+        devvitLogger.log('[SimpleAutomation] Mission cleared! Clicking Finish/Dismiss button', {
+          postId
         });
-        this.markMissionAsCleared(this.missionMetadata.postId);
+        this.markMissionAsCleared(postId);
 
         // Navigate to next mission after a short delay
         setTimeout(() => {
+          devvitLogger.log('[SimpleAutomation] Triggering navigation to next mission');
           this.navigateToNextMission();
         }, 2000);
+
+        // Clear the postId now that we've triggered navigation
+        this.currentPostId = null;
+      } else {
+        devvitLogger.warn('[SimpleAutomation] Finish button clicked but no postId available!', {
+          currentPostId: this.currentPostId,
+          metadataPostId: this.missionMetadata?.postId,
+          hasMissionMetadata: !!this.missionMetadata
+        });
       }
 
       return 'Finish (Mission Complete!)';

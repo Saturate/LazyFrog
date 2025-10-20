@@ -503,7 +503,7 @@ const initializeAutomation = () => {
             }
           } else {
             redditLogger.log('Starting automation on existing iframe');
-            chrome.storage.local.remove(['activeBotSession']);
+            // Keep activeBotSession flag so bot continues running
             chrome.runtime.sendMessage({
               type: 'START_MISSION_AUTOMATION',
               config: result.automationConfig
@@ -545,7 +545,7 @@ const initializeAutomation = () => {
           redditLogger.log('Found clickable game container, clicking to open mission');
           (clickableContainer as HTMLElement).click();
 
-          // Wait for modal to open, then click fullscreen
+          // Wait for modal to open, then click fullscreen and start automation
           setTimeout(() => {
             const fullscreenControls = document.querySelector('devvit-fullscreen-web-view-controls');
             const sizeControls = fullscreenControls?.shadowRoot?.querySelector('devvit-web-view-preview-size-controls');
@@ -557,6 +557,36 @@ const initializeAutomation = () => {
             } else {
               redditLogger.warn('Fullscreen button not found');
             }
+
+            // Wait for iframe to load and game to initialize, then start automation
+            setTimeout(() => {
+              redditLogger.log('Game should be ready, checking if mission is cleared');
+              const clearedImage = checkMissionClearedInDOM();
+
+              if (clearedImage) {
+                redditLogger.warn('Mission is already cleared! Moving to next mission');
+                chrome.storage.local.remove(['activeBotSession']);
+                const postIdMatch = window.location.pathname.match(/\/comments\/([^/]+)/);
+                if (postIdMatch) {
+                  const postId = 't3_' + postIdMatch[1];
+                  markMissionCleared(postId).then(() => {
+                    chrome.storage.local.get(['automationFilters'], (filterResult) => {
+                      chrome.runtime.sendMessage({
+                        type: 'NAVIGATE_TO_MISSION',
+                        filters: filterResult.automationFilters,
+                      });
+                    });
+                  });
+                }
+              } else {
+                redditLogger.log('Mission not cleared, starting automation');
+                // Keep activeBotSession so bot continues running
+                chrome.runtime.sendMessage({
+                  type: 'START_MISSION_AUTOMATION',
+                  config: result.automationConfig
+                });
+              }
+            }, 3000); // Wait 3 seconds for game to load
           }, 1000);
 
           return true;
@@ -591,103 +621,6 @@ const initializeAutomation = () => {
           }
         }, 500);
       }
-
-      // Function to find iframe in nested shadow DOMs
-      const findGameIframe = (): HTMLIFrameElement | null => {
-        // Try direct search first
-        let gameIframe = document.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
-        if (gameIframe) return gameIframe;
-
-        // Search in loader's shadow root
-        const loader = document.querySelector('shreddit-devvit-ui-loader');
-        if (loader?.shadowRoot) {
-          gameIframe = loader.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
-          if (gameIframe) return gameIframe;
-
-          // Search in nested shadow DOMs (devvit-blocks-web-view)
-          const webView = loader.shadowRoot.querySelector('devvit-blocks-web-view');
-          if (webView?.shadowRoot) {
-            gameIframe = webView.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
-            if (gameIframe) return gameIframe;
-          }
-        }
-
-        return null;
-      };
-
-      // Wait for iframe to load
-      const checkIframe = setInterval(() => {
-        const gameIframe = findGameIframe();
-
-        if (gameIframe) {
-          redditLogger.log('Iframe found, waiting a moment for game to initialize');
-          clearInterval(checkIframe);
-
-          // Wait a bit for the game UI to fully load before checking cleared status
-          setTimeout(() => {
-            redditLogger.log('Checking if mission is already cleared');
-
-            // Check if this mission is already cleared
-            const clearedImage = checkMissionClearedInDOM();
-
-            if (clearedImage) {
-              redditLogger.warn('Mission is already cleared! Updating database and moving to next mission');
-              chrome.storage.local.remove(['activeBotSession']);
-
-            // Extract post ID from URL
-            const postIdMatch = window.location.pathname.match(/\/comments\/([^/]+)/);
-            if (postIdMatch) {
-              const postId = 't3_' + postIdMatch[1];
-
-              // Mark as cleared in database
-              markMissionCleared(postId).then(() => {
-                redditLogger.log('Marked mission as cleared', { postId });
-
-                // Broadcast status and navigate to next mission
-                chrome.runtime.sendMessage({
-                  type: 'STATUS_UPDATE',
-                  status: 'Mission already cleared, finding next mission...',
-                });
-
-                // Get filters from automationConfig if available
-                chrome.storage.local.get(['filters'], (filterResult) => {
-                  const filters = filterResult.filters;
-
-                  // Navigate to next mission
-                  chrome.runtime.sendMessage({
-                    type: 'NAVIGATE_TO_MISSION',
-                    filters: filters,
-                  });
-                });
-              });
-            } else {
-              redditLogger.error('Could not extract post ID from URL');
-            }
-            return;
-          }
-
-            // Mission is not cleared, proceed with automation
-            redditLogger.log('Mission not cleared, starting automation');
-            redditLogger.log('Iframe src', { src: gameIframe.src.substring(0, 100) });
-
-            // Clear pending flag
-            chrome.storage.local.remove(['activeBotSession']);
-
-            // Start automation via background
-            chrome.runtime.sendMessage({
-              type: 'START_MISSION_AUTOMATION',
-              config: result.automationConfig
-            });
-            redditLogger.log('Sent START_MISSION_AUTOMATION message');
-          }, 2000); // Wait 2 seconds for game UI to initialize
-        }
-      }, 500); // Check every 500ms
-
-      // Stop checking after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkIframe);
-        chrome.storage.local.remove(['pendingAutomation']);
-      }, 10000);
     }
   });
 };
@@ -778,8 +711,39 @@ window.addEventListener('scroll', () => {
 
 redditLogger.log('Scroll-based scanning enabled');
 
-// Initialize control panel on page load
+// Initialize control panel on page load and restore bot state
 setTimeout(() => {
   redditLogger.log('Initializing control panel');
-  renderControlPanel();
+
+  // Check if bot is running by checking for active session
+  chrome.storage.local.get(['activeBotSession'], (result) => {
+    if (result.activeBotSession) {
+      redditLogger.log('Active bot session detected, restoring bot state');
+      isRunning = true;
+      currentStatus = 'Bot running...';
+    }
+    renderControlPanel();
+  });
 }, 1000);
+
+// Listen for storage changes to update bot state in real-time
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.activeBotSession) {
+    const newValue = changes.activeBotSession.newValue;
+    const oldValue = changes.activeBotSession.oldValue;
+
+    if (newValue && !oldValue) {
+      // Bot was started
+      redditLogger.log('Bot session started');
+      isRunning = true;
+      currentStatus = 'Bot running...';
+      renderControlPanel();
+    } else if (!newValue && oldValue) {
+      // Bot was stopped
+      redditLogger.log('Bot session stopped');
+      isRunning = false;
+      currentStatus = 'Idle';
+      renderControlPanel();
+    }
+  }
+});
