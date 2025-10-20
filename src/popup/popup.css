@@ -31,6 +31,24 @@ body {
 .subtitle {
   font-size: 12px;
   opacity: 0.9;
+  margin-bottom: 5px;
+}
+
+.author {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-top: 8px;
+}
+
+.author a {
+  color: white;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  transition: border-color 0.2s;
+}
+
+.author a:hover {
+  border-bottom-color: white;
 }
 
 .status {

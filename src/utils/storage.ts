@@ -13,11 +13,12 @@ export interface MissionRecord {
   environment?: string;
   minLevel?: number;
   maxLevel?: number;
-  foodName?: string;
+  missionTitle?: string; // Full mission title (e.g., "Treasure and Maple-Glazed Bacon In the Mossy Forest")
+  foodName?: string; // Mission goal/reward (e.g., "Maple-Glazed Bacon")
   cleared?: boolean;
   clearedAt?: number;
   permalink?: string;
-  finalLoot?: Array<{id: string; quantity: number}>; // Loot from final encounter
+  totalLoot?: Array<{id: string; quantity: number}>; // Accumulated loot from all encounters
 }
 
 export interface UserOptions {
@@ -275,9 +276,9 @@ export async function markMissionCleared(postId: string): Promise<void> {
 }
 
 /**
- * Update mission with final loot data
+ * Accumulate loot from an encounter to mission's total loot
  */
-export async function updateMissionLoot(postId: string, loot: Array<{id: string; quantity: number}>): Promise<void> {
+export async function accumulateMissionLoot(postId: string, encounterLoot: Array<{id: string; quantity: number}>): Promise<void> {
   return new Promise((resolve, reject) => {
     // Check if extension context is still valid
     if (!chrome.runtime?.id) {
@@ -295,7 +296,20 @@ export async function updateMissionLoot(postId: string, loot: Array<{id: string;
       const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
 
       if (missions[postId]) {
-        missions[postId].finalLoot = loot;
+        // Initialize totalLoot if not present
+        if (!missions[postId].totalLoot) {
+          missions[postId].totalLoot = [];
+        }
+
+        // Accumulate loot by combining quantities for same items
+        encounterLoot.forEach(newItem => {
+          const existingItem = missions[postId].totalLoot!.find(item => item.id === newItem.id);
+          if (existingItem) {
+            existingItem.quantity += newItem.quantity;
+          } else {
+            missions[postId].totalLoot!.push({ ...newItem });
+          }
+        });
 
         chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
           if (chrome.runtime.lastError) {
@@ -325,11 +339,18 @@ export function checkMissionClearedInDOM(): HTMLImageElement | null {
 /**
  * Get next uncleared mission, optionally filtered by criteria
  */
-export async function getNextUnclearedMission(filters?: {
+/**
+ * Get filtered and sorted uncleared missions.
+ * This is the single source of truth for mission filtering across the app.
+ * 
+ * @param filters - Optional filters for stars, minLevel, maxLevel
+ * @returns Array of missions that match filters, sorted newest first
+ */
+export async function getFilteredUnclearedMissions(filters?: {
   stars?: number[];
   minLevel?: number;
   maxLevel?: number;
-}): Promise<MissionRecord | null> {
+}): Promise<MissionRecord[]> {
   const missions = await getAllMissions();
   let unclearedMissions = Object.values(missions)
     .filter(m => !m.cleared && (m.difficulty ?? 0) > 0); // Only return missions with star difficulty data
@@ -361,9 +382,18 @@ export async function getNextUnclearedMission(filters?: {
     });
   }
 
-  // Sort by timestamp (oldest first)
-  unclearedMissions.sort((a, b) => a.timestamp - b.timestamp);
+  // Sort by timestamp (newest first)
+  unclearedMissions.sort((a, b) => b.timestamp - a.timestamp);
 
+  return unclearedMissions;
+}
+
+export async function getNextUnclearedMission(filters?: {
+  stars?: number[];
+  minLevel?: number;
+  maxLevel?: number;
+}): Promise<MissionRecord | null> {
+  const unclearedMissions = await getFilteredUnclearedMissions(filters);
   return unclearedMissions[0] || null;
 }
 

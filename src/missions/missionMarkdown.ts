@@ -86,9 +86,10 @@ export function generateMissionMarkdown(mission: MissionRecord): string | null {
   const stars = '⭐'.repeat(mission.difficulty || 0);
   const mapName = mapNames[mission.environment || ''] || mission.environment || 'Unknown';
 
-  // Build title and header info
-  let markdown = `### ${stars} ${mission.foodName || 'Mission'}\n`;
-  markdown += `**Map:** ${mapName} | **Level:** ${mission.minLevel}-${mission.maxLevel} | **Author:** u/${mission.username}\n\n`;
+  // Build title and header info (use missionTitle which is the Reddit post title)
+  const title = mission.missionTitle || mission.foodName || 'Mission';
+  let markdown = `### ${stars} ${title}\n`;
+  markdown += `**Map:** ${mapName} | **Level:** ${mission.minLevel}-${mission.maxLevel}\n\n`;
 
   // Build table
   markdown += `| # | Room | Details |\n`;
@@ -99,21 +100,10 @@ export function generateMissionMarkdown(mission: MissionRecord): string | null {
     const roomNum = index + 1;
     const roomIcon = getEncounterIcon(enc.type);
     const roomType = getEncounterTypeName(enc.type);
-    const details = getEncounterDetails(enc);
+    const details = getEncounterDetails(enc, missionData.foodName);
 
     markdown += `| ${roomNum} | ${roomIcon} ${roomType} | ${details} |\n`;
   });
-
-  markdown += `\n[View Mission](${mission.permalink})\n`;
-
-  // Add rewards section if we have loot data
-  if (mission.finalLoot && mission.finalLoot.length > 0) {
-    markdown += `\n**Rewards:** `;
-    const lootSummary = mission.finalLoot
-      .map(item => `${item.quantity}× ${formatLootName(item.id)}`)
-      .join(', ');
-    markdown += lootSummary + '\n';
-  }
 
   return markdown;
 }
@@ -163,7 +153,7 @@ function getEncounterTypeName(type: string): string {
 /**
  * Get detailed description of encounter
  */
-function getEncounterDetails(enc: any): string {
+function getEncounterDetails(enc: any, foodName?: string): string {
   switch (enc.type) {
     case 'enemy':
     case 'boss':
@@ -182,7 +172,7 @@ function getEncounterDetails(enc: any): string {
       return formatShop(enc);
 
     case 'treasure':
-      return 'Treasure!';
+      return foodName || 'Treasure!';
 
     case 'investigate':
       return 'Hut';
@@ -243,9 +233,11 @@ function formatAbilityChoice(enc: any): string {
   if (abilities.length === 0) return '???';
 
   // Show enchanted indicator if present
-  const enchanted = enc.isEnchanted ? '✨ ' : '';
+  const enchanted = enc.isEnchanted ? '✨ Enchanted  \n' : '';
 
-  return `${enchanted}${abilities.join(' | ')}`;
+  // Format as bullet list with proper line breaks
+  // Using two spaces + newline for markdown line breaks
+  return `${enchanted}• ${abilities.join('  \n• ')}`;
 }
 
 /**

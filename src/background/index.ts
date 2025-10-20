@@ -50,18 +50,49 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       // Get automation config and set pending automation flag
       chrome.storage.local.get(['automationConfig'], (result) => {
         // Set pending automation so it continues after navigation
+        // Include filters so they're available after page reload
         chrome.storage.local.set({
           pendingAutomation: true,
-          automationConfig: result.automationConfig || {}
+          automationConfig: result.automationConfig || {},
+          automationFilters: message.filters
+        });
+
+        extensionLogger.log('Starting automation with filters', {
+          stars: message.filters.stars,
+          minLevel: message.filters.minLevel,
+          maxLevel: message.filters.maxLevel
         });
 
         // Start full automation: navigate to first mission
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (tabs[0]?.id) {
             extensionLogger.log('Starting automation - navigating to first mission');
+
+            // Send status update
+            chrome.runtime.sendMessage({
+              type: 'STATUS_UPDATE',
+              status: 'Looking for missions matching filters...',
+            });
+
             chrome.tabs.sendMessage(tabs[0].id, {
               type: 'NAVIGATE_TO_MISSION',
               filters: message.filters,
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                extensionLogger.error('Failed to send NAVIGATE_TO_MISSION', {
+                  error: chrome.runtime.lastError.message
+                });
+                chrome.runtime.sendMessage({
+                  type: 'STATUS_UPDATE',
+                  status: 'Idle',
+                });
+              }
+            });
+          } else {
+            extensionLogger.error('No active tab found');
+            chrome.runtime.sendMessage({
+              type: 'STATUS_UPDATE',
+              status: 'Idle',
             });
           }
         });
@@ -73,8 +104,8 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'STOP_BOT':
       state.isRunning = false;
 
-      // Clear pending automation flag
-      chrome.storage.local.remove(['pendingAutomation']);
+      // Clear pending automation flag and filters
+      chrome.storage.local.remove(['pendingAutomation', 'automationFilters']);
 
       // Forward to reddit-content script
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

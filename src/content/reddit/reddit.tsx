@@ -267,7 +267,9 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     }
 
     case 'NAVIGATE_TO_MISSION': {
-      redditLogger.log('Debug Step 1: Navigate to next uncompleted mission');
+      redditLogger.log('Debug Step 1: Navigate to next uncompleted mission', {
+        filters: message.filters
+      });
 
       // Broadcast status
       chrome.runtime.sendMessage({
@@ -275,13 +277,20 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
         status: 'Looking for next mission...',
       });
 
-      // Get next uncompleted mission from database
-      getNextUnclearedMission().then((mission: any) => {
+      // Get next uncompleted mission from database with filters
+      const missionFilters = message.filters ? {
+        stars: message.filters.stars,
+        minLevel: message.filters.minLevel,
+        maxLevel: message.filters.maxLevel
+      } : undefined;
+
+      getNextUnclearedMission(missionFilters).then((mission: any) => {
         if (mission && mission.permalink) {
           redditLogger.log('Found uncompleted mission in database', {
             postId: mission.postId,
             tags: mission.tags,
             difficulty: mission.difficulty,
+            levelRange: `${mission.minLevel}-${mission.maxLevel}`,
             permalink: mission.permalink,
           });
 
@@ -302,14 +311,16 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
             type: 'STATUS_UPDATE',
             status: 'Idle',
           });
+          alert('Mission found but has no permalink URL');
           sendResponse({ error: 'Mission has no permalink URL' });
         } else {
-          redditLogger.warn('No uncompleted missions in database');
+          redditLogger.warn('No uncompleted missions found matching filters', { filters: missionFilters });
           chrome.runtime.sendMessage({
             type: 'STATUS_UPDATE',
             status: 'Idle',
           });
-          sendResponse({ error: 'No uncompleted missions found in database. Play some missions to populate the database.' });
+          alert('No uncleared missions found matching your filters. Try adjusting star difficulty or level range.');
+          sendResponse({ error: 'No uncompleted missions found matching filters.' });
         }
       }).catch((error) => {
         redditLogger.error('Error fetching next mission', { error: String(error) });
@@ -317,6 +328,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
           type: 'STATUS_UPDATE',
           status: 'Idle',
         });
+        alert('Error fetching next mission: ' + String(error));
         sendResponse({ error: 'Failed to fetch next mission: ' + String(error) });
       });
       break;

@@ -110,6 +110,7 @@ const MissionsPage: React.FC = () => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (m) =>
+          (m.missionTitle && m.missionTitle.toLowerCase().includes(query)) ||
           (m.foodName && m.foodName.toLowerCase().includes(query)) ||
           m.username.toLowerCase().includes(query) ||
           m.postId.toLowerCase().includes(query) ||
@@ -481,7 +482,7 @@ const MissionsPage: React.FC = () => {
               >
                 <td className="date-cell">{formatDate(mission.timestamp)}</td>
                 <td className="mission-cell">
-                  <div className="mission-title">{mission.foodName}</div>
+                  <div className="mission-title">{mission.missionTitle || mission.foodName}</div>
                   {mission.tags && (
                     <div className="mission-tags">{mission.tags}</div>
                   )}
@@ -507,9 +508,9 @@ const MissionsPage: React.FC = () => {
                   )}
                 </td>
                 <td style={{ textAlign: 'center' }}>
-                  {mission.finalLoot && mission.finalLoot.length > 0 ? (
+                  {mission.totalLoot && mission.totalLoot.length > 0 ? (
                     <span
-                      title={mission.finalLoot.map(item => `${item.quantity}× ${formatItemName(item.id)}`).join(', ')}
+                      title={mission.totalLoot.map(item => `${item.quantity}× ${formatItemName(item.id)}`).join(', ')}
                       style={{ cursor: 'help', fontSize: '18px' }}
                     >
                       🎁

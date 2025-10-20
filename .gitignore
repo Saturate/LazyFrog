@@ -48,3 +48,10 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Extension packaging
+*.crx
+*.zip
+*.pem
+artifacts/
+web-ext-artifacts/

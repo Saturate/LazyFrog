@@ -4,7 +4,7 @@
  */
 
 import { devvitLogger } from '../utils/logger';
-import { saveMission, MissionRecord, markMissionCleared, checkMissionClearedInDOM, updateMissionLoot } from '../utils/storage';
+import { saveMission, MissionRecord, markMissionCleared, checkMissionClearedInDOM, accumulateMissionLoot } from '../utils/storage';
 import { enemyNames, mapNames } from '../data';
 
 export interface SimpleAutomationConfig {
@@ -113,6 +113,7 @@ export class SimpleAutomationEngine {
         environment: mission.environment,
         minLevel: mission.minLevel,
         maxLevel: mission.maxLevel,
+        missionTitle: metadata.missionTitle,
         foodName: mission.foodName,
         permalink,
         cleared: existingMission?.cleared || false, // Preserve cleared status
@@ -167,9 +168,19 @@ export class SimpleAutomationEngine {
     try {
       devvitLogger.log('[SimpleAutomation] Getting next uncleared mission...');
 
+      // Get filters from storage
+      const storageData = await chrome.storage.local.get(['automationFilters']);
+      const filters = storageData.automationFilters ? {
+        stars: storageData.automationFilters.stars,
+        minLevel: storageData.automationFilters.minLevel,
+        maxLevel: storageData.automationFilters.maxLevel
+      } : undefined;
+
+      devvitLogger.log('[SimpleAutomation] Using filters', { filters });
+
       // Dynamically import to avoid circular dependencies
       const { getNextUnclearedMission } = await import('../utils/storage');
-      const nextMission = await getNextUnclearedMission();
+      const nextMission = await getNextUnclearedMission(filters);
 
       if (nextMission && nextMission.permalink) {
         devvitLogger.log('[SimpleAutomation] Navigating to next mission', {
@@ -343,14 +354,15 @@ export class SimpleAutomationEngine {
             });
           }
 
-          // If this is a victory and has loot, store it
-          if (encounterResult.victory && encounterResult.encounterLoot && this.currentPostId) {
-            devvitLogger.log('[SimpleAutomation] Storing final loot', {
+          // If this is a victory and has loot, accumulate it
+          if (encounterResult.victory && encounterResult.encounterLoot && encounterResult.encounterLoot.length > 0 && this.currentPostId) {
+            devvitLogger.log('[SimpleAutomation] Accumulating encounter loot', {
               postId: this.currentPostId,
+              encounterIndex: encounterResult.encounterAction?.encounterIndex,
               loot: encounterResult.encounterLoot,
             });
-            updateMissionLoot(this.currentPostId, encounterResult.encounterLoot).catch((error) => {
-              devvitLogger.error('[SimpleAutomation] Failed to update mission loot', {
+            accumulateMissionLoot(this.currentPostId, encounterResult.encounterLoot).catch((error) => {
+              devvitLogger.error('[SimpleAutomation] Failed to accumulate mission loot', {
                 error: String(error),
               });
             });
