@@ -323,13 +323,46 @@ export function checkMissionClearedInDOM(): HTMLImageElement | null {
 }
 
 /**
- * Get next uncleared mission
+ * Get next uncleared mission, optionally filtered by criteria
  */
-export async function getNextUnclearedMission(): Promise<MissionRecord | null> {
+export async function getNextUnclearedMission(filters?: {
+  stars?: number[];
+  minLevel?: number;
+  maxLevel?: number;
+}): Promise<MissionRecord | null> {
   const missions = await getAllMissions();
-  const unclearedMissions = Object.values(missions)
-    .filter(m => !m.cleared && (m.difficulty ?? 0) > 0) // Only return missions with star difficulty data
-    .sort((a, b) => a.timestamp - b.timestamp); // Oldest first
+  let unclearedMissions = Object.values(missions)
+    .filter(m => !m.cleared && (m.difficulty ?? 0) > 0); // Only return missions with star difficulty data
+
+  // Apply filters if provided
+  if (filters) {
+    unclearedMissions = unclearedMissions.filter(m => {
+      // Star difficulty filter
+      if (filters.stars && filters.stars.length > 0) {
+        if (!filters.stars.includes(m.difficulty || 0)) {
+          return false;
+        }
+      }
+
+      // Level range filter
+      if (filters.minLevel !== undefined && m.minLevel !== undefined) {
+        if (m.minLevel < filters.minLevel) {
+          return false;
+        }
+      }
+
+      if (filters.maxLevel !== undefined && m.maxLevel !== undefined) {
+        if (m.maxLevel > filters.maxLevel) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  // Sort by timestamp (oldest first)
+  unclearedMissions.sort((a, b) => a.timestamp - b.timestamp);
 
   return unclearedMissions[0] || null;
 }
