@@ -215,45 +215,35 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
         // Function to click the game UI
         const clickGameUI = () => {
-          // Try to find devvit-blocks-renderer or clickable game element
-          let clickableElement = null;
+          if (!loader) return false;
 
-          if (loader) {
-            // Try devvit-blocks-renderer
-            clickableElement = loader.querySelector('devvit-blocks-renderer');
+          // Navigate deep into shadow DOM to find clickable container
+          const surface = loader.shadowRoot?.querySelector('devvit-surface');
+          const renderer = surface?.shadowRoot?.querySelector('devvit-blocks-renderer');
+          const clickableContainer = renderer?.shadowRoot?.querySelector('.cursor-pointer');
 
-            // Try first div with data-block-type
-            if (!clickableElement) {
-              clickableElement = loader.querySelector('[data-block-type]');
-            }
+          if (clickableContainer) {
+            redditLogger.log('Found clickable game container in deep shadow DOM');
+            (clickableContainer as HTMLElement).click();
 
-            // Try any div with pointer-events-auto class
-            if (!clickableElement) {
-              clickableElement = loader.querySelector('.pointer-events-auto');
-            }
-          }
+            // Wait for modal to open, then click fullscreen
+            setTimeout(() => {
+              const fullscreenControls = document.querySelector('devvit-fullscreen-web-view-controls');
+              const sizeControls = fullscreenControls?.shadowRoot?.querySelector('devvit-web-view-preview-size-controls');
+              const fullscreenButton = sizeControls?.shadowRoot?.querySelector('button[aria-label="Toggle fullscreen web view"]');
 
-          if (clickableElement) {
-            redditLogger.log('Found clickable element, clicking');
-            (clickableElement as HTMLElement).click();
+              if (fullscreenButton) {
+                redditLogger.log('Clicking fullscreen button');
+                (fullscreenButton as HTMLElement).click();
+              } else {
+                redditLogger.warn('Fullscreen button not found');
+              }
+            }, 1000);
+
             return true;
           }
 
-          // If nothing found, try clicking the loader itself at the button position
-          if (loader) {
-            redditLogger.log('Clicking loader at estimated button position');
-            const rect = loader.getBoundingClientRect();
-            const clickEvent = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              clientX: rect.left + rect.width / 2,
-              clientY: rect.top + rect.height - 80
-            });
-            loader.dispatchEvent(clickEvent);
-            return true;
-          }
-
+          redditLogger.warn('Could not find clickable game container');
           return false;
         };
 
@@ -321,6 +311,20 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
         (clickableContainer as HTMLElement).click();
 
         sendResponse({ success: true, message: 'Clicked game container. The game will open in a modal. Iframe will load after a few seconds...' });
+
+        // Wait a moment for modal to open, then click fullscreen button
+        setTimeout(() => {
+          const fullscreenControls = document.querySelector('devvit-fullscreen-web-view-controls');
+          const sizeControls = fullscreenControls?.shadowRoot?.querySelector('devvit-web-view-preview-size-controls');
+          const fullscreenButton = sizeControls?.shadowRoot?.querySelector('button[aria-label="Toggle fullscreen web view"]');
+
+          if (fullscreenButton) {
+            redditLogger.log('Clicking fullscreen button');
+            (fullscreenButton as HTMLElement).click();
+          } else {
+            redditLogger.warn('Fullscreen button not found');
+          }
+        }, 1000);
 
         // Check for iframe after delay
         const checkInterval = setInterval(() => {
