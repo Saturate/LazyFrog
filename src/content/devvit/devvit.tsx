@@ -43,13 +43,22 @@ function injectControlPanel(): void {
   // Create new container
   container = document.createElement('div');
   container.id = 'ss-game-control-root';
-  document.body.appendChild(container);
+
+  // Try to find #app element and insert before it, otherwise append to body
+  const appElement = document.getElementById('app');
+  if (appElement && appElement.parentElement) {
+    appElement.parentElement.insertBefore(container, appElement);
+    devvitLogger.log('Injecting control panel before #app');
+  } else {
+    document.body.appendChild(container);
+    devvitLogger.log('Injecting control panel to body');
+  }
 
   // Create root and render
   root = createRoot(container);
   root.render(<GameControlPanel gameState={extractGameState()} />);
 
-  devvitLogger.log('Control panel injected');
+  devvitLogger.log('Control panel injected successfully');
 }
 
 /**
@@ -189,8 +198,10 @@ setTimeout(() => {
   // Initialize mission automation
   initializeAutomation();
 
-  // Auto-inject control panel
-  // injectControlPanel();
+  // Auto-inject control panel after a bit more delay to ensure DOM is ready
+  setTimeout(() => {
+    injectControlPanel();
+  }, 1000);
 }, 2000);
 
 // Export functions for use in console

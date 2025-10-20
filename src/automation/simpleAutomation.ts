@@ -29,9 +29,68 @@ export class SimpleAutomationEngine {
   private config: SimpleAutomationConfig;
   private intervalId: number | null = null;
   private isProcessing = false;
+  private inCombat = false;
+  private missionMetadata: any = null;
 
   constructor(config: SimpleAutomationConfig) {
     this.config = { ...DEFAULT_SIMPLE_CONFIG, ...config };
+    this.setupMessageListener();
+  }
+
+  /**
+   * Listen to window messages for game state
+   */
+  private setupMessageListener(): void {
+    window.addEventListener('message', (event: MessageEvent) => {
+      try {
+        // Log ALL game messages to server for debugging (but not to console)
+        if (event.data) {
+          // Determine message type for categorization
+          let messageType = 'unknown';
+          if (event.data?.data?.message?.type) {
+            messageType = event.data.data.message.type;
+          } else if (event.data?.type) {
+            messageType = event.data.type;
+          }
+
+          // Log to server (simplified for storage)
+          devvitLogger.log(`[GameMessage:${messageType}]`, {
+            type: messageType,
+            hasData: !!event.data.data,
+            origin: event.origin,
+            dataKeys: Object.keys(event.data).slice(0, 10), // First 10 keys
+            // Include full data for important messages
+            fullData: ['initialData', 'COMBAT_START', 'COMBAT_END'].includes(messageType)
+              ? event.data
+              : undefined,
+          });
+        }
+
+        // Check for initialData message (mission metadata)
+        if (event.data?.data?.message?.type === 'initialData') {
+          this.missionMetadata = event.data.data.message.data?.missionMetadata;
+          devvitLogger.log('[SimpleAutomation] Mission metadata received', {
+            difficulty: this.missionMetadata?.mission?.difficulty,
+            environment: this.missionMetadata?.mission?.environment,
+            encounters: this.missionMetadata?.mission?.encounters?.length,
+          });
+        }
+
+        // Check for combat events
+        if (event.data?.type === 'COMBAT_START') {
+          this.inCombat = true;
+          devvitLogger.log('[SimpleAutomation] Combat started - pausing button clicks');
+        }
+
+        if (event.data?.type === 'COMBAT_END') {
+          this.inCombat = false;
+          devvitLogger.log('[SimpleAutomation] Combat ended - resuming automation');
+        }
+      } catch (error) {
+        // Log parsing errors
+        devvitLogger.error('[SimpleAutomation] Error parsing message', { error: String(error) });
+      }
+    });
   }
 
   /**
@@ -81,6 +140,10 @@ export class SimpleAutomationEngine {
     return {
       enabled: this.config.enabled,
       isProcessing: this.isProcessing,
+      inCombat: this.inCombat,
+      hasMissionMetadata: !!this.missionMetadata,
+      missionDifficulty: this.missionMetadata?.mission?.difficulty,
+      missionEnvironment: this.missionMetadata?.mission?.environment,
     };
   }
 
@@ -91,6 +154,12 @@ export class SimpleAutomationEngine {
     this.isProcessing = true;
 
     try {
+      // Skip if in combat (let the battle play out)
+      if (this.inCombat) {
+        this.isProcessing = false;
+        return;
+      }
+
       const buttons = this.findAllButtons();
 
       if (buttons.length === 0) {

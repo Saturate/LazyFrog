@@ -4,14 +4,91 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { enemyNames, mapNames } from '../data';
 
 interface GameControlPanelProps {
   gameState: any;
 }
 
+// Generate mission tags from metadata (like autotag userscript)
+function generateMissionTags(metadata: any): string {
+  if (!metadata?.mission) return '';
+
+  const mission = metadata.mission;
+  const encounters = mission.encounters || [];
+  const tags: string[] = [];
+
+  // Stars
+  tags.push(`${mission.difficulty}*`);
+
+  // Level range
+  tags.push(`${mission.minLevel} - ${mission.maxLevel}`);
+
+  // Map name
+  if (mission.environment && mapNames[mission.environment]) {
+    tags.push(mapNames[mission.environment]);
+  }
+
+  // Food name
+  if (mission.foodName) {
+    tags.push(mission.foodName);
+  }
+
+  // Boss rush
+  if (mission.type === 'bossRush') {
+    tags.push('boss rush');
+  }
+
+  // Process encounters
+  encounters.forEach((encounter: any) => {
+    if (encounter.type === 'crossroadsFight' && encounter.enemies?.[0]) {
+      let minibossTag = `miniboss ${enemyNames[encounter.enemies[0].type] || encounter.enemies[0].type}`;
+      if (mission.minLevel > 60) {
+        minibossTag = '2k ' + minibossTag;
+      } else if (mission.minLevel > 40) {
+        minibossTag = '1k ' + minibossTag;
+      }
+      tags.push(minibossTag);
+    } else if ((encounter.type === 'boss' || encounter.type === 'rushBoss') && encounter.enemies?.[0]) {
+      tags.push(`${enemyNames[encounter.enemies[0].type] || encounter.enemies[0].type} boss`);
+    } else if (encounter.type === 'investigate') {
+      tags.push('hut');
+    }
+  });
+
+  return tags.join(' | ');
+}
+
 const GameControlPanel: React.FC<GameControlPanelProps> = ({ gameState }) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
+  const [missionTags, setMissionTags] = useState<string>('');
+  const [copied, setCopied] = useState(false);
+
+  // Listen for mission metadata
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.data?.message?.type === 'initialData') {
+        const metadata = event.data.data.message.data?.missionMetadata;
+        if (metadata) {
+          const tags = generateMissionTags(metadata);
+          setMissionTags(tags);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const copyToClipboard = () => {
+    if (missionTags) {
+      navigator.clipboard.writeText(missionTags).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  };
 
   return (
     <div
@@ -87,6 +164,48 @@ const GameControlPanel: React.FC<GameControlPanelProps> = ({ gameState }) => {
               Auto-play mode
             </label>
           </div>
+
+          {/* Mission Tags */}
+          {missionTags && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '12px', color: '#FF6347' }}>
+                Mission Tags:
+              </div>
+              <div
+                onClick={copyToClipboard}
+                style={{
+                  padding: '8px',
+                  background: 'rgba(255,69,0,0.1)',
+                  border: '1px solid rgba(255,69,0,0.3)',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  wordWrap: 'break-word',
+                  position: 'relative',
+                }}
+                title="Click to copy"
+              >
+                {missionTags}
+                {copied && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      background: 'rgba(0,0,0,0.9)',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      color: '#0f0',
+                    }}
+                  >
+                    Copied!
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Buttons Found */}
           {gameState.buttons && gameState.buttons.length > 0 && (
