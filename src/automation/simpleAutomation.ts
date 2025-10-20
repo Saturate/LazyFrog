@@ -166,6 +166,7 @@ export class SimpleAutomationEngine {
         window.location.href = nextMission.permalink;
       } else {
         devvitLogger.log('[SimpleAutomation] No more uncleared missions - automation complete!');
+        alert('No more uncleared missions available. Automation stopped.');
         this.stop();
       }
     } catch (error) {
