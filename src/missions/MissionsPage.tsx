@@ -15,16 +15,30 @@ interface SortConfig {
 const MissionsPage: React.FC = () => {
   const [missions, setMissions] = useState<MissionRecord[]>([]);
   const [filteredMissions, setFilteredMissions] = useState<MissionRecord[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showCompleted, setShowCompleted] = useState(true);
-  const [showUncompleted, setShowUncompleted] = useState(true);
-  const [difficultyFilter, setDifficultyFilter] = useState<number[]>([
-    1, 2, 3, 4, 5,
-  ]);
-  const [showMiniboss, setShowMiniboss] = useState<boolean | null>(null); // null = show all, true = only with miniboss, false = only without
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    field: "timestamp",
-    direction: "desc",
+
+  // Load filter state from localStorage
+  const [searchQuery, setSearchQuery] = useState(() => {
+    return localStorage.getItem('missionsPage.searchQuery') || "";
+  });
+  const [showCompleted, setShowCompleted] = useState(() => {
+    const saved = localStorage.getItem('missionsPage.showCompleted');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [showUncompleted, setShowUncompleted] = useState(() => {
+    const saved = localStorage.getItem('missionsPage.showUncompleted');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [difficultyFilter, setDifficultyFilter] = useState<number[]>(() => {
+    const saved = localStorage.getItem('missionsPage.difficultyFilter');
+    return saved ? JSON.parse(saved) : [1, 2, 3, 4, 5];
+  });
+  const [showMiniboss, setShowMiniboss] = useState<boolean | null>(() => {
+    const saved = localStorage.getItem('missionsPage.showMiniboss');
+    return saved !== null ? JSON.parse(saved) : null;
+  });
+  const [sortConfig, setSortConfig] = useState<SortConfig>(() => {
+    const saved = localStorage.getItem('missionsPage.sortConfig');
+    return saved ? JSON.parse(saved) : { field: "timestamp", direction: "desc" };
   });
   const [stats, setStats] = useState({
     total: 0,
@@ -37,6 +51,31 @@ const MissionsPage: React.FC = () => {
   useEffect(() => {
     loadMissions();
   }, []);
+
+  // Save filters to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('missionsPage.searchQuery', searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    localStorage.setItem('missionsPage.showCompleted', JSON.stringify(showCompleted));
+  }, [showCompleted]);
+
+  useEffect(() => {
+    localStorage.setItem('missionsPage.showUncompleted', JSON.stringify(showUncompleted));
+  }, [showUncompleted]);
+
+  useEffect(() => {
+    localStorage.setItem('missionsPage.difficultyFilter', JSON.stringify(difficultyFilter));
+  }, [difficultyFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('missionsPage.showMiniboss', JSON.stringify(showMiniboss));
+  }, [showMiniboss]);
+
+  useEffect(() => {
+    localStorage.setItem('missionsPage.sortConfig', JSON.stringify(sortConfig));
+  }, [sortConfig]);
 
   // Filter and sort missions when data or filters change
   useEffect(() => {

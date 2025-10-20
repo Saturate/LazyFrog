@@ -17,6 +17,7 @@ export interface MissionRecord {
   cleared?: boolean;
   clearedAt?: number;
   permalink?: string;
+  finalLoot?: Array<{id: string; quantity: number}>; // Loot from final encounter
 }
 
 export interface UserOptions {
@@ -258,6 +259,43 @@ export async function markMissionCleared(postId: string): Promise<void> {
       if (missions[postId]) {
         missions[postId].cleared = true;
         missions[postId].clearedAt = Date.now();
+
+        chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve();
+          }
+        });
+      } else {
+        reject(new Error(`Mission ${postId} not found`));
+      }
+    });
+  });
+}
+
+/**
+ * Update mission with final loot data
+ */
+export async function updateMissionLoot(postId: string, loot: Array<{id: string; quantity: number}>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      reject(new Error('Extension context invalidated'));
+      return;
+    }
+
+    chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
+      // Check for errors on get
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+
+      const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
+
+      if (missions[postId]) {
+        missions[postId].finalLoot = loot;
 
         chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
           if (chrome.runtime.lastError) {

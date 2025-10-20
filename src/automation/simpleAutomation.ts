@@ -4,7 +4,7 @@
  */
 
 import { devvitLogger } from '../utils/logger';
-import { saveMission, MissionRecord, markMissionCleared, checkMissionClearedInDOM } from '../utils/storage';
+import { saveMission, MissionRecord, markMissionCleared, checkMissionClearedInDOM, updateMissionLoot } from '../utils/storage';
 import { enemyNames, mapNames } from '../data';
 
 export interface SimpleAutomationConfig {
@@ -244,8 +244,8 @@ export class SimpleAutomationEngine {
               hasMessageData: !!event.data?.data?.message?.data,
               topLevelKeys: Object.keys(event.data).slice(0, 20),
               messageKeys: event.data?.data?.message ? Object.keys(event.data.data.message).slice(0, 20) : [],
-              // Include full data for initialData messages
-              fullData: messageType === 'initialData' || messageType === 'initialDataInn'
+              // Include full data for initialData and encounterResult messages
+              fullData: messageType === 'initialData' || messageType === 'initialDataInn' || messageType === 'encounterResult'
                 ? event.data
                 : undefined,
             });
@@ -288,6 +288,33 @@ export class SimpleAutomationEngine {
           this.inCombat = false;
           devvitLogger.log('[SimpleAutomation] Combat ended - resuming automation');
           this.emitStateChange(); // Notify UI
+        }
+
+        // Check for encounter result with loot (final encounter)
+        // Try both possible message structures
+        const encounterResult =
+          (event.data?.data?.message?.type === 'encounterResult' && event.data.data.message.data) ||
+          (event.data?.type === 'devvit-message' && event.data?.data?.message?.type === 'encounterResult' && event.data.data.message.data);
+
+        if (encounterResult) {
+          devvitLogger.log('[SimpleAutomation] Encounter result received', {
+            victory: encounterResult.victory,
+            encounterIndex: encounterResult.encounterAction?.encounterIndex,
+            lootCount: encounterResult.encounterLoot?.length,
+          });
+
+          // If this is a victory and has loot, store it
+          if (encounterResult.victory && encounterResult.encounterLoot && this.currentPostId) {
+            devvitLogger.log('[SimpleAutomation] Storing final loot', {
+              postId: this.currentPostId,
+              loot: encounterResult.encounterLoot,
+            });
+            updateMissionLoot(this.currentPostId, encounterResult.encounterLoot).catch((error) => {
+              devvitLogger.error('[SimpleAutomation] Failed to update mission loot', {
+                error: String(error),
+              });
+            });
+          }
         }
 
         // Check for mission completion (missionComplete message)
