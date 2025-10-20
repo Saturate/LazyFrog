@@ -106,6 +106,15 @@ export function generateMissionMarkdown(mission: MissionRecord): string | null {
 
   markdown += `\n[View Mission](${mission.permalink})\n`;
 
+  // Add rewards section if we have loot data
+  if (mission.finalLoot && mission.finalLoot.length > 0) {
+    markdown += `\n**Rewards:** `;
+    const lootSummary = mission.finalLoot
+      .map(item => `${item.quantity}× ${formatLootName(item.id)}`)
+      .join(', ');
+    markdown += lootSummary + '\n';
+  }
+
   return markdown;
 }
 
@@ -281,4 +290,17 @@ function formatStatName(stat: string | undefined): string {
   };
 
   return names[stat] || stat;
+}
+
+/**
+ * Format loot item names for readability
+ */
+function formatLootName(itemId: string): string {
+  // Convert camelCase/PascalCase to readable format
+  // e.g., "BatteredBroadsword" -> "Battered Broadsword"
+  const readable = itemId
+    .replace(/([A-Z])/g, ' $1')
+    .trim();
+  
+  return readable;
 }
