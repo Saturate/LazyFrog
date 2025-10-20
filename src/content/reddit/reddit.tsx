@@ -72,6 +72,10 @@ function renderControlPanel(): void {
             type: 'START_BOT',
             filters: result.filters || filters,
           });
+
+          // Note: The background script will send NAVIGATE_TO_MISSION which handles
+          // opening the game (either by navigating or by calling initializeAutomation if already on page)
+          // No need to call initializeAutomation directly here - let NAVIGATE_TO_MISSION handle it
         });
       }}
       onStop={() => {
@@ -291,17 +295,66 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
             permalink: mission.permalink,
           });
 
-          chrome.runtime.sendMessage({
-            type: 'STATUS_UPDATE',
-            status: 'Navigating to mission %missionId%',
-            missionId: mission.postId,
-          });
+          // Check if we're already on this mission page
+          const currentPath = window.location.pathname;
+          const missionPath = new URL(mission.permalink).pathname;
 
-          window.location.href = mission.permalink;
-          sendResponse({
-            success: true,
-            message: `Navigating to: ${mission.tags || mission.postId}`,
-          });
+          if (currentPath === missionPath) {
+            // We're already on the mission page, just start the game instead of navigating
+            redditLogger.log('Already on mission page, starting game directly');
+            chrome.runtime.sendMessage({
+              type: 'STATUS_UPDATE',
+              status: 'Starting mission...',
+            });
+
+            // Ensure activeBotSession is set before calling initializeAutomation
+            // This guarantees the flag is in storage before we check for it
+            chrome.storage.local.get(['automationConfig'], (result) => {
+              redditLogger.log('[NAVIGATE_TO_MISSION] Setting activeBotSession flag', {
+                hasConfig: !!result.automationConfig,
+                filters: missionFilters
+              });
+
+              chrome.storage.local.set({
+                activeBotSession: true,
+                automationConfig: result.automationConfig || {},
+                automationFilters: missionFilters
+              }, () => {
+                redditLogger.log('[NAVIGATE_TO_MISSION] activeBotSession flag set, calling initializeAutomation');
+
+                // Verify the flag was actually set
+                chrome.storage.local.get(['activeBotSession'], (verifyResult) => {
+                  redditLogger.log('[NAVIGATE_TO_MISSION] Verified activeBotSession in storage', {
+                    active: verifyResult.activeBotSession
+                  });
+
+                  // Wait a bit for storage to fully propagate, then initialize
+                  setTimeout(() => {
+                    redditLogger.log('[NAVIGATE_TO_MISSION] About to call initializeAutomation');
+                    initializeAutomation();
+                  }, 300);
+                });
+              });
+            });
+
+            sendResponse({
+              success: true,
+              message: `Starting mission: ${mission.tags || mission.postId}`,
+            });
+          } else {
+            // Navigate to the mission page
+            chrome.runtime.sendMessage({
+              type: 'STATUS_UPDATE',
+              status: 'Navigating to mission %missionId%',
+              missionId: mission.postId,
+            });
+
+            window.location.href = mission.permalink;
+            sendResponse({
+              success: true,
+              message: `Navigating to: ${mission.tags || mission.postId}`,
+            });
+          }
         } else if (mission) {
           redditLogger.warn('Mission found but has no permalink', { postId: mission.postId });
           chrome.runtime.sendMessage({
@@ -446,9 +499,14 @@ redditLogger.log('Debug functions available: window.autoSupperDebug');
 
 // Use MutationObserver to detect when game loader appears instead of fixed delay
 const initializeAutomation = () => {
-  redditLogger.log('Checking for active bot session');
+  redditLogger.log('[initializeAutomation] Called - checking for active bot session');
 
   chrome.storage.local.get(['activeBotSession', 'automationConfig'], (result) => {
+    redditLogger.log('[initializeAutomation] Storage check result', {
+      hasActiveBotSession: !!result.activeBotSession,
+      hasAutomationConfig: !!result.automationConfig
+    });
+
     if (result.activeBotSession) {
       redditLogger.log('Active bot session detected, automatically opening mission');
 
