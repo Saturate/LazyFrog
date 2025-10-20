@@ -20,7 +20,7 @@ A modern Firefox/Chrome browser extension built with **TypeScript** and **React*
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
+- Node.js 20+ and pnpm
 - Firefox or Chrome browser
 
 ### Installation
@@ -282,22 +282,6 @@ See [docs/REDDIT_DATA_STRUCTURE.md](docs/REDDIT_DATA_STRUCTURE.md) for complete 
 - **Script doesn't run** → Check URL matches manifest pattern
 - **React not rendering** → Check console for errors
 - **Automation not starting** → Check debug mode logs, ensure mission has star difficulty
-
-## 📝 Type Safety
-
-Full TypeScript definitions for:
-- Chrome Extension APIs (`@types/chrome`)
-- React components
-- Extension messages
-- Level data structures
-- Filters and state management
-
-## 🔒 Privacy
-
-- Runs only on `reddit.com`
-- No external network requests
-- All data stored locally
-- No telemetry or tracking
 
 ## 📦 Building for Production
 
