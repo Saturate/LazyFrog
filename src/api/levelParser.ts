@@ -43,8 +43,9 @@ export function parseLevelFromAPI(post: RedditPost): Level | null {
 
     const finalStars = Math.max(stars, starsFromText);
 
-    // Check for completion indicators
-    const isCompleted =
+    // Check for cleared indicators
+    const cleared =
+      postText.toLowerCase().includes('cleared') ||
       postText.toLowerCase().includes('completed') ||
       postText.includes('✓') ||
       postText.includes('✔') ||
@@ -59,7 +60,7 @@ export function parseLevelFromAPI(post: RedditPost): Level | null {
       levelRangeMin,
       levelRangeMax,
       stars: finalStars,
-      isCompleted,
+      cleared,
     };
   } catch (error) {
     console.error('Error parsing level from API:', error);
@@ -109,8 +110,9 @@ export function parseLevelFromDOM(post: Element): Level | null {
 
     const finalStars = Math.max(stars, starsFromText);
 
-    // Check for completion
-    const isCompleted =
+    // Check for cleared
+    const cleared =
+      postText.toLowerCase().includes('cleared') ||
       postText.toLowerCase().includes('completed') ||
       postText.includes('✓') ||
       postText.includes('✔') ||
@@ -125,7 +127,7 @@ export function parseLevelFromDOM(post: Element): Level | null {
       levelRangeMin,
       levelRangeMax,
       stars: finalStars,
-      isCompleted,
+      cleared,
       element: post,
     };
   } catch (error) {

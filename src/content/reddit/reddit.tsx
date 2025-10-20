@@ -16,11 +16,18 @@ import {
   exploreGameLoader,
 } from './utils/reddit';
 import { redditLogger } from '../../utils/logger';
-import { getNextUncompletedMission } from '../../utils/storage';
+import { getNextUnclearedMission } from '../../utils/storage';
 
-redditLogger.log('Sword & Supper Bot content script loaded');
-redditLogger.log('Current URL', { url: window.location.href });
-redditLogger.log('Load time', { time: new Date().toISOString() });
+// Version and build info (replaced by webpack at build time)
+declare const __VERSION__: string;
+declare const __BUILD_TIME__: string;
+
+redditLogger.log('Sword & Supper Bot content script loaded', {
+  version: __VERSION__,
+  buildTime: __BUILD_TIME__,
+  url: window.location.href,
+  loadTime: new Date().toISOString(),
+});
 
 let root: Root | null = null;
 let isRunning = false;
@@ -112,7 +119,7 @@ function processLevels(): void {
       levelRange: l.levelRange,
       levelRangeMin: l.levelRangeMin,
       levelRangeMax: l.levelRangeMax,
-      isCompleted: l.isCompleted,
+      cleared: l.cleared,
       href: l.href,
     })),
   });
@@ -263,7 +270,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       redditLogger.log('Debug Step 1: Navigate to next uncompleted mission');
 
       // Get next uncompleted mission from database
-      getNextUncompletedMission().then((mission) => {
+      getNextUnclearedMission().then((mission: any) => {
         if (mission && mission.permalink) {
           redditLogger.log('Found uncompleted mission in database', {
             postId: mission.postId,

@@ -1,6 +1,8 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
+const packageJson = require('./package.json');
 
 module.exports = {
   entry: {
@@ -32,6 +34,10 @@ module.exports = {
     extensions: ['.tsx', '.ts', '.js'],
   },
   plugins: [
+    new webpack.DefinePlugin({
+      __VERSION__: JSON.stringify(packageJson.version),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    }),
     new HtmlWebpackPlugin({
       template: './src/popup/popup.html',
       filename: 'popup.html',

@@ -23,11 +23,55 @@ import {
 import { devvitLogger } from '../../utils/logger';
 import * as storage from '../../utils/storage';
 
-devvitLogger.log('Script loaded', { url: window.location.href });
+// Version and build info (replaced by webpack at build time)
+declare const __VERSION__: string;
+declare const __BUILD_TIME__: string;
+
+devvitLogger.log('Devvit content script loaded', {
+  version: __VERSION__,
+  buildTime: __BUILD_TIME__,
+  url: window.location.href,
+  loadTime: new Date().toISOString(),
+});
 
 let root: Root | null = null;
 let simpleAutomation: SimpleAutomationEngine | null = null;
 let metadataEngine: MissionAutomationEngine | null = null; // For capturing metadata only
+
+// Set up message listener IMMEDIATELY to catch initialData
+// This must be before the game sends the message!
+window.addEventListener('message', (event: MessageEvent) => {
+  try {
+    // Check for devvit-message with initialData
+    if (event.data?.type === 'devvit-message') {
+      const messageType = event.data?.data?.message?.type;
+
+      devvitLogger.log('[Devvit] 📨 devvit-message received (early listener)', {
+        messageType,
+        origin: event.origin,
+        hasMessageData: !!event.data?.data?.message?.data,
+        timestamp: new Date().toISOString(),
+      });
+
+      // If it's initialData, store it for later processing
+      if (messageType === 'initialData') {
+        devvitLogger.log('[Devvit] ✅ initialData captured!', {
+          postId: event.data?.data?.message?.data?.postId,
+          username: event.data?.data?.message?.data?.username,
+          difficulty: event.data?.data?.message?.data?.missionMetadata?.mission?.difficulty,
+          environment: event.data?.data?.message?.data?.missionMetadata?.mission?.environment,
+        });
+
+        // Store the data globally so we can access it after automation engine initializes
+        (window as any).__capturedInitialData = event.data.data.message.data;
+      }
+    }
+  } catch (error) {
+    devvitLogger.error('[Devvit] Error in early message listener', { error: String(error) });
+  }
+});
+
+devvitLogger.log('[Devvit] Early message listener installed');
 
 /**
  * Inject React control panel into the game
@@ -74,7 +118,7 @@ function initializeAutomation(): void {
   devvitLogger.log('Initializing automation engines');
 
   // Load config from storage
-  chrome.storage.local.get(['automationConfig'], (result) => {
+  chrome.storage.local.get(['automationConfig'], async (result) => {
     const config = result.automationConfig || {};
 
     // Initialize simple button-clicking automation
@@ -101,6 +145,28 @@ function initializeAutomation(): void {
 
     devvitLogger.log('Automation engines initialized');
     devvitLogger.log('Config', { config: simpleConfig });
+
+    // Check if we already captured initialData before the automation engine was ready
+    const capturedData = (window as any).__capturedInitialData;
+    if (capturedData) {
+      devvitLogger.log('[Devvit] Processing previously captured initialData', {
+        postId: capturedData.postId,
+        username: capturedData.username,
+      });
+
+      // Manually trigger the save since the automation engine wasn't listening yet
+      const missionMetadata = capturedData.missionMetadata;
+      const postId = capturedData.postId;
+      const username = capturedData.username;
+
+      if (missionMetadata && postId && simpleAutomation) {
+        // Save the captured mission data to database
+        await simpleAutomation.saveMissionToDatabase(postId, username, missionMetadata);
+      }
+
+      // Clear the captured data
+      delete (window as any).__capturedInitialData;
+    }
 
     // Notify background script that automation is ready
     chrome.runtime.sendMessage({
@@ -226,9 +292,9 @@ setTimeout(() => {
     getStats: storage.getStorageStats,
     getUserOptions: storage.getUserOptions,
     saveUserOptions: storage.saveUserOptions,
-    getNextUncompletedMission: storage.getNextUncompletedMission,
-    getUncompletedMissions: storage.getUncompletedMissions,
-    markCompleted: storage.markMissionCompleted,
+    getNextUnclearedMission: storage.getNextUnclearedMission,
+    getUnclearedMissions: storage.getUnclearedMissions,
+    markCleared: storage.markMissionCleared,
   },
 };
 

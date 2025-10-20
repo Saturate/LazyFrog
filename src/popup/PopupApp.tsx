@@ -45,7 +45,7 @@ const PopupApp: React.FC = () => {
   });
   const [currentTab, setCurrentTab] = useState<'control' | 'options' | 'missions'>('control');
   const [missions, setMissions] = useState<MissionRecord[]>([]);
-  const [missionStats, setMissionStats] = useState({ total: 0, completed: 0, uncompleted: 0 });
+  const [missionStats, setMissionStats] = useState({ total: 0, cleared: 0, uncleared: 0 });
 
   // Load missions from storage
   const loadMissions = async () => {
@@ -54,13 +54,13 @@ const PopupApp: React.FC = () => {
       const missionList = Object.values(allMissions).sort((a, b) => b.timestamp - a.timestamp); // Newest first
       setMissions(missionList);
 
-      const completed = missionList.filter(m => m.completed).length;
-      const uncompleted = missionList.filter(m => !m.completed).length;
+      const cleared = missionList.filter(m => m.cleared).length;
+      const uncleared = missionList.filter(m => !m.cleared).length;
 
       setMissionStats({
         total: missionList.length,
-        completed,
-        uncompleted,
+        cleared,
+        uncleared,
       });
     } catch (error) {
       console.error('[POPUP] Failed to load missions:', error);
@@ -261,7 +261,7 @@ const PopupApp: React.FC = () => {
           className={`tab ${currentTab === 'missions' ? 'active' : ''}`}
           onClick={() => setCurrentTab('missions')}
         >
-          📋 Missions ({missionStats.uncompleted}/{missionStats.total})
+          📋 Missions ({missionStats.uncleared}/{missionStats.total})
         </button>
         <button
           className={`tab ${currentTab === 'options' ? 'active' : ''}`}
@@ -402,7 +402,7 @@ const PopupApp: React.FC = () => {
                           {level.stars > 0 && `${'★'.repeat(level.stars)}`}
                           {level.levelRange && ` | ${level.levelRange}`}
                           {level.levelNumber && ` | Level ${level.levelNumber}`}
-                          {level.isCompleted && ' | ✓ Completed'}
+                          {level.cleared && ' | ✓ Cleared'}
                         </small>
                       </div>
                     ))}
@@ -426,11 +426,11 @@ const PopupApp: React.FC = () => {
                 <div style={{ fontSize: '12px', color: '#666' }}>Total Scanned</div>
               </div>
               <div style={{ flex: 1, padding: '12px', background: 'rgba(0, 200, 0, 0.1)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00c800' }}>{missionStats.completed}</div>
-                <div style={{ fontSize: '12px', color: '#666' }}>Completed</div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00c800' }}>{missionStats.cleared}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Cleared</div>
               </div>
               <div style={{ flex: 1, padding: '12px', background: 'rgba(255, 165, 0, 0.1)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffa500' }}>{missionStats.uncompleted}</div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffa500' }}>{missionStats.uncleared}</div>
                 <div style={{ fontSize: '12px', color: '#666' }}>Remaining</div>
               </div>
             </div>
@@ -450,12 +450,12 @@ const PopupApp: React.FC = () => {
             </p>
             {missions.length === 0 ? (
               <p className="help-text">No missions scanned yet. Play some missions to populate the database!</p>
-            ) : missions.filter(m => !m.completed && (m.difficulty ?? 0) > 0).length === 0 ? (
-              <p className="help-text">No uncompleted missions with difficulty data. Scroll Reddit to scan more!</p>
+            ) : missions.filter(m => !m.cleared && (m.difficulty ?? 0) > 0).length === 0 ? (
+              <p className="help-text">No uncleared missions with difficulty data. Scroll Reddit to scan more!</p>
             ) : (
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {missions
-                  .filter(m => !m.completed && (m.difficulty ?? 0) > 0)
+                  .filter(m => !m.cleared && (m.difficulty ?? 0) > 0)
                   .filter(m => {
                     // Apply current filters
                     if (!filters.stars.includes(m.difficulty || 0)) return false;
@@ -527,8 +527,47 @@ const PopupApp: React.FC = () => {
                   <span className="tier-drag-handle">⋮⋮</span>
                   <span className="tier-rank">{index + 1}</span>
                   <span className="tier-name">{ability}</span>
+                  <button
+                    className="btn-remove"
+                    onClick={() => {
+                      const newList = automationConfig.abilityTierList.filter((_, i) => i !== index);
+                      updateAutomationConfig('abilityTierList', newList);
+                    }}
+                    title="Remove ability"
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
+            </div>
+            <div className="form-group" style={{ marginTop: '12px' }}>
+              <label htmlFor="addAbility">Add ability:</label>
+              <select
+                id="addAbility"
+                onChange={(e) => {
+                  if (e.target.value && !automationConfig.abilityTierList.includes(e.target.value)) {
+                    updateAutomationConfig('abilityTierList', [...automationConfig.abilityTierList, e.target.value]);
+                  }
+                  e.target.value = '';
+                }}
+                defaultValue=""
+              >
+                <option value="">-- Select ability to add --</option>
+                <option value="IceKnifeOnTurnStart">Ice Knife (Turn Start)</option>
+                <option value="LightningOnTurnStart">Lightning (Turn Start)</option>
+                <option value="LightningOnCrit">Lightning (On Crit)</option>
+                <option value="DoubleLightningOnTurn">Double Lightning (On Turn)</option>
+                <option value="HealOnFirstTurn">Heal (First Turn)</option>
+                <option value="HealOnTurnStart">Heal (Turn Start)</option>
+                <option value="ShieldOnTurnStart">Shield (Turn Start)</option>
+                <option value="DodgeOnTurnStart">Dodge (Turn Start)</option>
+                <option value="CounterOnHit">Counter (On Hit)</option>
+                <option value="LifeStealOnHit">Life Steal (On Hit)</option>
+                <option value="BurnOnHit">Burn (On Hit)</option>
+                <option value="PoisonOnHit">Poison (On Hit)</option>
+                <option value="BleedOnCrit">Bleed (On Crit)</option>
+                <option value="FreezeOnHit">Freeze (On Hit)</option>
+              </select>
             </div>
           </div>
 

@@ -4,7 +4,7 @@
  */
 
 import { devvitLogger } from '../utils/logger';
-import { saveMission, MissionRecord, markMissionCompleted } from '../utils/storage';
+import { saveMission, MissionRecord, markMissionCleared, checkMissionClearedInDOM } from '../utils/storage';
 import { enemyNames, mapNames } from '../data';
 
 export interface SimpleAutomationConfig {
@@ -33,6 +33,7 @@ export class SimpleAutomationEngine {
   private isProcessing = false;
   private inCombat = false;
   private missionMetadata: any = null;
+  private currentPostId: string | null = null;
 
   constructor(config: SimpleAutomationConfig) {
     // Deep merge config, ensuring arrays are properly preserved
@@ -61,11 +62,16 @@ export class SimpleAutomationEngine {
 
   /**
    * Save mission to Chrome storage database
+   * Public so it can be called from content script when initialData is captured early
    */
-  private async saveMissionToDatabase(postId: string, username: string, metadata: any): Promise<void> {
+  public async saveMissionToDatabase(postId: string, username: string, metadata: any): Promise<void> {
     try {
       const mission = metadata.mission;
       if (!mission) return;
+
+      // Check if mission already exists
+      const { getMission } = await import('../utils/storage');
+      const existingMission = await getMission(postId);
 
       // Generate tags for the mission
       const tags = this.generateMissionTags(metadata);
@@ -75,10 +81,16 @@ export class SimpleAutomationEngine {
         ? `https://www.reddit.com/r/SwordAndSupperGame/comments/${postId.slice(3)}/`
         : undefined;
 
+      // Use mission author from metadata if available, otherwise use the provided username
+      // When enriching, preserve the original author from existing mission
+      const missionAuthor = existingMission?.username
+        || metadata.missionAuthorName
+        || username;
+
       const record: MissionRecord = {
         postId,
-        username,
-        timestamp: Date.now(),
+        username: missionAuthor,
+        timestamp: existingMission?.timestamp || Date.now(), // Keep original timestamp if updating
         metadata,
         tags,
         difficulty: mission.difficulty,
@@ -87,45 +99,61 @@ export class SimpleAutomationEngine {
         maxLevel: mission.maxLevel,
         foodName: mission.foodName,
         permalink,
-        completed: false,
+        cleared: existingMission?.cleared || false, // Preserve cleared status
       };
 
       await saveMission(record);
-      devvitLogger.log('[SimpleAutomation] Mission saved to database', {
-        postId,
-        difficulty: record.difficulty,
-        environment: record.environment,
-        tags,
-        permalink,
-      });
+
+      if (existingMission) {
+        // Updating existing mission with enriched metadata
+        devvitLogger.log('[SimpleAutomation] Mission metadata enriched', {
+          postId,
+          difficulty: record.difficulty,
+          environment: record.environment,
+          encounters: mission.encounters?.length,
+          tags,
+          hadMetadataBefore: !!existingMission.metadata,
+        });
+      } else {
+        // New mission discovered from playing (not previously scanned)
+        devvitLogger.log('[SimpleAutomation] 🆕 NEW MISSION discovered from gameplay', {
+          postId,
+          difficulty: record.difficulty,
+          environment: record.environment,
+          encounters: mission.encounters?.length,
+          tags,
+          permalink,
+          foodName: mission.foodName,
+        });
+      }
     } catch (error) {
       devvitLogger.error('[SimpleAutomation] Failed to save mission', { error: String(error) });
     }
   }
 
   /**
-   * Mark mission as completed in database
+   * Mark mission as cleared in database
    */
-  private async markMissionAsCompleted(postId: string): Promise<void> {
+  private async markMissionAsCleared(postId: string): Promise<void> {
     try {
-      await markMissionCompleted(postId);
-      devvitLogger.log('[SimpleAutomation] Mission marked as completed', { postId });
+      await markMissionCleared(postId);
+      devvitLogger.log('[SimpleAutomation] Mission marked as cleared', { postId });
     } catch (error) {
-      devvitLogger.error('[SimpleAutomation] Failed to mark mission completed', { error: String(error) });
+      devvitLogger.error('[SimpleAutomation] Failed to mark mission cleared', { error: String(error) });
     }
   }
 
   /**
-   * Navigate directly to the next uncompleted mission
+   * Navigate directly to the next uncleared mission
    * This avoids going back to the listing page
    */
   private async navigateToNextMission(): Promise<void> {
     try {
-      devvitLogger.log('[SimpleAutomation] Getting next uncompleted mission...');
+      devvitLogger.log('[SimpleAutomation] Getting next uncleared mission...');
 
       // Dynamically import to avoid circular dependencies
-      const { getNextUncompletedMission } = await import('../utils/storage');
-      const nextMission = await getNextUncompletedMission();
+      const { getNextUnclearedMission } = await import('../utils/storage');
+      const nextMission = await getNextUnclearedMission();
 
       if (nextMission && nextMission.permalink) {
         devvitLogger.log('[SimpleAutomation] Navigating to next mission', {
@@ -137,7 +165,7 @@ export class SimpleAutomationEngine {
         // Navigate directly to next mission (avoids listing page reload)
         window.location.href = nextMission.permalink;
       } else {
-        devvitLogger.log('[SimpleAutomation] No more uncompleted missions - automation complete!');
+        devvitLogger.log('[SimpleAutomation] No more uncleared missions - automation complete!');
         this.stop();
       }
     } catch (error) {
@@ -202,36 +230,40 @@ export class SimpleAutomationEngine {
   private setupMessageListener(): void {
     window.addEventListener('message', (event: MessageEvent) => {
       try {
-        // Log ALL game messages to server for debugging (but not to console)
+        // Log ALL messages to understand what's coming through
         if (event.data) {
-          // Determine message type for categorization
-          let messageType = 'unknown';
-          if (event.data?.data?.message?.type) {
-            messageType = event.data.data.message.type;
-          } else if (event.data?.type) {
-            messageType = event.data.type;
-          }
+          // Check if this is a devvit-message (the format the game uses)
+          const isDevvitMessage = event.data?.type === 'devvit-message';
+          const messageType = event.data?.data?.message?.type;
 
-          // Log to server (simplified for storage)
-          devvitLogger.log(`[GameMessage:${messageType}]`, {
-            type: messageType,
-            hasData: !!event.data.data,
-            origin: event.origin,
-            dataKeys: Object.keys(event.data).slice(0, 10), // First 10 keys
-            // Include full data for important messages
-            fullData: ['initialData', 'COMBAT_START', 'COMBAT_END'].includes(messageType)
-              ? event.data
-              : undefined,
-          });
+          // Log devvit-messages with more detail
+          if (isDevvitMessage) {
+            devvitLogger.log('[SimpleAutomation] 📨 devvit-message received', {
+              origin: event.origin,
+              messageType: messageType,
+              hasMessageData: !!event.data?.data?.message?.data,
+              topLevelKeys: Object.keys(event.data).slice(0, 20),
+              messageKeys: event.data?.data?.message ? Object.keys(event.data.data.message).slice(0, 20) : [],
+              // Include full data for initialData messages
+              fullData: messageType === 'initialData' || messageType === 'initialDataInn'
+                ? event.data
+                : undefined,
+            });
+          }
         }
 
         // Check for initialData message (mission metadata)
-        if (event.data?.data?.message?.type === 'initialData') {
+        // Using the EXACT structure the game uses: event.data.type === "devvit-message"
+        if (event.data?.type === 'devvit-message' && event.data?.data?.message?.type === 'initialData') {
           this.missionMetadata = event.data.data.message.data?.missionMetadata;
           const postId = event.data.data.message.data?.postId;
           const username = event.data.data.message.data?.username;
 
+          // Store postId for later use (e.g., marking as cleared)
+          this.currentPostId = postId;
+
           devvitLogger.log('[SimpleAutomation] Mission metadata received', {
+            postId,
             difficulty: this.missionMetadata?.mission?.difficulty,
             environment: this.missionMetadata?.mission?.environment,
             encounters: this.missionMetadata?.mission?.encounters?.length,
@@ -259,11 +291,13 @@ export class SimpleAutomationEngine {
         }
 
         // Check for mission completion (missionComplete message)
-        if (event.data?.data?.message?.type === 'missionComplete') {
+        // Support both message structures
+        if (event.data?.data?.message?.type === 'missionComplete' ||
+            (event.data?.type === 'devvit-message' && event.data?.data?.message?.type === 'missionComplete')) {
           const postId = event.data.data.message.data?.postId;
-          if (postId && this.missionMetadata) {
-            devvitLogger.log('[SimpleAutomation] Mission completed!', { postId });
-            this.markMissionAsCompleted(postId);
+          if (postId) {
+            devvitLogger.log('[SimpleAutomation] Mission cleared!', { postId });
+            this.markMissionAsCleared(postId);
           }
         }
       } catch (error) {
@@ -331,12 +365,38 @@ export class SimpleAutomationEngine {
   }
 
   /**
+   * Check if mission is cleared by looking for cleared indicators in the DOM
+   */
+  private checkMissionCleared(): void {
+    // Use utility function to check DOM
+    const clearedImage = checkMissionClearedInDOM();
+    if (clearedImage) {
+      devvitLogger.log('[SimpleAutomation] Mission cleared detected via DOM (cleared image found)');
+
+      // Get postId - prioritize the one we stored when initialData was received
+      const postId = this.currentPostId;
+
+      if (postId) {
+        devvitLogger.log('[SimpleAutomation] Marking mission as cleared', { postId });
+        this.markMissionAsCleared(postId);
+        // Clear the postId so we don't mark it again
+        this.currentPostId = null;
+      } else {
+        devvitLogger.warn('[SimpleAutomation] Mission appears cleared but no postId available');
+      }
+    }
+  }
+
+  /**
    * Main logic - detect game state first, then click appropriate button
    */
   private async processButtons(): Promise<void> {
     this.isProcessing = true;
 
     try {
+      // Check for mission completion indicators
+      this.checkMissionCleared();
+
       // Skip if in combat (let the battle play out)
       if (this.inCombat) {
         this.isProcessing = false;
@@ -350,14 +410,14 @@ export class SimpleAutomationEngine {
         return;
       }
 
-      // Log buttons for debugging (less verbose than before)
-      devvitLogger.log('[SimpleAutomation] Found buttons', {
-        buttons: buttons.map(b => `${b.className}: "${b.textContent?.trim()}"`),
-        count: buttons.length
-      });
-
       // STEP 1: Detect game state based on available buttons
       const gameState = this.detectGameState(buttons);
+
+      // Skip logging for in-progress state (combat happening) to reduce spam
+      if (gameState === 'in_progress') {
+        this.isProcessing = false;
+        return;
+      }
 
       if (gameState === 'unknown') {
         devvitLogger.log('[SimpleAutomation] Unknown game state, skipping', {
@@ -367,7 +427,12 @@ export class SimpleAutomationEngine {
         return;
       }
 
-      devvitLogger.log('[SimpleAutomation] Detected game state', { state: gameState });
+      // Log actionable states with button info
+      devvitLogger.log('[SimpleAutomation] Detected game state', {
+        state: gameState,
+        buttons: buttons.map(b => `${b.className}: "${b.textContent?.trim()}"`),
+        count: buttons.length
+      });
 
       // STEP 2: Click the appropriate button based on detected state
       const clickedButton = this.clickForState(gameState, buttons);
@@ -399,8 +464,8 @@ export class SimpleAutomationEngine {
       return 'skip';
     }
 
-    // Check for finish button (mission complete)
-    if (buttonTexts.some(t => t === 'finish' || t.includes('finish'))) {
+    // Check for finish/dismiss button (mission complete)
+    if (buttonTexts.some(t => t === 'finish' || t.includes('finish') || t === 'dismiss' || t.includes('dismiss'))) {
       return 'finish';
     }
 
@@ -428,6 +493,11 @@ export class SimpleAutomationEngine {
     // Check for battle/advance buttons
     if (buttonClasses.some(c => c.includes('advance-button'))) {
       return 'battle';
+    }
+
+    // Check for in-progress state (combat happening, showing volume/settings buttons)
+    if (buttonClasses.some(c => c.includes('volume-icon-button') || c.includes('ui-settings-button'))) {
+      return 'in_progress';
     }
 
     return 'unknown';
@@ -686,12 +756,12 @@ export class SimpleAutomationEngine {
     if (finishButton) {
       this.clickElement(finishButton);
 
-      // Mark mission as completed when clicking Finish
+      // Mark mission as cleared when clicking Finish
       if (this.missionMetadata?.postId) {
-        devvitLogger.log('[SimpleAutomation] Mission completed! Clicking Finish button', {
+        devvitLogger.log('[SimpleAutomation] Mission cleared! Clicking Finish button', {
           postId: this.missionMetadata.postId
         });
-        this.markMissionAsCompleted(this.missionMetadata.postId);
+        this.markMissionAsCleared(this.missionMetadata.postId);
 
         // Navigate to next mission after a short delay
         setTimeout(() => {

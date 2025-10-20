@@ -12,7 +12,7 @@ export interface Level {
   levelRangeMin: number | null;
   levelRangeMax: number | null;
   stars: number; // 1-5 star difficulty rating
-  isCompleted: boolean;
+  cleared: boolean;
   element?: Element;
 }
 

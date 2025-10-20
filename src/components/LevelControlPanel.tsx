@@ -251,7 +251,7 @@ const LevelControlPanel: React.FC<LevelControlPanelProps> = ({
                   style={{
                     padding: '12px',
                     marginBottom: '8px',
-                    background: level.isCompleted ? '#f5f5f5' : '#fafafa',
+                    background: level.cleared ? '#f5f5f5' : '#fafafa',
                     borderLeft: `4px solid ${getStarColor(level.stars)}`,
                     borderRadius: '6px',
                     cursor: 'pointer',
@@ -261,7 +261,7 @@ const LevelControlPanel: React.FC<LevelControlPanelProps> = ({
                     e.currentTarget.style.background = '#f0f0f0';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = level.isCompleted ? '#f5f5f5' : '#fafafa';
+                    e.currentTarget.style.background = level.cleared ? '#f5f5f5' : '#fafafa';
                   }}
                 >
                   <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px', color: '#333' }}>
@@ -284,7 +284,7 @@ const LevelControlPanel: React.FC<LevelControlPanelProps> = ({
                     )}
                     {level.levelRange && <span>{level.levelRange}</span>}
                     {level.levelNumber && <span> • Level {level.levelNumber}</span>}
-                    {level.isCompleted && <span> • ✓ Completed</span>}
+                    {level.cleared && <span> • ✓ Cleared</span>}
                   </div>
                 </div>
               ))

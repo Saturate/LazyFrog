@@ -79,12 +79,13 @@ export function parseLevelFromPost(post: Element): Level | null {
     // Stars are deep in nested shadow DOMs:
     // post -> loader -> loader.shadowRoot -> surface -> surface.shadowRoot -> renderer -> renderer.shadowRoot
     let starDifficulty = 0;
-    
+    let isCleared = false;
+
     const devvitLoader = post.querySelector('shreddit-devvit-ui-loader');
     if (devvitLoader) {
       // Check if preview is still loading
       const isLoading = devvitLoader.textContent?.includes('Loading');
-      
+
       // Navigate through nested shadow DOMs to find the renderer
       if (devvitLoader.shadowRoot) {
         const surface = devvitLoader.shadowRoot.querySelector('devvit-surface');
@@ -94,7 +95,17 @@ export function parseLevelFromPost(post: Element): Level | null {
             // Count filled star images (ap8a5ghsvyre1.png)
             const filledStars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
             starDifficulty = filledStars.length;
-            
+
+            // Check for cleared banner (cleared/done image)
+            const clearedImages = renderer.shadowRoot.querySelectorAll('img[src*="fxlui9egtgbf1.png"]');
+            if (clearedImages.length > 0) {
+              isCleared = true;
+              redditLogger.log('Mission marked as cleared (cleared banner detected)', {
+                title: title.substring(0, 50),
+                postId,
+              });
+            }
+
             // DEBUG: Log successful parse
             if (starDifficulty > 0) {
               redditLogger.log('Parsed star difficulty', {
@@ -117,13 +128,17 @@ export function parseLevelFromPost(post: Element): Level | null {
       }
     }
 
-    // Check for completion indicators in title
-    const isCompleted =
+    // Cleared check is already done above in the shadow DOM parsing (isCleared variable)
+    // Also check for cleared indicators in title as fallback
+    const isTitleCleared =
+      title.toLowerCase().includes('cleared') ||
       title.toLowerCase().includes('completed') ||
       title.includes('✓') ||
       title.includes('✔') ||
       title.includes('[done]') ||
       title.toLowerCase().includes('solved');
+
+    const finalCleared = isCleared || isTitleCleared;
 
     const href = permalink ? `https://www.reddit.com${permalink}` : null;
 
@@ -137,7 +152,7 @@ export function parseLevelFromPost(post: Element): Level | null {
       levelRangeMin,
       levelRangeMax,
       stars: starDifficulty,
-      isCompleted,
+      cleared: finalCleared,
       element: post,
     };
   } catch (error) {
@@ -160,35 +175,63 @@ async function saveScannedMission(level: Level): Promise<void> {
     return;
   }
 
+  // Skip missions with no difficulty rating (0 stars = preview not loaded yet)
+  if (!level.stars || level.stars === 0) {
+    redditLogger.log('Skipping mission - no difficulty rating yet', {
+      title: level.title.substring(0, 50),
+      postId: level.postId,
+    });
+    return;
+  }
+
   try {
+    // Check if mission already exists in database
+    const { getMission } = await import('../../../utils/storage');
+    const existingMission = await getMission(level.postId);
+
+    // Check if cleared status changed
+    if (existingMission && !existingMission.cleared && level.cleared) {
+      redditLogger.log('Mission cleared status detected - updating database', {
+        postId: level.postId,
+        title: level.title.substring(0, 50),
+      });
+
+      // Mark as cleared in database
+      const { markMissionCleared } = await import('../../../utils/storage');
+      await markMissionCleared(level.postId);
+    }
+
     const record: MissionRecord = {
       postId: level.postId,
-      username: level.author || 'unknown',
-      timestamp: Date.now(),
-      metadata: null, // Will be filled when mission is played
-      tags: undefined,
-      difficulty: level.stars, // May be 0 if preview hasn't loaded yet
-      environment: undefined, // Unknown until played
+      username: existingMission?.username || level.author || 'unknown', // Preserve original author
+      timestamp: existingMission?.timestamp || Date.now(), // Preserve original timestamp
+      metadata: existingMission?.metadata || null, // Preserve metadata if exists
+      tags: existingMission?.tags,
+      difficulty: level.stars,
+      environment: existingMission?.environment,
       minLevel: level.levelRangeMin || undefined,
       maxLevel: level.levelRangeMax || undefined,
-      foodName: level.title, // Use title as placeholder until we have real food name
+      foodName: existingMission?.foodName || level.title,
       permalink: level.href,
-      completed: false,
+      cleared: level.cleared || false,
+      clearedAt: existingMission?.clearedAt, // Preserve clearedAt timestamp
     };
 
     await saveMission(record);
-    
+
     // COMBINED LOG: Parse + Save success
     redditLogger.log(`Saved mission: ${level.postId}`, {
       title: level.title.substring(0, 50),
       starDifficulty: level.stars,
       levelRange: level.levelRange,
       author: level.author,
+      cleared: level.cleared,
     });
   } catch (error) {
     // ERROR LOG: Show full object
     redditLogger.error('Failed to save mission', {
-      error: String(error),
+      error: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
       level: {
         title: level.title,
         postId: level.postId,
@@ -235,7 +278,10 @@ export function getAllLevels(): Level[] {
           savedCount++;
         })
         .catch(err => {
-          redditLogger.error('Failed to save mission', { error: String(err) });
+          redditLogger.error('Failed to save mission', {
+            error: err instanceof Error ? err.message : String(err),
+            postId: level.postId
+          });
           skippedCount++;
         });
     } else {
@@ -287,8 +333,8 @@ export function filterLevels(levels: Level[], filters: LevelFilters): Level[] {
       }
     }
 
-    // Completion filter
-    if (filters.onlyIncomplete && level.isCompleted) {
+    // Cleared filter
+    if (filters.onlyIncomplete && level.cleared) {
       return false;
     }
 

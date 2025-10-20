@@ -14,8 +14,8 @@ export interface MissionRecord {
   minLevel?: number;
   maxLevel?: number;
   foodName?: string;
-  completed?: boolean;
-  completedAt?: number;
+  cleared?: boolean;
+  clearedAt?: number;
   permalink?: string;
 }
 
@@ -42,7 +42,19 @@ const STORAGE_KEYS = {
  */
 export async function saveMission(mission: MissionRecord): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      reject(new Error('Extension context invalidated'));
+      return;
+    }
+
     chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
+      // Check for errors on get
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+
       const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
 
       // Use postId as key to avoid duplicates
@@ -224,16 +236,28 @@ export async function getStorageStats(): Promise<{
 }
 
 /**
- * Mark a mission as completed
+ * Mark a mission as cleared
  */
-export async function markMissionCompleted(postId: string): Promise<void> {
+export async function markMissionCleared(postId: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      reject(new Error('Extension context invalidated'));
+      return;
+    }
+
     chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
+      // Check for errors on get
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+
       const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
 
       if (missions[postId]) {
-        missions[postId].completed = true;
-        missions[postId].completedAt = Date.now();
+        missions[postId].cleared = true;
+        missions[postId].clearedAt = Date.now();
 
         chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
           if (chrome.runtime.lastError) {
@@ -250,23 +274,34 @@ export async function markMissionCompleted(postId: string): Promise<void> {
 }
 
 /**
- * Get next uncompleted mission
+ * Check if mission is cleared by looking for cleared indicators in the DOM
+ * Returns the cleared image element if found, null otherwise
  */
-export async function getNextUncompletedMission(): Promise<MissionRecord | null> {
-  const missions = await getAllMissions();
-  const uncompletedMissions = Object.values(missions)
-    .filter(m => !m.completed && (m.difficulty ?? 0) > 0) // Only return missions with star difficulty data
-    .sort((a, b) => a.timestamp - b.timestamp); // Oldest first
-
-  return uncompletedMissions[0] || null;
+export function checkMissionClearedInDOM(): HTMLImageElement | null {
+  // Check for cleared image (the cleared/done banner)
+  // This image appears when a mission has been cleared
+  const clearedImages = Array.from(document.querySelectorAll('img[src*="fxlui9egtgbf1.png"]')) as HTMLImageElement[];
+  return clearedImages.length > 0 ? clearedImages[0] : null;
 }
 
 /**
- * Get all uncompleted missions
+ * Get next uncleared mission
  */
-export async function getUncompletedMissions(): Promise<MissionRecord[]> {
+export async function getNextUnclearedMission(): Promise<MissionRecord | null> {
+  const missions = await getAllMissions();
+  const unclearedMissions = Object.values(missions)
+    .filter(m => !m.cleared && (m.difficulty ?? 0) > 0) // Only return missions with star difficulty data
+    .sort((a, b) => a.timestamp - b.timestamp); // Oldest first
+
+  return unclearedMissions[0] || null;
+}
+
+/**
+ * Get all uncleared missions
+ */
+export async function getUnclearedMissions(): Promise<MissionRecord[]> {
   const missions = await getAllMissions();
   return Object.values(missions)
-    .filter(m => !m.completed)
+    .filter(m => !m.cleared)
     .sort((a, b) => a.timestamp - b.timestamp); // Oldest first
 }

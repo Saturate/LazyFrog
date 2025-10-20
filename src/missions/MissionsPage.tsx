@@ -4,6 +4,7 @@ import {
   clearAllMissions,
   MissionRecord,
 } from "../utils/storage";
+import { generateMissionMarkdown } from "./missionMarkdown";
 import "./missions.css";
 
 interface SortConfig {
@@ -20,14 +21,15 @@ const MissionsPage: React.FC = () => {
   const [difficultyFilter, setDifficultyFilter] = useState<number[]>([
     1, 2, 3, 4, 5,
   ]);
+  const [showMiniboss, setShowMiniboss] = useState<boolean | null>(null); // null = show all, true = only with miniboss, false = only without
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     field: "timestamp",
     direction: "desc",
   });
   const [stats, setStats] = useState({
     total: 0,
-    completed: 0,
-    uncompleted: 0,
+    cleared: 0,
+    uncleared: 0,
     byDifficulty: {} as Record<number, number>,
   });
 
@@ -40,12 +42,12 @@ const MissionsPage: React.FC = () => {
   useEffect(() => {
     let filtered = missions;
 
-    // Filter by completion status
+    // Filter by cleared status
     if (!showCompleted) {
-      filtered = filtered.filter((m) => !m.completed);
+      filtered = filtered.filter((m) => !m.cleared);
     }
     if (!showUncompleted) {
-      filtered = filtered.filter((m) => m.completed);
+      filtered = filtered.filter((m) => m.cleared);
     }
 
     // Filter by difficulty
@@ -53,6 +55,16 @@ const MissionsPage: React.FC = () => {
       const diff = m.difficulty || 0;
       return diff === 0 || difficultyFilter.includes(diff);
     });
+
+    // Filter by miniboss presence
+    if (showMiniboss !== null) {
+      filtered = filtered.filter((m) => {
+        const hasMiniboss = m.metadata?.mission?.encounters?.some(
+          (enc: any) => enc.type === 'crossroadsFight'
+        );
+        return showMiniboss ? hasMiniboss : !hasMiniboss;
+      });
+    }
 
     // Filter by search query
     if (searchQuery) {
@@ -118,7 +130,7 @@ const MissionsPage: React.FC = () => {
     setMissions(missionArray);
 
     // Calculate stats
-    const completed = missionArray.filter((m) => m.completed).length;
+    const cleared = missionArray.filter((m) => m.cleared).length;
     const byDifficulty: Record<number, number> = {};
     missionArray.forEach((m) => {
       const diff = m.difficulty || 0;
@@ -127,8 +139,8 @@ const MissionsPage: React.FC = () => {
 
     setStats({
       total: missionArray.length,
-      completed,
-      uncompleted: missionArray.length - completed,
+      cleared,
+      uncleared: missionArray.length - cleared,
       byDifficulty,
     });
   };
@@ -152,6 +164,23 @@ const MissionsPage: React.FC = () => {
     }.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleCopyMarkdown = (mission: MissionRecord) => {
+    const markdown = generateMissionMarkdown(mission);
+
+    if (!markdown) {
+      alert('No metadata available for this mission. Play it once to capture metadata.');
+      return;
+    }
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(markdown).then(() => {
+      alert('Mission metadata copied to clipboard!');
+    }).catch(err => {
+      console.error('Failed to copy to clipboard:', err);
+      alert('Failed to copy to clipboard. Please check browser permissions.');
+    });
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,12 +280,12 @@ const MissionsPage: React.FC = () => {
           <div className="stat-label">Total Missions</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{stats.uncompleted}</div>
-          <div className="stat-label">Uncompleted</div>
+          <div className="stat-value">{stats.uncleared}</div>
+          <div className="stat-label">Uncleared</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{stats.completed}</div>
-          <div className="stat-label">Completed</div>
+          <div className="stat-value">{stats.cleared}</div>
+          <div className="stat-label">Cleared</div>
         </div>
         {[1, 2, 3, 4, 5].map((diff) => (
           <div key={diff} className="stat-card">
@@ -320,8 +349,39 @@ const MissionsPage: React.FC = () => {
         </div>
 
         <div className="filter-group">
+          <label>Miniboss:</label>
+          <label className="checkbox-label">
+            <input
+              type="radio"
+              name="miniboss"
+              checked={showMiniboss === null}
+              onChange={() => setShowMiniboss(null)}
+            />
+            All
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="radio"
+              name="miniboss"
+              checked={showMiniboss === true}
+              onChange={() => setShowMiniboss(true)}
+            />
+            🔱 With Miniboss
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="radio"
+              name="miniboss"
+              checked={showMiniboss === false}
+              onChange={() => setShowMiniboss(false)}
+            />
+            No Miniboss
+          </label>
+        </div>
+
+        <div className="filter-group">
           <button onClick={handleExport} className="btn-primary">
-            📥 Export Missions
+            📥 Export JSON
           </button>
           <label className="btn-primary file-input-label">
             📤 Import Missions
@@ -363,6 +423,7 @@ const MissionsPage: React.FC = () => {
               <th onClick={() => handleSort("minLevel")} className="sortable">
                 Level {getSortIcon("minLevel")}
               </th>
+              <th>Metadata</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -371,7 +432,7 @@ const MissionsPage: React.FC = () => {
             {filteredMissions.map((mission) => (
               <tr
                 key={mission.postId}
-                className={mission.completed ? "completed" : ""}
+                className={mission.cleared ? "completed" : ""}
               >
                 <td className="date-cell">{formatDate(mission.timestamp)}</td>
                 <td className="mission-cell">
@@ -389,9 +450,20 @@ const MissionsPage: React.FC = () => {
                     ? `${mission.minLevel}-${mission.maxLevel}`
                     : "N/A"}
                 </td>
+                <td style={{ textAlign: 'center' }}>
+                  {mission.metadata?.mission?.encounters ? (
+                    <span title={`${mission.metadata.mission.encounters.length} encounters`} style={{ cursor: 'help' }}>
+                      ✅
+                    </span>
+                  ) : (
+                    <span title="No metadata - play mission to capture" style={{ cursor: 'help', opacity: 0.4 }}>
+                      📊
+                    </span>
+                  )}
+                </td>
                 <td>
-                  {mission.completed ? (
-                    <span className="status-badge completed">✓ Completed</span>
+                  {mission.cleared ? (
+                    <span className="status-badge completed">✓ Cleared</span>
                   ) : (
                     <span className="status-badge uncompleted">○ Pending</span>
                   )}
@@ -405,6 +477,13 @@ const MissionsPage: React.FC = () => {
                   >
                     🔗 Open
                   </a>
+                  <button
+                    onClick={() => handleCopyMarkdown(mission)}
+                    className="btn-link"
+                    style={{ marginLeft: '8px', cursor: 'pointer', border: 'none', background: 'none' }}
+                  >
+                    📋 Copy Markdown
+                  </button>
                 </td>
               </tr>
             ))}
