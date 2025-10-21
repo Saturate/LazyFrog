@@ -124,14 +124,16 @@ export const botMachine = setup({
     // Set completion reason
     setCompletionReason: assign({
       completionReason: ({ event }) => {
+        let reason: 'stopped' | 'no_missions' | 'error' | null = null;
         if (event.type === 'STOP_BOT') {
-          return 'stopped';
+          reason = 'stopped' as const;
         } else if (event.type === 'NO_MISSIONS_FOUND') {
-          return 'no_missions';
+          reason = 'no_missions' as const;
         } else if (event.type === 'ERROR_OCCURRED') {
-          return 'error';
+          reason = 'error' as const;
         }
-        return null;
+        console.log('[BotStateMachine] Setting completion reason', { event: event.type, reason });
+        return reason;
       },
     }),
 
