@@ -30,6 +30,7 @@ import {
   initializeScrollScanning,
 } from "./utils/scanning";
 import { initializeDebugFunctions } from "./utils/debug";
+import { installAPIInterceptor } from "./utils/apiInterceptor";
 
 // UI components
 import { getStatusText } from "./ui/statusText";
@@ -717,10 +718,12 @@ const observer = new MutationObserver((mutations) => {
 // Start observing when body is available
 startObserving(currentBotState);
 
-// Initialize scroll-based scanning
-initializeScrollScanning();
+// Initialize API interceptor to capture mission data from gRPC-Web requests
+// This is MORE RELIABLE than DOM scanning!
+installAPIInterceptor();
 
-redditLogger.log("Scroll-based scanning enabled");
+// DOM scanning disabled - API interception is the primary method now
+// initializeScrollScanning();
 
 // Initialize control panel when DOM is ready
 if (document.readyState === "loading") {
