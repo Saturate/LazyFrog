@@ -1,14 +1,13 @@
 /**
- * Popup UI for Sword & Supper Bot
- * React-based extension popup
+ * Options Page Entry Point
  */
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import PopupAppNew from './PopupAppNew';
+import OptionsPage from './OptionsPage';
 
 const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
-  root.render(<PopupAppNew />);
+  root.render(<OptionsPage />);
 }

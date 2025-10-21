@@ -132,6 +132,92 @@ export async function clearAllMissions(): Promise<void> {
 }
 
 /**
+ * Import missions from JSON data
+ * @param jsonData - JSON string or object containing mission data
+ * @param mode - 'merge' to keep existing missions, 'replace' to overwrite all
+ * @returns Object with import statistics
+ */
+export async function importMissions(
+  jsonData: string | any,
+  mode: 'merge' | 'replace' = 'merge'
+): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  const stats = { imported: 0, skipped: 0, errors: [] as string[] };
+
+  try {
+    // Parse JSON if it's a string
+    let data: any;
+    if (typeof jsonData === 'string') {
+      data = JSON.parse(jsonData);
+    } else {
+      data = jsonData;
+    }
+
+    // Get existing missions
+    const existingMissions = mode === 'merge' ? await getAllMissions() : {};
+
+    // Handle different data formats
+    let missionsToImport: Record<string, MissionRecord> = {};
+
+    if (Array.isArray(data)) {
+      // Array of missions
+      data.forEach((mission: any) => {
+        if (mission.postId) {
+          missionsToImport[mission.postId] = mission;
+        }
+      });
+    } else if (typeof data === 'object') {
+      // Could be object with postId keys or wrapped data
+      if (data.missions) {
+        missionsToImport = data.missions;
+      } else {
+        missionsToImport = data;
+      }
+    }
+
+    // Validate and import missions
+    for (const [postId, mission] of Object.entries(missionsToImport)) {
+      try {
+        // Basic validation
+        if (!mission.postId || !mission.timestamp) {
+          stats.errors.push(`Invalid mission data for ${postId}`);
+          stats.skipped++;
+          continue;
+        }
+
+        // Check if already exists in merge mode
+        if (mode === 'merge' && existingMissions[postId]) {
+          stats.skipped++;
+          continue;
+        }
+
+        // Add to existing missions
+        existingMissions[postId] = mission;
+        stats.imported++;
+      } catch (err) {
+        stats.errors.push(`Error importing ${postId}: ${err}`);
+        stats.skipped++;
+      }
+    }
+
+    // Save all missions back to storage
+    await new Promise<void>((resolve, reject) => {
+      chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: existingMissions }, () => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    return stats;
+  } catch (err) {
+    stats.errors.push(`Parse error: ${err}`);
+    return stats;
+  }
+}
+
+/**
  * Get mission count
  */
 export async function getMissionCount(): Promise<number> {
@@ -405,4 +491,71 @@ export async function getUnclearedMissions(): Promise<MissionRecord[]> {
   return Object.values(missions)
     .filter(m => !m.cleared)
     .sort((a, b) => a.timestamp - b.timestamp); // Oldest first
+}
+
+/**
+ * Get mission statistics
+ */
+export async function getMissionStats(): Promise<{
+  queued: number;      // Uncleared missions matching current filters
+  total: number;       // All missions
+  cleared: number;     // Cleared missions
+  uncleared: number;   // Uncleared missions
+  todayCleared: number; // Missions cleared today
+}> {
+  const missions = await getAllMissions();
+  const missionArray = Object.values(missions);
+
+  // Get current filters from storage
+  const result = await chrome.storage.local.get(['filters']);
+  const currentFilters = result.filters || {
+    stars: [1, 2],
+    minLevel: 1,
+    maxLevel: 340,
+  };
+
+  // Calculate basic stats
+  const cleared = missionArray.filter(m => m.cleared).length;
+  const uncleared = missionArray.length - cleared;
+
+  // Today's cleared missions (last 24 hours)
+  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const todayCleared = missionArray.filter(m =>
+    m.cleared && m.clearedAt && m.clearedAt > oneDayAgo
+  ).length;
+
+  // Queued missions (uncleared + matching filters)
+  const queued = missionArray.filter(m => {
+    if (m.cleared) return false;
+
+    // Star difficulty filter
+    if (currentFilters.stars && currentFilters.stars.length > 0) {
+      if (!currentFilters.stars.includes(m.difficulty || 0)) {
+        return false;
+      }
+    }
+
+    // Level range filter
+    if (currentFilters.minLevel !== undefined && m.minLevel !== undefined) {
+      if (m.minLevel < currentFilters.minLevel) {
+        return false;
+      }
+    }
+
+    if (currentFilters.maxLevel !== undefined && m.maxLevel !== undefined) {
+      if (m.maxLevel > currentFilters.maxLevel) {
+        return false;
+      }
+    }
+
+    return true;
+  }).length;
+
+  return {
+    queued,
+    total: missionArray.length,
+    cleared,
+    uncleared,
+    todayCleared,
+  };
 }
