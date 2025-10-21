@@ -1,4 +1,4 @@
-# Debugging Guide - AutoSupper Extension
+# Debugging Guide - LazyFrog Extension
 
 ## Remote Logging Server (SQLite3)
 
@@ -12,7 +12,7 @@ node debug-server.js
 
 The server will show:
 ```
-🚀 AutoSupper Debug Server (SQLite3)
+🚀 LazyFrog Debug Server (SQLite3)
    Listening on http://localhost:7856
 📦 Database: /Users/AKJ/code/AutoSupper/debug-logs.db
 📊 Total logs in database: 13
@@ -388,7 +388,7 @@ See `docs/REDDIT_API_USAGE.md` for complete migration guide.
 When debugging, log structured data:
 
 ```typescript
-console.log('🔍 AutoSupper Debug Info:', {
+console.log('🔍 LazyFrog Debug Info:', {
   scriptLoaded: true,
   url: window.location.href,
   postsFound: posts.length,

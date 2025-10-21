@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AutoSupper extension now includes **mission automation** that can automatically play through Sword & Supper missions. The automation uses DOM-based detection to identify encounter types and make decisions based on configured strategies.
+The LazyFrog extension now includes **mission automation** that can automatically play through Sword & Supper missions. The automation uses DOM-based detection to identify encounter types and make decisions based on configured strategies.
 
 ## Features
 

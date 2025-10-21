@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AutoSupper bot uses XState v5 to manage its automation flow through a state machine that lives in the **background service worker**. This architecture eliminates race conditions, provides clear state transitions, and ensures state persists across page navigations.
+The LazyFrog bot uses XState v5 to manage its automation flow through a state machine that lives in the **background service worker**. This architecture eliminates race conditions, provides clear state transitions, and ensures state persists across page navigations.
 
 ## Why Background Service Worker?
 

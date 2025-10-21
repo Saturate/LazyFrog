@@ -1,6 +1,6 @@
 # Initialization Patterns and Best Practices
 
-This document describes patterns for handling asynchronous initialization and message queuing in the AutoSupper extension.
+This document describes patterns for handling asynchronous initialization and message queuing in the LazyFrog extension.
 
 ## Problem: Race Conditions During Initialization
 
