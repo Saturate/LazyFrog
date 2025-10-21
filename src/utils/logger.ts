@@ -4,172 +4,178 @@
  */
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
-export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT';
+export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT' | 'DEVVIT-GIAE';
 
 interface LogEntry {
-  timestamp: string;
-  context: LogContext;
-  level: LogLevel;
-  message: string;
-  data?: any;
+	timestamp: string;
+	context: LogContext;
+	level: LogLevel;
+	message: string;
+	data?: any;
 }
 
 interface LoggerConfig {
-  context: LogContext;
-  remoteLogging: boolean;
-  remoteUrl: string;
-  consoleLogging: boolean;
+	context: LogContext;
+	remoteLogging: boolean;
+	remoteUrl: string;
+	consoleLogging: boolean;
 }
 
 class Logger {
-  private config: LoggerConfig;
+	private config: LoggerConfig;
 
-  constructor(context: LogContext, config?: Partial<Omit<LoggerConfig, 'context'>>) {
-    this.config = {
-      context,
-      remoteLogging: config?.remoteLogging ?? true,
-      remoteUrl: config?.remoteUrl ?? 'http://localhost:7856/log',
-      consoleLogging: config?.consoleLogging ?? true,
-    };
+	constructor(context: LogContext, config?: Partial<Omit<LoggerConfig, 'context'>>) {
+		this.config = {
+			context,
+			remoteLogging: config?.remoteLogging ?? true,
+			remoteUrl: config?.remoteUrl ?? 'http://localhost:7856/log',
+			consoleLogging: config?.consoleLogging ?? true,
+		};
 
-    // Load remote logging setting from storage
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.get(['automationConfig'], (result) => {
-        if (result.automationConfig?.remoteLogging !== undefined) {
-          this.config.remoteLogging = result.automationConfig.remoteLogging;
-        }
-      });
+		// Load remote logging setting from storage
+		if (typeof chrome !== 'undefined' && chrome.storage) {
+			chrome.storage.local.get(['automationConfig'], (result) => {
+				if (result.automationConfig?.remoteLogging !== undefined) {
+					this.config.remoteLogging = result.automationConfig.remoteLogging;
+				}
+			});
 
-      // Listen for changes to remote logging setting
-      chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName === 'local' && changes.automationConfig?.newValue?.remoteLogging !== undefined) {
-          this.config.remoteLogging = changes.automationConfig.newValue.remoteLogging;
-        }
-      });
-    }
-  }
+			// Listen for changes to remote logging setting
+			chrome.storage.onChanged.addListener((changes, areaName) => {
+				if (
+					areaName === 'local' &&
+					changes.automationConfig?.newValue?.remoteLogging !== undefined
+				) {
+					this.config.remoteLogging = changes.automationConfig.newValue.remoteLogging;
+				}
+			});
+		}
+	}
 
-  /**
-   * Send log to remote server
-   */
-  private async sendToRemote(entry: LogEntry): Promise<void> {
-    if (!this.config.remoteLogging) return;
+	/**
+	 * Send log to remote server
+	 */
+	private async sendToRemote(entry: LogEntry): Promise<void> {
+		if (!this.config.remoteLogging) return;
 
-    try {
-      await fetch(this.config.remoteUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(entry),
-      }).catch(() => {
-        // Silently fail if remote server is not available
-        // We don't want to break the extension if the debug server is down
-      });
-    } catch (error) {
-      // Silently fail
-    }
-  }
+		try {
+			await fetch(this.config.remoteUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(entry),
+			}).catch(() => {
+				// Silently fail if remote server is not available
+				// We don't want to break the extension if the debug server is down
+			});
+		} catch (error) {
+			// Silently fail
+		}
+	}
 
-  /**
-   * Format message with prefix
-   */
-  private formatMessage(message: string): string {
-    return `[${this.config.context}] ${message}`;
-  }
+	/**
+	 * Format message with prefix
+	 */
+	private formatMessage(message: string): string {
+		return `[${this.config.context}] ${message}`;
+	}
 
-  /**
-   * Serialize data for logging
-   */
-  private serializeData(data: any): any {
-    if (data === undefined) return undefined;
+	/**
+	 * Serialize data for logging
+	 */
+	private serializeData(data: any): any {
+		if (data === undefined) return undefined;
 
-    try {
-      // Try to stringify and parse to clean up circular references
-      return JSON.parse(JSON.stringify(data));
-    } catch (error) {
-      // If that fails, return a string representation
-      return String(data);
-    }
-  }
+		try {
+			// Try to stringify and parse to clean up circular references
+			return JSON.parse(JSON.stringify(data));
+		} catch (error) {
+			// If that fails, return a string representation
+			return String(data);
+		}
+	}
 
-  /**
-   * Core logging function
-   */
-  private logInternal(level: LogLevel, message: string, data?: any): void {
-    const formattedMessage = this.formatMessage(message);
-    const entry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      context: this.config.context,
-      level,
-      message,
-      data: this.serializeData(data),
-    };
+	/**
+	 * Core logging function
+	 */
+	private logInternal(level: LogLevel, message: string, data?: any): void {
+		const formattedMessage = this.formatMessage(message);
+		const entry: LogEntry = {
+			timestamp: new Date().toISOString(),
+			context: this.config.context,
+			level,
+			message,
+			data: this.serializeData(data),
+		};
 
-    // Log to console using appropriate method
-    if (this.config.consoleLogging) {
-      const consoleMethod = console[level] || console.log;
-      if (data !== undefined) {
-        consoleMethod(formattedMessage, data);
-      } else {
-        consoleMethod(formattedMessage);
-      }
-    }
+		// Log to console using appropriate method
+		if (this.config.consoleLogging) {
+			const consoleMethod = console[level] || console.log;
+			if (data !== undefined) {
+				consoleMethod(formattedMessage, data);
+			} else {
+				consoleMethod(formattedMessage);
+			}
+		}
 
-    // Send to remote server (non-blocking)
-    this.sendToRemote(entry);
-  }
+		// Send to remote server (non-blocking)
+		this.sendToRemote(entry);
+	}
 
-  /**
-   * Public logging methods
-   */
-  log(message: string, data?: any): void {
-    this.logInternal('log', message, data);
-  }
+	/**
+	 * Public logging methods
+	 */
+	log(message: string, data?: any): void {
+		this.logInternal('log', message, data);
+	}
 
-  info(message: string, data?: any): void {
-    this.logInternal('info', message, data);
-  }
+	info(message: string, data?: any): void {
+		this.logInternal('info', message, data);
+	}
 
-  warn(message: string, data?: any): void {
-    this.logInternal('warn', message, data);
-  }
+	warn(message: string, data?: any): void {
+		this.logInternal('warn', message, data);
+	}
 
-  error(message: string, data?: any): void {
-    this.logInternal('error', message, data);
-  }
+	error(message: string, data?: any): void {
+		this.logInternal('error', message, data);
+	}
 
-  debug(message: string, data?: any): void {
-    this.logInternal('debug', message, data);
-  }
+	debug(message: string, data?: any): void {
+		this.logInternal('debug', message, data);
+	}
 
-  /**
-   * Update logger configuration
-   */
-  setConfig(config: Partial<Omit<LoggerConfig, 'context'>>): void {
-    this.config = { ...this.config, ...config };
-  }
+	/**
+	 * Update logger configuration
+	 */
+	setConfig(config: Partial<Omit<LoggerConfig, 'context'>>): void {
+		this.config = { ...this.config, ...config };
+	}
 
-  /**
-   * Enable/disable remote logging
-   */
-  setRemoteLogging(enabled: boolean): void {
-    this.config.remoteLogging = enabled;
-  }
+	/**
+	 * Enable/disable remote logging
+	 */
+	setRemoteLogging(enabled: boolean): void {
+		this.config.remoteLogging = enabled;
+	}
 
-  /**
-   * Enable/disable console logging
-   */
-  setConsoleLogging(enabled: boolean): void {
-    this.config.consoleLogging = enabled;
-  }
+	/**
+	 * Enable/disable console logging
+	 */
+	setConsoleLogging(enabled: boolean): void {
+		this.config.consoleLogging = enabled;
+	}
 }
 
 /**
  * Factory function to create loggers for different contexts
  */
-export function createLogger(context: LogContext, config?: Partial<Omit<LoggerConfig, 'context'>>): Logger {
-  return new Logger(context, config);
+export function createLogger(
+	context: LogContext,
+	config?: Partial<Omit<LoggerConfig, 'context'>>,
+): Logger {
+	return new Logger(context, config);
 }
 
 /**
@@ -179,3 +185,4 @@ export const popupLogger = createLogger('POPUP');
 export const extensionLogger = createLogger('EXT');
 export const redditLogger = createLogger('REDDIT');
 export const devvitLogger = createLogger('DEVVIT');
+export const devvitGIAELogger = createLogger('DEVVIT-GIAE');

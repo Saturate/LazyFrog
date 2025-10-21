@@ -13,27 +13,58 @@ export const scannedPostIds = new Set<string>();
 const postObservers = new Map<string, MutationObserver>();
 
 /**
- * Check if a post's shadow DOM is ready for scanning
+ * Check if a post's Devvit UI is ready for scanning
+ * The UI can be in shadow DOM OR regular DOM
  */
 function isPostShadowDOMReady(post: Element): boolean {
+  const postId = post.getAttribute("id");
   const devvitLoader = post.querySelector("shreddit-devvit-ui-loader");
-  if (!devvitLoader) return false;
+  if (!devvitLoader) {
+    redditLogger.log("No devvit loader", { postId });
+    return false; // No loader at all
+  }
 
-  // Check if still showing "Loading" text
-  if (devvitLoader.textContent?.includes("Loading")) return false;
+  // Check if showing "Loading ..." text WITHOUT actual content yet
+  // (Sometimes "Loading" text stays even after content loads)
+  const hasLoadingText = devvitLoader.textContent?.includes("Loading");
+  const hasActualContent = devvitLoader.querySelector('div[class*="dark"]') !== null;
 
-  // Check if shadow DOM hierarchy exists
-  if (!devvitLoader.shadowRoot) return false;
+  if (hasLoadingText && !hasActualContent) {
+    redditLogger.log("Still loading (no content yet)", { postId });
+    return false; // Still loading
+  }
 
-  const surface = devvitLoader.shadowRoot.querySelector("devvit-surface");
-  if (!surface?.shadowRoot) return false;
+  // Check shadow DOM path first
+  if (devvitLoader.shadowRoot) {
+    redditLogger.log("Found loader shadowRoot", { postId });
+    const surface = devvitLoader.shadowRoot.querySelector("devvit-surface");
+    if (surface) {
+      redditLogger.log("Found devvit-surface", { postId, hasShadowRoot: !!surface.shadowRoot });
+      if (surface.shadowRoot) {
+        const renderer = surface.shadowRoot.querySelector("devvit-blocks-renderer");
+        if (renderer) {
+          redditLogger.log("Found devvit-blocks-renderer", { postId, hasShadowRoot: !!renderer.shadowRoot });
+          if (renderer.shadowRoot) {
+            const stars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
+            redditLogger.log("Checked for stars", { postId, starCount: stars.length });
+            if (stars.length > 0) {
+              redditLogger.log("✓ Ready to scan (shadow DOM with stars)", { postId, stars: stars.length });
+              return true;
+            }
+          }
+        } else {
+          redditLogger.log("No devvit-blocks-renderer found", { postId });
+        }
+      }
+    } else {
+      redditLogger.log("No devvit-surface found", { postId });
+    }
+  } else {
+    redditLogger.log("No loader shadowRoot", { postId });
+  }
 
-  const renderer = surface.shadowRoot.querySelector("devvit-blocks-renderer");
-  if (!renderer?.shadowRoot) return false;
-
-  // Check if stars are rendered
-  const stars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
-  return stars.length > 0;
+  // No fallback - we MUST have shadow DOM with stars
+  return false;
 }
 
 /**
@@ -144,19 +175,31 @@ function observePost(post: Element): void {
   // Try immediate scan first
   scanPost(post);
 
-  // Set up mutation observer to watch for shadow DOM changes
-  const observer = new MutationObserver((mutations) => {
-    // Check if shadow DOM is now ready
+  // Use polling to check for shadow DOM readiness
+  // MutationObserver can't see inside shadow roots, so we poll
+  let attempts = 0;
+  const maxAttempts = 20; // Try for ~10 seconds
+  const checkInterval = 500; // Check every 500ms
+
+  const intervalId = setInterval(() => {
+    attempts++;
+
+    // Try to scan
     scanPost(post);
-  });
 
-  // Observe the post and its devvit loader
-  observer.observe(post, {
-    childList: true,
-    subtree: true,
-  });
+    // Stop if scanned successfully or max attempts reached
+    if (scannedPostIds.has(postId) || attempts >= maxAttempts) {
+      clearInterval(intervalId);
+      postObservers.delete(postId);
 
-  postObservers.set(postId, observer);
+      if (attempts >= maxAttempts && !scannedPostIds.has(postId)) {
+        redditLogger.warn("Gave up scanning post after max attempts", { postId, attempts });
+      }
+    }
+  }, checkInterval);
+
+  // Store the interval ID so we can clean it up
+  postObservers.set(postId, { disconnect: () => clearInterval(intervalId) } as any);
 
   redditLogger.log("Started observing post", { postId });
 }
@@ -178,8 +221,23 @@ function scanVisiblePosts(): void {
  * Watches for new posts to appear and scans them when shadow DOM is ready
  */
 export function initializeScrollScanning(): void {
-  // Scan initial posts
-  scanVisiblePosts();
+  // Wait for DOM to be ready, then scan initial posts
+  const waitForPosts = () => {
+    const posts = document.querySelectorAll("shreddit-post");
+    if (posts.length > 0) {
+      redditLogger.log("Initial posts found, starting scan", { count: posts.length });
+      scanVisiblePosts();
+    } else {
+      redditLogger.log("No posts yet, will wait for MutationObserver");
+    }
+  };
+
+  // Try immediate scan
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', waitForPosts);
+  } else {
+    waitForPosts();
+  }
 
   // Watch for new posts being added to the page
   const pageObserver = new MutationObserver((mutations) => {
@@ -188,22 +246,36 @@ export function initializeScrollScanning(): void {
         if (node instanceof Element) {
           // Check if the added node is a post
           if (node.tagName === "SHREDDIT-POST") {
+            redditLogger.log("New post detected via mutation", { postId: node.getAttribute("id") });
             observePost(node);
           }
 
           // Check if the added node contains posts
           const posts = node.querySelectorAll?.("shreddit-post");
-          posts?.forEach((post) => observePost(post));
+          if (posts && posts.length > 0) {
+            redditLogger.log("Container with posts added", { postCount: posts.length });
+            posts.forEach((post) => observePost(post));
+          }
         }
       }
     }
   });
 
-  // Observe the entire document for new posts
-  pageObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
+  // Observe the entire document for new posts (wait for body to exist)
+  const startPageObserver = () => {
+    if (document.body) {
+      pageObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+      redditLogger.log("Page observer started");
+    } else {
+      redditLogger.warn("document.body not available yet, retrying...");
+      setTimeout(startPageObserver, 100);
+    }
+  };
+
+  startPageObserver();
 
   // Also re-scan on scroll (to catch posts that were off-screen)
   let scrollTimeout: number | null = null;
