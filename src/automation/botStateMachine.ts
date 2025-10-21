@@ -186,6 +186,7 @@ export const botMachine = setup({
 		// IDLE: Bot is stopped, no automation
 		// ========================================================================
 		idle: {
+			description: 'Bot is stopped, no automation',
 			entry: ['resetContext', 'logTransition'],
 			on: {
 				START_BOT: {
