@@ -22,6 +22,30 @@ import {
   markMissionCleared,
 } from "../../utils/storage";
 
+// Utility functions
+import { safeSendMessage } from "./utils/messaging";
+import {
+  scannedPostIds,
+  scanForNewMissions,
+  initializeScrollScanning,
+} from "./utils/scanning";
+import { initializeDebugFunctions } from "./utils/debug";
+
+// UI components
+import { getStatusText } from "./ui/statusText";
+import {
+  renderControlPanel,
+  unmountControlPanel,
+  initializeControlPanel,
+} from "./ui/controlPanel";
+
+// Game interaction
+import { clickGameUI, waitForElement } from "./game/gameInteraction";
+import {
+  checkForExistingLoader,
+  startObserving,
+} from "./game/loaderDetection";
+
 // Version and build info (replaced by webpack at build time)
 declare const __VERSION__: string;
 declare const __BUILD_TIME__: string;
@@ -34,173 +58,6 @@ redditLogger.log("Sword & Supper Bot content script loaded", {
 });
 
 let root: Root | null = null;
-
-// ============================================================================
-// Extension Context Error Handling
-// ============================================================================
-
-/**
- * Safely send message to background script with proper error handling
- * Shows user-friendly message if extension context is invalidated
- */
-function safeSendMessage(
-  message: any,
-  callback?: (response: any) => void
-): void {
-  try {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        handleExtensionContextError(chrome.runtime.lastError);
-        return;
-      }
-      if (callback) {
-        callback(response);
-      }
-    });
-  } catch (error) {
-    handleExtensionContextError(error);
-  }
-}
-
-/**
- * Handle extension context invalidation with user-friendly message
- */
-function handleExtensionContextError(error: any): void {
-  const errorMsg = String(error.message || error);
-
-  if (errorMsg.includes("Extension context invalidated")) {
-    // Show user-friendly notification
-    showExtensionReloadNotification();
-
-    redditLogger.log(
-      "[ExtensionContext] Extension was updated/reloaded, page needs refresh",
-      {
-        error: errorMsg,
-        url: window.location.href,
-      }
-    );
-  } else {
-    redditLogger.error("[ExtensionContext] Runtime error", {
-      error: errorMsg,
-    });
-  }
-}
-
-/**
- * Show notification to user that extension was updated
- */
-function showExtensionReloadNotification(): void {
-  // Remove any existing notification
-  const existingNotification = document.getElementById(
-    "autosupper-reload-notification"
-  );
-  if (existingNotification) {
-    existingNotification.remove();
-  }
-
-  // Create notification banner
-  const notification = document.createElement("div");
-  notification.id = "autosupper-reload-notification";
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 16px 24px;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    max-width: 400px;
-    animation: slideIn 0.3s ease-out;
-  `;
-
-  notification.innerHTML = `
-    <div style="display: flex; align-items: start; gap: 12px;">
-      <div style="font-size: 24px;">🔄</div>
-      <div style="flex: 1;">
-        <div style="font-weight: 600; margin-bottom: 4px;">AutoSupper Extension Updated</div>
-        <div style="font-size: 13px; opacity: 0.95; margin-bottom: 12px;">
-          The extension was updated or reloaded. Please refresh this page to continue using the bot.
-        </div>
-        <button id="autosupper-reload-btn" style="
-          background: white;
-          color: #667eea;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 6px;
-          font-weight: 600;
-          cursor: pointer;
-          font-size: 13px;
-          transition: transform 0.2s;
-        ">
-          Reload Page Now
-        </button>
-      </div>
-      <button id="autosupper-close-notification" style="
-        background: transparent;
-        border: none;
-        color: white;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 0;
-        line-height: 1;
-        opacity: 0.8;
-        transition: opacity 0.2s;
-      ">×</button>
-    </div>
-  `;
-
-  // Add animation keyframes
-  const style = document.createElement("style");
-  style.textContent = `
-    @keyframes slideIn {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    #autosupper-reload-btn:hover {
-      transform: scale(1.05);
-    }
-    #autosupper-close-notification:hover {
-      opacity: 1;
-    }
-  `;
-  document.head.appendChild(style);
-
-  document.body.appendChild(notification);
-
-  // Add event listeners
-  const reloadBtn = document.getElementById("autosupper-reload-btn");
-  const closeBtn = document.getElementById("autosupper-close-notification");
-
-  if (reloadBtn) {
-    reloadBtn.addEventListener("click", () => {
-      window.location.reload();
-    });
-  }
-
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      notification.remove();
-    });
-  }
-
-  // Auto-dismiss after 30 seconds
-  setTimeout(() => {
-    if (notification.parentElement) {
-      notification.style.animation = "slideOut 0.3s ease-in";
-      setTimeout(() => notification.remove(), 300);
-    }
-  }, 30000);
-}
 
 // ============================================================================
 // State Tracking (Actual state machine lives in background service worker)
@@ -300,331 +157,6 @@ chrome.storage.local.get(["activeBotSession"], (result) => {
   }
 });
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Wait for an element to appear in the DOM using MutationObserver
- * More efficient than polling with setTimeout/setInterval
- */
-function waitForElement(
-  selector: string,
-  timeout: number = 5000,
-  rootElement: Element | Document = document
-): Promise<Element | null> {
-  return new Promise((resolve) => {
-    // Check if element already exists
-    const existingElement = rootElement.querySelector(selector);
-    if (existingElement) {
-      resolve(existingElement);
-      return;
-    }
-
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      observer.disconnect();
-      resolve(null);
-    }, timeout);
-
-    // Set up MutationObserver
-    const observer = new MutationObserver(() => {
-      const element = rootElement.querySelector(selector);
-      if (element) {
-        clearTimeout(timeoutId);
-        observer.disconnect();
-        resolve(element);
-      }
-    });
-
-    // Start observing
-    const targetNode = rootElement === document ? document.body : rootElement;
-    if (targetNode) {
-      observer.observe(targetNode, {
-        childList: true,
-        subtree: true,
-      });
-    } else {
-      clearTimeout(timeoutId);
-      resolve(null);
-    }
-  });
-}
-
-/**
- * Get human-readable status text for current state
- */
-function getStatusText(state: string, context: any): string {
-  switch (state) {
-    case "idle":
-      // Show reason for being idle if available
-      if (context?.completionReason === "no_missions") {
-        return "Idle - No more missions";
-      } else if (context?.completionReason === "stopped") {
-        return "Idle - Stopped";
-      } else if (context?.completionReason === "error") {
-        return `Idle - Error: ${context?.errorMessage || "Unknown"}`;
-      }
-      return "Idle";
-    case "starting":
-      return "Starting...";
-    case "navigating":
-      return "Navigating...";
-    case "waitingForGame":
-      return "Waiting for game...";
-    case "openingGame":
-      return "Opening game...";
-    case "gameReady":
-      return "Starting automation...";
-    case "running":
-      return "Running";
-    case "completing":
-      return "Finding next mission...";
-    case "error":
-      return `Error: ${context?.errorMessage || "Unknown"}`;
-    default:
-      return "Unknown state";
-  }
-}
-
-/**
- * Check for existing game loader and report to background
- */
-function checkForExistingLoader(): boolean {
-  const existingLoader = document.querySelector("shreddit-devvit-ui-loader");
-  if (existingLoader) {
-    redditLogger.log("[checkForExistingLoader] Game loader found in DOM", {
-      state: currentBotState,
-    });
-    safeSendMessage({ type: "GAME_LOADER_DETECTED" });
-    return true;
-  }
-
-  // Loader not found yet, make sure observer is active
-  redditLogger.log(
-    "[checkForExistingLoader] Loader not found, ensuring observer is active"
-  );
-  if (document.body) {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-  return false;
-}
-
-/**
- * Click the game UI to open the mission dialog
- */
-async function clickGameUI(): Promise<boolean> {
-  const loader = document.querySelector("shreddit-devvit-ui-loader");
-  if (!loader) {
-    redditLogger.warn("[clickGameUI] No loader found");
-    chrome.runtime.sendMessage({
-      type: "ERROR_OCCURRED",
-      message: "Game loader not found",
-    });
-    return false;
-  }
-
-  // Wait for shadow DOM to render (retry up to 10 times with 500ms delay)
-  let clickableContainer: Element | null | undefined = null;
-  for (let i = 0; i < 10; i++) {
-    // Navigate deep into shadow DOM to find clickable container
-    const surface = loader.shadowRoot?.querySelector("devvit-surface");
-    const renderer = surface?.shadowRoot?.querySelector(
-      "devvit-blocks-renderer"
-    );
-    clickableContainer = renderer?.shadowRoot?.querySelector(".cursor-pointer");
-
-    if (clickableContainer) {
-      redditLogger.log("[clickGameUI] Found clickable container on attempt", {
-        attempt: i + 1,
-      });
-      break;
-    }
-
-    redditLogger.log("[clickGameUI] Shadow DOM not ready, waiting...", {
-      attempt: i + 1,
-    });
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-
-  if (clickableContainer) {
-    redditLogger.log("[clickGameUI] Found clickable container, clicking");
-    (clickableContainer as HTMLElement).click();
-
-    // Wait for fullscreen controls to appear using MutationObserver
-    const fullscreenControls = await waitForElement(
-      "devvit-fullscreen-web-view-controls",
-      3000
-    );
-
-    if (fullscreenControls) {
-      redditLogger.log(
-        "[clickGameUI] Fullscreen controls found, waiting for animation to complete"
-      );
-
-      // Wait for animation to complete (dialog slide-in, etc.)
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      redditLogger.log(
-        "[clickGameUI] Exploring shadow DOM for fullscreen button",
-        {
-          hasShadowRoot: !!fullscreenControls.shadowRoot,
-        }
-      );
-
-      const sizeControls = fullscreenControls.shadowRoot?.querySelector(
-        "devvit-web-view-preview-size-controls"
-      );
-      redditLogger.log("[clickGameUI] Size controls", {
-        found: !!sizeControls,
-        hasShadowRoot: !!sizeControls?.shadowRoot,
-      });
-
-      // Try multiple selectors for the fullscreen button
-      let fullscreenButton = sizeControls?.shadowRoot?.querySelector(
-        'button[aria-label="Toggle fullscreen web view"]'
-      ) as HTMLElement;
-
-      if (!fullscreenButton) {
-        // Try without aria-label
-        fullscreenButton = sizeControls?.shadowRoot?.querySelector(
-          "button"
-        ) as HTMLElement;
-        redditLogger.log("[clickGameUI] Tried generic button selector", {
-          found: !!fullscreenButton,
-        });
-      }
-
-      if (!fullscreenButton) {
-        // Try in fullscreenControls directly
-        fullscreenButton = fullscreenControls.shadowRoot?.querySelector(
-          "button"
-        ) as HTMLElement;
-        redditLogger.log("[clickGameUI] Tried button in fullscreenControls", {
-          found: !!fullscreenButton,
-        });
-      }
-
-      if (fullscreenButton) {
-        redditLogger.log("[clickGameUI] Clicking fullscreen button");
-        fullscreenButton.click();
-
-        // Wait a bit for fullscreen to engage, then signal dialog opened
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        safeSendMessage({ type: "GAME_DIALOG_OPENED" });
-      } else {
-        redditLogger.error(
-          "[clickGameUI] Fullscreen button not found after trying all selectors",
-          {
-            fullscreenControlsHTML: fullscreenControls.innerHTML?.substring(
-              0,
-              200
-            ),
-            hasShadowRoot: !!fullscreenControls.shadowRoot,
-            shadowRootHTML: fullscreenControls.shadowRoot?.innerHTML?.substring(
-              0,
-              200
-            ),
-          }
-        );
-        safeSendMessage({
-          type: "ERROR_OCCURRED",
-          message: "Fullscreen button not found",
-        });
-      }
-    } else {
-      redditLogger.warn("[clickGameUI] Fullscreen controls did not appear");
-      safeSendMessage({
-        type: "ERROR_OCCURRED",
-        message: "Fullscreen controls not found",
-      });
-    }
-
-    return true;
-  }
-
-  redditLogger.warn("[clickGameUI] Clickable container not found");
-  chrome.runtime.sendMessage({
-    type: "ERROR_OCCURRED",
-    message: "Clickable container not found",
-  });
-  return false;
-}
-
-/**
- * Render the React control panel
- * Uses state received from background via STATE_CHANGED messages
- */
-function renderControlPanel(): void {
-  // Use state received from background
-  const isRunning = !["idle", "error"].includes(currentBotState);
-  const status = getStatusText(currentBotState, currentBotContext);
-
-  // Remove existing container if any
-  let container = document.getElementById("ss-bot-react-root");
-  if (container) {
-    container.remove();
-  }
-
-  // Create new container
-  container = document.createElement("div");
-  container.id = "ss-bot-react-root";
-  document.body.appendChild(container);
-
-  // Create root and render
-  root = createRoot(container);
-  root.render(
-    <BotControlPanel
-      isRunning={isRunning}
-      status={status}
-      onStart={() => {
-        redditLogger.log("[ControlPanel] Start button clicked");
-
-        // Get filters and send START_BOT to background
-        chrome.storage.local.get(["filters"], (result) => {
-          const filters = result.filters || {
-            stars: [1, 2],
-            minLevel: 1,
-            maxLevel: 340,
-            onlyIncomplete: true,
-            autoProcess: false,
-          };
-
-          safeSendMessage({
-            type: "START_BOT",
-            filters,
-          });
-        });
-      }}
-      onStop={() => {
-        redditLogger.log("[ControlPanel] Stop button clicked");
-        safeSendMessage({ type: "STOP_BOT" });
-      }}
-      onOpenSettings={() => {
-        redditLogger.log("[ControlPanel] Opening settings");
-        // Open the missions page in a new tab
-        chrome.tabs.create({
-          url: chrome.runtime.getURL("missions.html"),
-        });
-      }}
-    />
-  );
-}
-
-/**
- * Unmount the React control panel
- */
-function unmountControlPanel(): void {
-  const container = document.getElementById("ss-bot-react-root");
-  if (container && root) {
-    root.unmount();
-    container.remove();
-    root = null;
-  }
-}
 
 // Listen for messages from background script and popup
 chrome.runtime.onMessage.addListener(
@@ -647,14 +179,14 @@ chrome.runtime.onMessage.addListener(
         redditLogger.log("[STATE_CHANGED] Updated local state", {
           state: currentBotState,
         });
-        renderControlPanel();
+        renderControlPanel(currentBotState, currentBotContext);
         sendResponse({ success: true });
         break;
 
       case "CHECK_FOR_GAME_LOADER":
         // Background wants us to check if game loader is present
         redditLogger.log("[CHECK_FOR_GAME_LOADER] Checking for loader");
-        checkForExistingLoader();
+        checkForExistingLoader(currentBotState);
         sendResponse({ success: true });
         break;
 
@@ -1152,261 +684,12 @@ chrome.runtime.onMessage.addListener(
   }
 );
 
-// Expose debug functions to window for console testing
-(window as any).autoSupperDebug = {
-  getAllLevels,
-  parseLevelFromPost,
-  filterLevels,
-  getState: () => ({ state: currentBotState, context: currentBotContext }),
-  sendEvent: (event: any) => safeSendMessage(event),
-  renderControlPanel,
-  testSelectors: () => {
-    redditLogger.log("Testing selectors");
-    const selectors = [
-      '[data-testid="post-container"]',
-      "shreddit-post",
-      '[data-click-id="background"]',
-      "article",
-      '[id^="t3_"]',
-    ];
-    selectors.forEach((sel) => {
-      const found = document.querySelectorAll(sel);
-      redditLogger.log(`Selector "${sel}"`, { count: found.length });
-    });
-  },
-};
-
-redditLogger.log("Debug functions available: window.autoSupperDebug");
-
-// OLD initializeAutomation function - NO LONGER USED (replaced by state machine)
-// Kept for reference, may be removed later
-const initializeAutomation_DEPRECATED = () => {
-  redditLogger.log(
-    "[initializeAutomation] Called - checking for active bot session"
-  );
-
-  chrome.storage.local.get(
-    ["activeBotSession", "automationConfig"],
-    (result) => {
-      redditLogger.log("[initializeAutomation] Storage check result", {
-        hasActiveBotSession: !!result.activeBotSession,
-        hasAutomationConfig: !!result.automationConfig,
-      });
-
-      if (result.activeBotSession) {
-        redditLogger.log(
-          "Active bot session detected, automatically opening mission"
-        );
-
-        // Broadcast friendly status
-        chrome.runtime.sendMessage({
-          type: "STATUS_UPDATE",
-          status: "Loading next mission...",
-        });
-
-        // First check if iframe already exists (e.g., after a manual refresh)
-        const checkForExistingIframe = (): HTMLIFrameElement | null => {
-          let gameIframe = document.querySelector(
-            'iframe[src*="devvit.net"]'
-          ) as HTMLIFrameElement;
-          if (gameIframe) return gameIframe;
-
-          const loader = document.querySelector("shreddit-devvit-ui-loader");
-          if (loader?.shadowRoot) {
-            gameIframe = loader.shadowRoot.querySelector(
-              'iframe[src*="devvit.net"]'
-            ) as HTMLIFrameElement;
-            if (gameIframe) return gameIframe;
-
-            const webView = loader.shadowRoot.querySelector(
-              "devvit-blocks-web-view"
-            );
-            if (webView?.shadowRoot) {
-              gameIframe = webView.shadowRoot.querySelector(
-                'iframe[src*="devvit.net"]'
-              ) as HTMLIFrameElement;
-              if (gameIframe) return gameIframe;
-            }
-          }
-          return null;
-        };
-
-        const existingIframe = checkForExistingIframe();
-        if (existingIframe) {
-          redditLogger.log(
-            "Iframe already exists (page was refreshed), starting automation immediately"
-          );
-
-          // Wait a bit for game to be ready, then start automation
-          setTimeout(() => {
-            const clearedImage = checkMissionClearedInDOM();
-
-            if (clearedImage) {
-              redditLogger.warn("Mission already cleared, skipping");
-              chrome.storage.local.remove(["activeBotSession"]);
-
-              const postIdMatch =
-                window.location.pathname.match(/\/comments\/([^/]+)/);
-              if (postIdMatch) {
-                const postId = "t3_" + postIdMatch[1];
-                markMissionCleared(postId).then(() => {
-                  chrome.storage.local.get(["filters"], (filterResult) => {
-                    safeSendMessage({
-                      type: "NAVIGATE_TO_MISSION",
-                      filters: filterResult.filters,
-                    });
-                  });
-                });
-              }
-            } else {
-              redditLogger.log("Starting automation on existing iframe");
-              // Keep activeBotSession flag so bot continues running
-              safeSendMessage({
-                type: "START_MISSION_AUTOMATION",
-                config: result.automationConfig,
-              });
-            }
-          }, 2000);
-          return;
-        }
-
-        // No iframe found, need to click to open it
-        // Broadcast status
-        chrome.runtime.sendMessage({
-          type: "STATUS_UPDATE",
-          status: "Opening mission...",
-        });
-
-        // First, try to click the game UI to open it
-        const tryClickGame = () => {
-          const loader = document.querySelector("shreddit-devvit-ui-loader");
-          if (!loader) {
-            redditLogger.log("No loader found yet, will retry");
-            return false;
-          }
-
-          // Navigate deep into shadow DOM to find clickable container
-          const surface = loader.shadowRoot?.querySelector("devvit-surface");
-          const renderer = surface?.shadowRoot?.querySelector(
-            "devvit-blocks-renderer"
-          );
-
-          redditLogger.log("Shadow DOM elements found:", {
-            hasLoader: !!loader,
-            hasSurface: !!surface,
-            hasRenderer: !!renderer,
-            rendererHasShadowRoot: !!renderer?.shadowRoot,
-          });
-
-          const clickableContainer =
-            renderer?.shadowRoot?.querySelector(".cursor-pointer");
-
-          if (clickableContainer) {
-            redditLogger.log(
-              "Found clickable game container, clicking to open mission"
-            );
-            (clickableContainer as HTMLElement).click();
-
-            // Wait for modal to open, then click fullscreen and start automation
-            setTimeout(() => {
-              const fullscreenControls = document.querySelector(
-                "devvit-fullscreen-web-view-controls"
-              );
-              const sizeControls =
-                fullscreenControls?.shadowRoot?.querySelector(
-                  "devvit-web-view-preview-size-controls"
-                );
-              const fullscreenButton = sizeControls?.shadowRoot?.querySelector(
-                'button[aria-label="Toggle fullscreen web view"]'
-              );
-
-              if (fullscreenButton) {
-                redditLogger.log("Clicking fullscreen button");
-                (fullscreenButton as HTMLElement).click();
-              } else {
-                redditLogger.warn("Fullscreen button not found");
-              }
-
-              // Wait for iframe to load and game to initialize, then start automation
-              setTimeout(() => {
-                redditLogger.log(
-                  "Game should be ready, checking if mission is cleared"
-                );
-                const clearedImage = checkMissionClearedInDOM();
-
-                if (clearedImage) {
-                  redditLogger.warn(
-                    "Mission is already cleared! Moving to next mission"
-                  );
-                  chrome.storage.local.remove(["activeBotSession"]);
-                  const postIdMatch =
-                    window.location.pathname.match(/\/comments\/([^/]+)/);
-                  if (postIdMatch) {
-                    const postId = "t3_" + postIdMatch[1];
-                    markMissionCleared(postId).then(() => {
-                      chrome.storage.local.get(
-                        ["automationFilters"],
-                        (filterResult) => {
-                          safeSendMessage({
-                            type: "NAVIGATE_TO_MISSION",
-                            filters: filterResult.automationFilters,
-                          });
-                        }
-                      );
-                    });
-                  }
-                } else {
-                  redditLogger.log("Mission not cleared, starting automation");
-                  // Keep activeBotSession so bot continues running
-                  safeSendMessage({
-                    type: "START_MISSION_AUTOMATION",
-                    config: result.automationConfig,
-                  });
-                }
-              }, 3000); // Wait 3 seconds for game to load
-            }, 1000);
-
-            return true;
-          }
-
-          redditLogger.log("Clickable container not found yet, will retry");
-          return false;
-        };
-
-        // Try clicking immediately
-        const clickedImmediately = tryClickGame();
-        redditLogger.log("First click attempt result:", {
-          clicked: clickedImmediately,
-        });
-
-        if (!clickedImmediately) {
-          redditLogger.log("Starting retry loop for game click...");
-          // If we couldn't click immediately, keep trying for longer
-          let clickAttempts = 0;
-          const maxClickAttempts = 20; // 10 seconds total (enough time for Reddit to load)
-          const clickInterval = setInterval(() => {
-            clickAttempts++;
-            if (tryClickGame() || clickAttempts >= maxClickAttempts) {
-              clearInterval(clickInterval);
-              if (clickAttempts >= maxClickAttempts) {
-                redditLogger.error(
-                  "Could not find game to click after 10 seconds. Reddit page may not have loaded properly."
-                );
-                // Clear pending automation since we failed
-                chrome.storage.local.remove(["activeBotSession"]);
-                safeSendMessage({
-                  type: "STATUS_UPDATE",
-                  status:
-                    "Failed to open mission. Try manually refreshing the page.",
-                });
-              }
-            }
-          }, 500);
-        }
-      }
-    }
-  );
-};
+// Initialize debug functions
+initializeDebugFunctions(
+  currentBotState,
+  currentBotContext,
+  () => renderControlPanel(currentBotState, currentBotContext)
+);
 
 // ============================================================================
 // MutationObserver - Game Loader Detector (Acts as Sensor for State Machine)
@@ -1432,89 +715,22 @@ const observer = new MutationObserver((mutations) => {
 });
 
 // Start observing when body is available
-function startObserving() {
-  if (document.body) {
-    redditLogger.log(
-      "[MutationObserver] Starting to observe DOM for game loader"
-    );
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+startObserving(currentBotState);
 
-    // Check immediately in case the loader is already there
-    checkForExistingLoader();
-  } else {
-    // Body not ready yet, wait for DOMContentLoaded
-    document.addEventListener("DOMContentLoaded", () => {
-      redditLogger.log("[MutationObserver] DOM ready, starting to observe");
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-      checkForExistingLoader();
-    });
-  }
-}
-
-startObserving();
-
-// Track which posts we've already scanned
-const scannedPostIds = new Set<string>();
-
-// Debounced scroll handler to scan for new missions
-let scrollTimeout: number | null = null;
-let lastScrollScan = 0;
-const SCROLL_SCAN_DELAY = 2000; // Wait 2 seconds after scrolling stops
-const SCROLL_SCAN_COOLDOWN = 5000; // Don't scan more than once every 5 seconds
-
-function scanForNewMissions(reason: string = "scroll"): void {
-  const now = Date.now();
-
-  // Cooldown check - don't scan too frequently
-  if (now - lastScrollScan < SCROLL_SCAN_COOLDOWN) {
-    redditLogger.log("Skipping scan - too soon since last scan", { reason });
-    return;
-  }
-
-  lastScrollScan = now;
-  redditLogger.log(`Scan triggered: ${reason}`);
-
-  const levels = getAllLevels();
-  redditLogger.log("Scan complete", { levelsFound: levels.length, reason });
-}
-
-window.addEventListener(
-  "scroll",
-  () => {
-    // Clear existing timeout
-    if (scrollTimeout !== null) {
-      clearTimeout(scrollTimeout);
-    }
-
-    // Set new timeout - scan when user stops scrolling
-    scrollTimeout = window.setTimeout(() => {
-      scanForNewMissions("scroll");
-      scrollTimeout = null;
-    }, SCROLL_SCAN_DELAY);
-  },
-  { passive: true }
-);
+// Initialize scroll-based scanning
+initializeScrollScanning();
 
 redditLogger.log("Scroll-based scanning enabled");
 
 // Initialize control panel when DOM is ready
-function initializeControlPanel() {
-  redditLogger.log("Initializing control panel");
-  renderControlPanel();
-}
-
 if (document.readyState === "loading") {
   // DOM is still loading, wait for DOMContentLoaded
-  document.addEventListener("DOMContentLoaded", initializeControlPanel);
+  document.addEventListener("DOMContentLoaded", () =>
+    initializeControlPanel(currentBotState, currentBotContext)
+  );
 } else {
   // DOM is already loaded (in case script runs late)
-  initializeControlPanel();
+  initializeControlPanel(currentBotState, currentBotContext);
 }
 
 // Listen for storage changes to sync state machine with background script

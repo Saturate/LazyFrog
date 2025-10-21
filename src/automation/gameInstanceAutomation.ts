@@ -481,12 +481,59 @@ export class GameInstanceAutomationEngine {
   }
 
   /**
+   * Check if player is dead (out of lives)
+   * Looks for .lives-container with empty hearts
+   */
+  private checkPlayerDead(): boolean {
+    const livesContainer = document.querySelector('.lives-container');
+    if (!livesContainer) {
+      return false; // No lives container means we're not in a mission or lives UI isn't visible
+    }
+
+    // Check for empty hearts (Heart_Empty.png)
+    const emptyHearts = livesContainer.querySelectorAll('img[src*="Heart_Empty.png"]');
+    const totalHearts = livesContainer.querySelectorAll('.liveheart').length;
+
+    // If we have hearts displayed and they're all empty, player is dead
+    if (totalHearts > 0 && emptyHearts.length === totalHearts) {
+      devvitLogger.log('[GIAE] Player is dead - all hearts empty', {
+        totalHearts,
+        emptyHearts: emptyHearts.length
+      });
+      return true;
+    }
+
+    // Also check for "Recover in" text which indicates no lives
+    const recoverText = livesContainer.querySelector('.recover-container');
+    if (recoverText && recoverText.textContent?.includes('Recover in')) {
+      devvitLogger.log('[GIAE] Player is dead - recovery timer found', {
+        recoverText: recoverText.textContent
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Main logic - detect game state first, then click appropriate button
    */
   private async processButtons(): Promise<void> {
     this.isProcessing = true;
 
     try {
+      // Check if player is dead (out of lives)
+      if (this.checkPlayerDead()) {
+        devvitLogger.error('[GIAE] Player is dead, stopping automation');
+        this.stop();
+        chrome.runtime.sendMessage({
+          type: 'ERROR_OCCURRED',
+          message: 'Out of lives - player is dead. Automation stopped.',
+        });
+        this.isProcessing = false;
+        return;
+      }
+
       // Check for mission completion indicators
       this.checkMissionCleared();
 
@@ -528,7 +575,7 @@ export class GameInstanceAutomationEngine {
       });
 
       // STEP 2: Click the appropriate button based on detected state
-      const clickedButton = this.clickForState(gameState, buttons);
+      const clickedButton = await this.clickForState(gameState, buttons);
 
       if (clickedButton) {
         devvitLogger.log('[GIAE] Clicked button', {
@@ -601,14 +648,14 @@ export class GameInstanceAutomationEngine {
   /**
    * Click the appropriate button for the detected game state
    */
-  private clickForState(state: string, buttons: HTMLElement[]): string | null {
+  private async clickForState(state: string, buttons: HTMLElement[]): Promise<string | null> {
     switch (state) {
       case 'skip':
         return this.tryClickSkip(buttons);
       case 'finish':
-        return this.tryClickContinue(buttons); // Handles finish button
+        return await this.tryClickContinue(buttons); // Handles finish button
       case 'continue':
-        return this.tryClickContinue(buttons);
+        return await this.tryClickContinue(buttons);
       case 'crossroads':
         return this.tryClickCrossroads(buttons);
       case 'skill_bargain':
@@ -841,7 +888,7 @@ export class GameInstanceAutomationEngine {
   /**
    * Try to click "Continue" or "Finish" button
    */
-  private tryClickContinue(buttons: HTMLElement[]): string | null {
+  private async tryClickContinue(buttons: HTMLElement[]): Promise<string | null> {
     // Check for "Finish" button or "dismiss-button" class first (mission complete)
     const finishButton = buttons.find(b => {
       // Check for dismiss-button class
@@ -868,7 +915,15 @@ export class GameInstanceAutomationEngine {
         devvitLogger.log('[GIAE] Mission cleared! Clicking Finish/Dismiss button', {
           postId
         });
-        this.markMissionAsCleared(postId);
+
+        // IMPORTANT: Wait for mission to be marked as cleared in storage
+        // before notifying background to find next mission
+        // This prevents race condition where next mission search finds
+        // the same (not-yet-cleared) mission
+        await this.markMissionAsCleared(postId);
+        devvitLogger.log('[GIAE] Mission marked as cleared in storage, notifying background', {
+          postId
+        });
 
         // Notify background that mission is completed
         chrome.runtime.sendMessage({
