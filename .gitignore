@@ -24,12 +24,6 @@ yarn-error.log*
 # Debug database
 debug-logs.db
 
-# Screenshots
-screenshots/
-*.png
-*.jpg
-*.jpeg
-
 # IDE
 .vscode/
 .idea/
