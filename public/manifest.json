@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AutoSupper",
   "version": "0.8.3",
-  "description": "Automation bot for the Sword & Supper Reddit game with TypeScript and React",
+  "description": "Automation bot for the Sword & Supper Reddit game. Catalogs missions and plays them!",
 
   "permissions": ["storage", "activeTab", "scripting"],
 
@@ -44,6 +44,13 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["fetchInterceptor.js"],
+      "matches": ["https://www.reddit.com/*"]
+    }
+  ],
 
   "browser_specific_settings": {
     "gecko": {
