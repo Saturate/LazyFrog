@@ -18,7 +18,7 @@ export interface MissionRecord {
   cleared?: boolean;
   clearedAt?: number;
   permalink?: string;
-  totalLoot?: Array<{id: string; quantity: number}>; // Accumulated loot from all encounters
+  totalLoot?: Array<{ id: string; quantity: number }>; // Accumulated loot from all encounters
 }
 
 export interface UserOptions {
@@ -26,8 +26,8 @@ export interface UserOptions {
   abilityTierList?: string[];
   blessingStatPriority?: string[];
   autoAcceptSkillBargains?: boolean;
-  skillBargainStrategy?: 'always' | 'positive-only' | 'never';
-  crossroadsStrategy?: 'fight' | 'skip';
+  skillBargainStrategy?: "always" | "positive-only" | "never";
+  crossroadsStrategy?: "fight" | "skip";
 
   // UI preferences
   autoStartMissions?: boolean;
@@ -35,8 +35,8 @@ export interface UserOptions {
 }
 
 const STORAGE_KEYS = {
-  MISSIONS: 'missions',
-  USER_OPTIONS: 'userOptions',
+  MISSIONS: "missions",
+  USER_OPTIONS: "userOptions",
 };
 
 /**
@@ -46,7 +46,7 @@ export async function saveMission(mission: MissionRecord): Promise<void> {
   return new Promise((resolve, reject) => {
     // Check if extension context is still valid
     if (!chrome.runtime?.id) {
-      reject(new Error('Extension context invalidated'));
+      reject(new Error("Extension context invalidated"));
       return;
     }
 
@@ -57,7 +57,8 @@ export async function saveMission(mission: MissionRecord): Promise<void> {
         return;
       }
 
-      const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
+      const missions: Record<string, MissionRecord> =
+        result[STORAGE_KEYS.MISSIONS] || {};
 
       // Use postId as key to avoid duplicates
       missions[mission.postId] = mission;
@@ -91,7 +92,9 @@ export async function getAllMissions(): Promise<Record<string, MissionRecord>> {
 /**
  * Get a specific mission by postId
  */
-export async function getMission(postId: string): Promise<MissionRecord | null> {
+export async function getMission(
+  postId: string
+): Promise<MissionRecord | null> {
   const missions = await getAllMissions();
   return missions[postId] || null;
 }
@@ -102,7 +105,8 @@ export async function getMission(postId: string): Promise<MissionRecord | null> 
 export async function deleteMission(postId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
-      const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
+      const missions: Record<string, MissionRecord> =
+        result[STORAGE_KEYS.MISSIONS] || {};
       delete missions[postId];
 
       chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
@@ -132,6 +136,54 @@ export async function clearAllMissions(): Promise<void> {
 }
 
 /**
+ * Mark all missions as incomplete (cleared = false, remove clearedAt)
+ */
+export async function markAllMissionsIncomplete(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      reject(new Error("Extension context invalidated"));
+      return;
+    }
+
+    chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+
+      const missions: Record<string, MissionRecord> =
+        result[STORAGE_KEYS.MISSIONS] || {};
+
+      // No missions stored – nothing to do
+      if (!missions || Object.keys(missions).length === 0) {
+        resolve();
+        return;
+      }
+
+      for (const postId of Object.keys(missions)) {
+        const mission = missions[postId];
+        if (mission) {
+          mission.cleared = false;
+          // Remove timestamp to avoid misleading stats of recently cleared
+          if ("clearedAt" in mission) {
+            delete mission.clearedAt;
+          }
+        }
+      }
+
+      chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
+    });
+  });
+}
+
+/**
  * Import missions from JSON data
  * @param jsonData - JSON string or object containing mission data
  * @param mode - 'merge' to keep existing missions, 'replace' to overwrite all
@@ -139,21 +191,21 @@ export async function clearAllMissions(): Promise<void> {
  */
 export async function importMissions(
   jsonData: string | any,
-  mode: 'merge' | 'replace' = 'merge'
+  mode: "merge" | "replace" = "merge"
 ): Promise<{ imported: number; skipped: number; errors: string[] }> {
   const stats = { imported: 0, skipped: 0, errors: [] as string[] };
 
   try {
     // Parse JSON if it's a string
     let data: any;
-    if (typeof jsonData === 'string') {
+    if (typeof jsonData === "string") {
       data = JSON.parse(jsonData);
     } else {
       data = jsonData;
     }
 
     // Get existing missions
-    const existingMissions = mode === 'merge' ? await getAllMissions() : {};
+    const existingMissions = mode === "merge" ? await getAllMissions() : {};
 
     // Handle different data formats
     let missionsToImport: Record<string, MissionRecord> = {};
@@ -165,7 +217,7 @@ export async function importMissions(
           missionsToImport[mission.postId] = mission;
         }
       });
-    } else if (typeof data === 'object') {
+    } else if (typeof data === "object") {
       // Could be object with postId keys or wrapped data
       if (data.missions) {
         missionsToImport = data.missions;
@@ -185,7 +237,7 @@ export async function importMissions(
         }
 
         // Check if already exists in merge mode
-        if (mode === 'merge' && existingMissions[postId]) {
+        if (mode === "merge" && existingMissions[postId]) {
           stats.skipped++;
           continue;
         }
@@ -201,13 +253,16 @@ export async function importMissions(
 
     // Save all missions back to storage
     await new Promise<void>((resolve, reject) => {
-      chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: existingMissions }, () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
+      chrome.storage.local.set(
+        { [STORAGE_KEYS.MISSIONS]: existingMissions },
+        () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve();
+          }
         }
-      });
+      );
     });
 
     return stats;
@@ -240,16 +295,28 @@ export async function searchMissions(criteria: {
   for (const mission of Object.values(missions)) {
     let matches = true;
 
-    if (criteria.difficulty !== undefined && mission.difficulty !== criteria.difficulty) {
+    if (
+      criteria.difficulty !== undefined &&
+      mission.difficulty !== criteria.difficulty
+    ) {
       matches = false;
     }
-    if (criteria.environment !== undefined && mission.environment !== criteria.environment) {
+    if (
+      criteria.environment !== undefined &&
+      mission.environment !== criteria.environment
+    ) {
       matches = false;
     }
-    if (criteria.minLevel !== undefined && mission.minLevel !== criteria.minLevel) {
+    if (
+      criteria.minLevel !== undefined &&
+      mission.minLevel !== criteria.minLevel
+    ) {
       matches = false;
     }
-    if (criteria.maxLevel !== undefined && mission.maxLevel !== criteria.maxLevel) {
+    if (
+      criteria.maxLevel !== undefined &&
+      mission.maxLevel !== criteria.maxLevel
+    ) {
       matches = false;
     }
 
@@ -330,7 +397,7 @@ export async function markMissionCleared(postId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // Check if extension context is still valid
     if (!chrome.runtime?.id) {
-      reject(new Error('Extension context invalidated'));
+      reject(new Error("Extension context invalidated"));
       return;
     }
 
@@ -341,7 +408,8 @@ export async function markMissionCleared(postId: string): Promise<void> {
         return;
       }
 
-      const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
+      const missions: Record<string, MissionRecord> =
+        result[STORAGE_KEYS.MISSIONS] || {};
 
       if (missions[postId]) {
         missions[postId].cleared = true;
@@ -364,11 +432,14 @@ export async function markMissionCleared(postId: string): Promise<void> {
 /**
  * Accumulate loot from an encounter to mission's total loot
  */
-export async function accumulateMissionLoot(postId: string, encounterLoot: Array<{id: string; quantity: number}>): Promise<void> {
+export async function accumulateMissionLoot(
+  postId: string,
+  encounterLoot: Array<{ id: string; quantity: number }>
+): Promise<void> {
   return new Promise((resolve, reject) => {
     // Check if extension context is still valid
     if (!chrome.runtime?.id) {
-      reject(new Error('Extension context invalidated'));
+      reject(new Error("Extension context invalidated"));
       return;
     }
 
@@ -379,7 +450,8 @@ export async function accumulateMissionLoot(postId: string, encounterLoot: Array
         return;
       }
 
-      const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
+      const missions: Record<string, MissionRecord> =
+        result[STORAGE_KEYS.MISSIONS] || {};
 
       if (missions[postId]) {
         // Initialize totalLoot if not present
@@ -388,8 +460,10 @@ export async function accumulateMissionLoot(postId: string, encounterLoot: Array
         }
 
         // Accumulate loot by combining quantities for same items
-        encounterLoot.forEach(newItem => {
-          const existingItem = missions[postId].totalLoot!.find(item => item.id === newItem.id);
+        encounterLoot.forEach((newItem) => {
+          const existingItem = missions[postId].totalLoot!.find(
+            (item) => item.id === newItem.id
+          );
           if (existingItem) {
             existingItem.quantity += newItem.quantity;
           } else {
@@ -418,7 +492,9 @@ export async function accumulateMissionLoot(postId: string, encounterLoot: Array
 export function checkMissionClearedInDOM(): HTMLImageElement | null {
   // Check for cleared image (the cleared/done banner)
   // This image appears when a mission has been cleared
-  const clearedImages = Array.from(document.querySelectorAll('img[src*="fxlui9egtgbf1.png"]')) as HTMLImageElement[];
+  const clearedImages = Array.from(
+    document.querySelectorAll('img[src*="fxlui9egtgbf1.png"]')
+  ) as HTMLImageElement[];
   return clearedImages.length > 0 ? clearedImages[0] : null;
 }
 
@@ -428,7 +504,7 @@ export function checkMissionClearedInDOM(): HTMLImageElement | null {
 /**
  * Get filtered and sorted uncleared missions.
  * This is the single source of truth for mission filtering across the app.
- * 
+ *
  * @param filters - Optional filters for stars, minLevel, maxLevel
  * @returns Array of missions that match filters, sorted newest first
  */
@@ -438,12 +514,13 @@ export async function getFilteredUnclearedMissions(filters?: {
   maxLevel?: number;
 }): Promise<MissionRecord[]> {
   const missions = await getAllMissions();
-  let unclearedMissions = Object.values(missions)
-    .filter(m => !m.cleared && (m.difficulty ?? 0) > 0); // Only return missions with star difficulty data
+  let unclearedMissions = Object.values(missions).filter(
+    (m) => !m.cleared && (m.difficulty ?? 0) > 0
+  ); // Only return missions with star difficulty data
 
   // Apply filters if provided
   if (filters) {
-    unclearedMissions = unclearedMissions.filter(m => {
+    unclearedMissions = unclearedMissions.filter((m) => {
       // Star difficulty filter
       if (filters.stars && filters.stars.length > 0) {
         if (!filters.stars.includes(m.difficulty || 0)) {
@@ -489,7 +566,7 @@ export async function getNextUnclearedMission(filters?: {
 export async function getUnclearedMissions(): Promise<MissionRecord[]> {
   const missions = await getAllMissions();
   return Object.values(missions)
-    .filter(m => !m.cleared)
+    .filter((m) => !m.cleared)
     .sort((a, b) => a.timestamp - b.timestamp); // Oldest first
 }
 
@@ -497,17 +574,17 @@ export async function getUnclearedMissions(): Promise<MissionRecord[]> {
  * Get mission statistics
  */
 export async function getMissionStats(): Promise<{
-  queued: number;      // Uncleared missions matching current filters
-  total: number;       // All missions
-  cleared: number;     // Cleared missions
-  uncleared: number;   // Uncleared missions
+  queued: number; // Uncleared missions matching current filters
+  total: number; // All missions
+  cleared: number; // Cleared missions
+  uncleared: number; // Uncleared missions
   todayCleared: number; // Missions cleared today
 }> {
   const missions = await getAllMissions();
   const missionArray = Object.values(missions);
 
   // Get current filters from storage
-  const result = await chrome.storage.local.get(['filters']);
+  const result = await chrome.storage.local.get(["filters"]);
   const currentFilters = result.filters || {
     stars: [1, 2],
     minLevel: 1,
@@ -515,17 +592,17 @@ export async function getMissionStats(): Promise<{
   };
 
   // Calculate basic stats
-  const cleared = missionArray.filter(m => m.cleared).length;
+  const cleared = missionArray.filter((m) => m.cleared).length;
   const uncleared = missionArray.length - cleared;
 
   // Today's cleared missions (last 24 hours)
   const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  const todayCleared = missionArray.filter(m =>
-    m.cleared && m.clearedAt && m.clearedAt > oneDayAgo
+  const todayCleared = missionArray.filter(
+    (m) => m.cleared && m.clearedAt && m.clearedAt > oneDayAgo
   ).length;
 
   // Queued missions (uncleared + matching filters)
-  const queued = missionArray.filter(m => {
+  const queued = missionArray.filter((m) => {
     if (m.cleared) return false;
 
     // Star difficulty filter
