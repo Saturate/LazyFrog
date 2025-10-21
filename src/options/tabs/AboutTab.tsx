@@ -3,7 +3,13 @@
  */
 
 import React from "react";
-import { Info, Rocket, Link as LinkIcon, AlertTriangle, Github } from "lucide-react";
+import {
+  Info,
+  Rocket,
+  Link as LinkIcon,
+  AlertTriangle,
+  Github,
+} from "lucide-react";
 
 // Version info injected by webpack
 declare const __VERSION__: string;
@@ -12,7 +18,9 @@ declare const __BUILD_TIME__: string;
 const AboutTab: React.FC = () => {
   const buildDate = new Date(__BUILD_TIME__);
   const now = new Date();
-  const hoursAgo = Math.floor((now.getTime() - buildDate.getTime()) / (1000 * 60 * 60));
+  const hoursAgo = Math.floor(
+    (now.getTime() - buildDate.getTime()) / (1000 * 60 * 60)
+  );
 
   return (
     <div>
@@ -158,38 +166,31 @@ const AboutTab: React.FC = () => {
           />
           Credits
         </h2>
-        <div
-          style={{
-            fontSize: "14px",
-            color: "#e5e5e5",
-            background: "linear-gradient(135deg, #1e1e20 0%, #2a2a30 50%, #1e1e20 100%)",
-            border: "1px solid #3b3b40",
-            padding: "14px 18px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}
-        >
-          <span style={{ fontWeight: 500, letterSpacing: "0.5px" }}>
-            Created by <span style={{ color: "#3b82f6" }}>Allan Kimmer Jensen</span>
-          </span>
-          <span style={{ opacity: 0.85 }}>
-            Reddit: <strong style={{ color: "#22c55e" }}>u/AKJ90</strong>
-          </span>
-          <span style={{ opacity: 0.85, display: "flex", alignItems: "center", gap: "6px" }}>
-            <Github size={16} style={{ opacity: 0.9 }} /> GitHub: {" "}
-            <a
-              href="https://github.com/Saturate"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#a855f7", textDecoration: "none", fontWeight: 500 }}
-            >
-              @Saturate
-            </a>
-          </span>
-        </div>
+
+        <p style={{ color: "#a1a1aa", fontSize: "14px", lineHeight: "1.6" }}>
+          Created by{" "}
+          <span style={{ color: "#3b82f6" }}>Allan Kimmer Jensen</span>
+        </p>
+
+        <p style={{ color: "#a1a1aa", fontSize: "14px", lineHeight: "1.6" }}>
+          Reddit: <strong style={{ color: "#22c55e" }}>u/AKJ90</strong>
+        </p>
+
+        <p style={{ color: "#a1a1aa", fontSize: "14px", lineHeight: "1.6" }}>
+          <Github size={16} style={{ opacity: 0.9 }} /> GitHub:{" "}
+          <a
+            href="https://github.com/Saturate"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#a855f7",
+              textDecoration: "none",
+              fontWeight: 500,
+            }}
+          >
+            @Saturate
+          </a>
+        </p>
       </div>
     </div>
   );
