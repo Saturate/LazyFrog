@@ -15,6 +15,32 @@ A modern Firefox/Chrome browser extension built with **TypeScript** and **React*
 - **Cross-Browser**: Works on Firefox and Chrome
 - **Modern Build System**: Webpack-based build with hot reload support
 - **Remote Logging**: HTTP-based logging server for easy debugging
+- **State Machine Architecture**: XState v5 state machine in background service worker for reliable state management
+
+## 🏗️ Architecture
+
+AutoSupper uses a **centralized state machine architecture** with XState v5 running in the background service worker:
+
+```
+Background Service Worker (Persists)
+├─ XState State Machine (botActor)
+├─ State Persistence (chrome.storage.local)
+└─ Message Coordinator
+    ↓ Commands                ↑ Events
+Reddit Content Script         Devvit Content Script
+(Sensor & Actuator)           (Game Automation)
+├─ MutationObserver           ├─ GameInstanceAutomationEngine
+├─ DOM Manipulation           └─ Button Clicking Logic
+└─ Mission Scanning
+```
+
+**Key Benefits:**
+- **State persists across page navigations** - Background service worker never reloads
+- **Centralized control** - Single source of truth for bot state
+- **Clear event flow** - Content scripts report events, background coordinates actions
+- **No race conditions** - State machine enforces valid transitions only
+
+See [docs/state-machine.md](./docs/state-machine.md) for detailed architecture documentation.
 
 ## 🚀 Development Setup
 
@@ -59,26 +85,44 @@ AutoSupper/
 │   ├── api/
 │   │   ├── reddit.ts              # Reddit JSON API module
 │   │   └── levelParser.ts         # Parse Reddit posts to Levels
+│   ├── automation/
+│   │   ├── botStateMachine.ts          # XState v5 state machine definition
+│   │   └── gameInstanceAutomation.ts   # Game instance automation engine (GIAE)
 │   ├── background/
-│   │   └── index.ts               # Background service worker
+│   │   └── index.ts               # Background service worker (hosts state machine)
 │   ├── content/
-│   │   └── index.tsx              # Content script with React
-│   ├── game/
-│   │   └── index.tsx              # Game iframe script
+│   │   ├── reddit/
+│   │   │   ├── reddit.tsx         # Reddit content script (sensor & actuator)
+│   │   │   └── utils/reddit.ts    # Reddit utility functions
+│   │   └── devvit/
+│   │       ├── devvit.tsx         # Game iframe script (automation)
+│   │       └── utils/dom.ts       # Game DOM utilities
 │   ├── popup/
 │   │   ├── index.tsx              # Popup entry point
 │   │   ├── PopupApp.tsx           # Main popup React component
 │   │   ├── popup.html             # Popup HTML template
 │   │   └── popup.css              # Popup styles
+│   ├── missions/
+│   │   └── MissionsPage.tsx       # Missions database viewer
 │   ├── components/
-│   │   ├── LevelControlPanel.tsx  # Injected React control panel
-│   │   └── GameControlPanel.tsx   # Game iframe control panel
+│   │   ├── BotControlPanel.tsx    # Bot control UI component
+│   │   └── GameControlPanel.tsx   # Game control UI component
+│   ├── utils/
+│   │   ├── storage.ts             # Mission database utilities
+│   │   └── logger.ts              # Logging utilities
+│   ├── data/
+│   │   ├── abilities.ts           # Game ability data
+│   │   ├── enemies.ts             # Enemy type data
+│   │   └── maps.ts                # Map/environment data
 │   └── types/
 │       └── index.ts               # TypeScript type definitions
 ├── docs/
-│   ├── REDDIT_API_USAGE.md        # Reddit API integration guide
-│   ├── REDDIT_DATA_STRUCTURE.md   # Available data documentation
-│   └── DEBUGGING.md               # Troubleshooting guide
+│   ├── state-machine.md           # State machine architecture (READ THIS!)
+│   ├── MESSAGE_FLOW.md            # Message flow documentation
+│   ├── INITIALIZATION_PATTERNS.md # Handling async initialization & race conditions
+│   ├── DEBUGGING.md               # Troubleshooting guide
+│   ├── AUTOMATION_USAGE.md        # How to use automation
+│   └── REDDIT_API_USAGE.md        # Reddit API integration
 ├── public/
 │   ├── manifest.json              # Extension manifest
 │   └── icons/                     # Extension icons

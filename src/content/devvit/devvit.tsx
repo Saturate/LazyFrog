@@ -4,13 +4,10 @@
  */
 
 import {
-  SimpleAutomationEngine,
-  DEFAULT_SIMPLE_CONFIG,
-  SimpleAutomationConfig,
-} from '../../automation/simpleAutomation';
-import {
-  MissionAutomationEngine,
-} from '../../automation/missionAutomation';
+  GameInstanceAutomationEngine,
+  DEFAULT_GIAE_CONFIG,
+  GameInstanceAutomationConfig,
+} from '../../automation/gameInstanceAutomation';
 import {
   analyzeGamePage,
   extractGameState,
@@ -31,8 +28,7 @@ devvitLogger.log('Devvit content script loaded', {
   loadTime: new Date().toISOString(),
 });
 
-let simpleAutomation: SimpleAutomationEngine | null = null;
-let metadataEngine: MissionAutomationEngine | null = null; // For capturing metadata only
+let gameAutomation: GameInstanceAutomationEngine | null = null;
 
 // Set up message listener IMMEDIATELY to catch initialData
 // This must be before the game sends the message!
@@ -69,47 +65,76 @@ window.addEventListener('message', (event: MessageEvent) => {
 
 devvitLogger.log('[Devvit] Early message listener installed');
 
+// ============================================================================
+// Extension Context Error Handling
+// ============================================================================
+
+/**
+ * Safely send message to background script with proper error handling
+ */
+function safeSendMessage(message: any, callback?: (response: any) => void): void {
+  try {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        const errorMsg = String(chrome.runtime.lastError.message || chrome.runtime.lastError);
+        if (errorMsg.includes('Extension context invalidated')) {
+          devvitLogger.log('[ExtensionContext] Extension was updated/reloaded', {
+            error: errorMsg,
+          });
+          // Game iframe - no UI to show notification, just log
+        } else {
+          devvitLogger.error('[ExtensionContext] Runtime error', { error: errorMsg });
+        }
+        return;
+      }
+      if (callback) {
+        callback(response);
+      }
+    });
+  } catch (error) {
+    const errorMsg = String(error);
+    if (errorMsg.includes('Extension context invalidated')) {
+      devvitLogger.log('[ExtensionContext] Extension was updated/reloaded', { error: errorMsg });
+    } else {
+      devvitLogger.error('[ExtensionContext] Runtime error', { error: errorMsg });
+    }
+  }
+}
+
 // Control panel removed - now using BotControlPanel in reddit context
 
 /**
- * Initialize automation engines
+ * Initialize automation engine
  */
 function initializeAutomation(): void {
-  if (simpleAutomation) {
+  if (gameAutomation) {
     devvitLogger.warn('Automation already initialized');
     return;
   }
 
-  devvitLogger.log('Initializing automation engines');
+  devvitLogger.log('Initializing game instance automation engine');
 
   // Load config from storage
   chrome.storage.local.get(['automationConfig'], async (result) => {
     const config = result.automationConfig || {};
 
-    // Initialize simple button-clicking automation
-    const simpleConfig: SimpleAutomationConfig = {
+    // Initialize game instance automation engine
+    const giaeConfig: GameInstanceAutomationConfig = {
       enabled: false, // Will be enabled when user clicks button
-      abilityTierList: config.abilityTierList || DEFAULT_SIMPLE_CONFIG.abilityTierList,
-      blessingStatPriority: config.blessingStatPriority || DEFAULT_SIMPLE_CONFIG.blessingStatPriority,
+      abilityTierList: config.abilityTierList || DEFAULT_GIAE_CONFIG.abilityTierList,
+      blessingStatPriority: config.blessingStatPriority || DEFAULT_GIAE_CONFIG.blessingStatPriority,
       autoAcceptSkillBargains: config.autoAcceptSkillBargains !== undefined
         ? config.autoAcceptSkillBargains
-        : DEFAULT_SIMPLE_CONFIG.autoAcceptSkillBargains,
-      skillBargainStrategy: config.skillBargainStrategy || DEFAULT_SIMPLE_CONFIG.skillBargainStrategy,
-      crossroadsStrategy: config.crossroadsStrategy || DEFAULT_SIMPLE_CONFIG.crossroadsStrategy,
+        : DEFAULT_GIAE_CONFIG.autoAcceptSkillBargains,
+      skillBargainStrategy: config.skillBargainStrategy || DEFAULT_GIAE_CONFIG.skillBargainStrategy,
+      crossroadsStrategy: config.crossroadsStrategy || DEFAULT_GIAE_CONFIG.crossroadsStrategy,
       clickDelay: 1000,
     };
 
-    simpleAutomation = new SimpleAutomationEngine(simpleConfig);
+    gameAutomation = new GameInstanceAutomationEngine(giaeConfig);
 
-    // Also initialize metadata capture engine (for future use)
-    metadataEngine = new MissionAutomationEngine({
-      ...config,
-      enabled: false, // Don't run automation, just capture metadata
-    });
-    metadataEngine.startConsoleMonitoring();
-
-    devvitLogger.log('Automation engines initialized');
-    devvitLogger.log('Config', { config: simpleConfig });
+    devvitLogger.log('Game instance automation engine initialized');
+    devvitLogger.log('Config', { config: giaeConfig });
 
     // Check if we already captured initialData before the automation engine was ready
     const capturedData = (window as any).__capturedInitialData;
@@ -124,14 +149,14 @@ function initializeAutomation(): void {
       const postId = capturedData.postId;
       const username = capturedData.username;
 
-      if (missionMetadata && postId && simpleAutomation) {
+      if (missionMetadata && postId && gameAutomation) {
         // Save the captured mission data to database
-        await simpleAutomation.saveMissionToDatabase(postId, username, missionMetadata);
+        await gameAutomation.saveMissionToDatabase(postId, username, missionMetadata);
 
         // IMPORTANT: Also set currentPostId so it's available when mission completes
         // This is normally set by the message listener, but since we captured it early, we need to set it manually
-        (simpleAutomation as any).currentPostId = postId;
-        (simpleAutomation as any).missionMetadata = missionMetadata;
+        (gameAutomation as any).currentPostId = postId;
+        (gameAutomation as any).missionMetadata = missionMetadata;
 
         devvitLogger.log('[Devvit] Set currentPostId from captured initialData', { postId });
       }
@@ -141,10 +166,20 @@ function initializeAutomation(): void {
     }
 
     // Notify background script that automation is ready
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'AUTOMATION_READY',
-      config: simpleConfig,
+      config: giaeConfig,
     });
+
+    // Process any pending START_MISSION_AUTOMATION message
+    if (pendingStartMessage) {
+      devvitLogger.log('Processing queued START_MISSION_AUTOMATION message');
+      if (pendingStartMessage.config) {
+        updateAutomationConfig(pendingStartMessage.config);
+      }
+      toggleAutomation(true);
+      pendingStartMessage = null;
+    }
   });
 }
 
@@ -153,32 +188,32 @@ function initializeAutomation(): void {
  */
 function toggleAutomation(enabled: boolean): void {
   devvitLogger.log('toggleAutomation called', { enabled });
-  if (!simpleAutomation) {
+  if (!gameAutomation) {
     devvitLogger.error('Automation not initialized');
     return;
   }
 
   if (enabled) {
-    simpleAutomation.start();
+    gameAutomation.start();
     devvitLogger.log('Automation started');
   } else {
-    simpleAutomation.stop();
+    gameAutomation.stop();
     devvitLogger.log('Automation stopped');
   }
 
-  devvitLogger.log('Automation state', { state: simpleAutomation.getState() });
+  devvitLogger.log('Automation state', { state: gameAutomation.getState() });
 }
 
 /**
  * Update automation configuration
  */
 function updateAutomationConfig(config: any): void {
-  if (!simpleAutomation) {
+  if (!gameAutomation) {
     devvitLogger.error('Automation not initialized');
     return;
   }
 
-  const simpleConfig: Partial<SimpleAutomationConfig> = {
+  const giaeConfig: Partial<GameInstanceAutomationConfig> = {
     abilityTierList: config.abilityTierList,
     blessingStatPriority: config.blessingStatPriority,
     autoAcceptSkillBargains: config.autoAcceptSkillBargains,
@@ -186,7 +221,7 @@ function updateAutomationConfig(config: any): void {
     crossroadsStrategy: config.crossroadsStrategy,
   };
 
-  simpleAutomation.updateConfig(simpleConfig);
+  gameAutomation.updateConfig(giaeConfig);
 
   // Save to storage
   chrome.storage.local.set({ automationConfig: config });
@@ -196,11 +231,14 @@ function updateAutomationConfig(config: any): void {
  * Get automation state
  */
 function getAutomationState(): any {
-  if (!simpleAutomation) {
+  if (!gameAutomation) {
     return { error: 'Automation not initialized' };
   }
-  return simpleAutomation.getState();
+  return gameAutomation.getState();
 }
+
+// Queue for messages received before automation is ready
+let pendingStartMessage: any = null;
 
 // Listen for messages from Chrome extension (via background script)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -208,11 +246,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   switch (message.type) {
     case 'START_MISSION_AUTOMATION':
-      if (message.config) {
-        updateAutomationConfig(message.config);
+      if (!gameAutomation) {
+        // Automation not ready yet, queue the message
+        devvitLogger.log('Automation not ready, queuing START_MISSION_AUTOMATION');
+        pendingStartMessage = message;
+        sendResponse({ success: true, queued: true });
+      } else {
+        if (message.config) {
+          updateAutomationConfig(message.config);
+        }
+        toggleAutomation(true);
+        sendResponse({ success: true });
       }
-      toggleAutomation(true);
-      sendResponse({ success: true });
       break;
 
     case 'STOP_MISSION_AUTOMATION':
@@ -249,8 +294,8 @@ setTimeout(() => {
   // Automation functions
   startAutomation: () => toggleAutomation(true),
   stopAutomation: () => toggleAutomation(false),
-  getAutomationState: () => simpleAutomation?.getState(),
-  getMetadata: () => metadataEngine?.getState(),
+  getAutomationState: () => gameAutomation?.getState(),
+  getMetadata: () => gameAutomation?.getState(),
   // Storage/database functions
   storage: {
     getAllMissions: storage.getAllMissions,

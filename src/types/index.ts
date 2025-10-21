@@ -55,7 +55,19 @@ export type MessageType =
   | 'STOP_MISSION_AUTOMATION'
   | 'AUTOMATION_READY'
   | 'START_EMULATE_MODE'
-  | 'STATUS_UPDATE';
+  | 'STATUS_UPDATE'
+  | 'STATE_CHANGED'
+  | 'CHECK_FOR_GAME_LOADER'
+  | 'CLICK_GAME_UI'
+  | 'FIND_NEXT_MISSION'
+  | 'NAVIGATE_TO_URL'
+  | 'GAME_LOADER_DETECTED'
+  | 'GAME_DIALOG_OPENED'
+  | 'MISSION_COMPLETED'
+  | 'MISSION_FOUND'
+  | 'MISSION_PAGE_LOADED'
+  | 'NO_MISSIONS_FOUND'
+  | 'ERROR_OCCURRED';
 
 export interface ChromeMessage extends Message {
   type: MessageType;

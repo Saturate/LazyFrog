@@ -1,12 +1,126 @@
 /**
  * Background script for Sword & Supper Bot
  * Handles message passing and state coordination
+ *
+ * THIS IS THE SERVICE WORKER - it persists across page navigations
+ * The XState machine lives here to maintain state across page reloads
  */
 
+import { createActor } from 'xstate';
 import { BotState, ChromeMessage, LevelFilters } from '../types';
 import { extensionLogger } from '../utils/logger';
+import { botMachine, getStatusForState, isBotRunning } from '../automation/botStateMachine';
 
-// Extension state
+// ============================================================================
+// State Machine Setup (Lives in Service Worker - persists across page loads!)
+// ============================================================================
+
+// Create and start the state machine actor
+const botActor = createActor(botMachine);
+botActor.start();
+
+extensionLogger.log('[StateMachine] Actor started in service worker', {
+  initialState: botActor.getSnapshot().value,
+});
+
+// Subscribe to state changes
+botActor.subscribe((state) => {
+  const currentState = state.value as string;
+  const context = state.context;
+
+  extensionLogger.log('[StateMachine] State changed', {
+    state: currentState,
+    context,
+  });
+
+
+  // Broadcast state changes to all tabs (so UI can update)
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach((tab) => {
+      if (tab.id && tab.url?.includes('reddit.com')) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'STATE_CHANGED',
+          state: currentState,
+          context,
+        });
+      }
+    });
+  });
+
+  // Handle state transitions (actions to take when entering states)
+  handleStateTransition(currentState, context);
+});
+
+/**
+ * Handle state transitions - tell content scripts what actions to take
+ */
+function handleStateTransition(stateName: string, context: any): void {
+  extensionLogger.log('[StateTransition] Entered state', { state: stateName });
+
+  // Update legacy state
+  state.isRunning = isBotRunning(stateName);
+
+  switch (stateName) {
+    case 'waitingForGame':
+      // Tell reddit-content to check for game loader
+      broadcastToReddit({ type: 'CHECK_FOR_GAME_LOADER' });
+      break;
+
+    case 'openingGame':
+      // Tell reddit-content to click game UI
+      broadcastToReddit({ type: 'CLICK_GAME_UI' });
+      break;
+
+    case 'gameReady':
+      // Tell devvit-content (game iframe) to start automation
+      broadcastToAllFrames({ type: 'START_MISSION_AUTOMATION', config: context.automationConfig });
+      break;
+
+    case 'completing':
+      // Tell reddit-content to find next mission
+      broadcastToReddit({
+        type: 'FIND_NEXT_MISSION',
+        filters: context.filters,
+      });
+      break;
+
+    case 'navigating':
+      // Tell reddit-content to navigate to the mission
+      if (context.currentMissionPermalink) {
+        broadcastToReddit({
+          type: 'NAVIGATE_TO_URL',
+          url: context.currentMissionPermalink,
+        });
+      }
+      break;
+  }
+}
+
+/**
+ * Broadcast message to reddit tabs only
+ */
+function broadcastToReddit(message: any): void {
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach((tab) => {
+      if (tab.id && tab.url?.includes('reddit.com')) {
+        chrome.tabs.sendMessage(tab.id, message);
+      }
+    });
+  });
+}
+
+/**
+ * Broadcast message to all frames in active tab
+ */
+function broadcastToAllFrames(message: any): void {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]?.id) {
+      chrome.tabs.sendMessage(tabs[0].id, message, { frameId: undefined });
+    }
+  });
+}
+
+// Extension state (legacy, will be phased out)
 const state: BotState = {
   isRunning: false,
   completedLevels: [],
@@ -42,59 +156,30 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       sendResponse({ success: true });
       break;
 
-    // Messages from popup - route to appropriate content script
+    // Messages from popup - route to state machine
     case 'START_BOT':
-      state.isRunning = true;
-      state.filters = message.filters;
+      extensionLogger.log('START_BOT received, sending to state machine');
 
-      // Get automation config and mark bot session as active
+      // Get automation config
       chrome.storage.local.get(['automationConfig'], (result) => {
-        // Mark bot session as active so automation continues after navigation
-        // Include filters so they're available after page reload
+        // Send START_BOT event to state machine
+        botActor.send({
+          type: 'START_BOT',
+          filters: message.filters,
+          config: result.automationConfig || {},
+        });
+
+        // Keep old activeBotSession flag for backwards compat
         chrome.storage.local.set({
           activeBotSession: true,
           automationConfig: result.automationConfig || {},
-          automationFilters: message.filters
+          automationFilters: message.filters,
         });
 
-        extensionLogger.log('Starting automation with filters', {
-          stars: message.filters.stars,
-          minLevel: message.filters.minLevel,
-          maxLevel: message.filters.maxLevel
-        });
-
-        // Start full automation: navigate to first mission
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs[0]?.id) {
-            extensionLogger.log('Starting automation - navigating to first mission');
-
-            // Send status update
-            chrome.runtime.sendMessage({
-              type: 'STATUS_UPDATE',
-              status: 'Looking for missions matching filters...',
-            });
-
-            chrome.tabs.sendMessage(tabs[0].id, {
-              type: 'NAVIGATE_TO_MISSION',
-              filters: message.filters,
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                extensionLogger.error('Failed to send NAVIGATE_TO_MISSION', {
-                  error: chrome.runtime.lastError.message
-                });
-                chrome.runtime.sendMessage({
-                  type: 'STATUS_UPDATE',
-                  status: 'Idle',
-                });
-              }
-            });
-          } else {
-            extensionLogger.error('No active tab found');
-            chrome.runtime.sendMessage({
-              type: 'STATUS_UPDATE',
-              status: 'Idle',
-            });
-          }
+        // Tell reddit-content to find first mission
+        broadcastToReddit({
+          type: 'FIND_NEXT_MISSION',
+          filters: message.filters,
         });
       });
 
@@ -102,25 +187,16 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       break;
 
     case 'STOP_BOT':
-      state.isRunning = false;
+      extensionLogger.log('STOP_BOT received, sending to state machine');
 
-      // Clear active bot session flag and filters
+      // Send STOP_BOT event to state machine
+      botActor.send({ type: 'STOP_BOT' });
+
+      // Clear storage
       chrome.storage.local.remove(['activeBotSession', 'automationFilters']);
 
-      // Forward to reddit-content script
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          extensionLogger.log('Forwarding STOP_PROCESSING to reddit-content');
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_PROCESSING' });
-        }
-      });
-
-      // Also stop mission automation if running
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_MISSION_AUTOMATION' });
-        }
-      });
+      // Stop automation in all frames
+      broadcastToAllFrames({ type: 'STOP_MISSION_AUTOMATION' });
 
       sendResponse({ success: true });
       break;
@@ -197,9 +273,82 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       sendResponse({ success: true });
       break;
 
-    // Notification from devvit-content that automation is ready
+    // Events from content scripts → state machine
+    case 'GAME_LOADER_DETECTED':
+      extensionLogger.log('GAME_LOADER_DETECTED, sending to state machine');
+      botActor.send({ type: 'GAME_LOADER_DETECTED' });
+      sendResponse({ success: true });
+      break;
+
+    case 'GAME_DIALOG_OPENED':
+      extensionLogger.log('GAME_DIALOG_OPENED, sending to state machine');
+      botActor.send({ type: 'GAME_DIALOG_OPENED' });
+      sendResponse({ success: true });
+      break;
+
     case 'AUTOMATION_READY':
-      extensionLogger.log('Automation ready in game iframe');
+      extensionLogger.log('AUTOMATION_READY, sending AUTOMATION_STARTED to state machine');
+      botActor.send({ type: 'AUTOMATION_STARTED' });
+      sendResponse({ success: true });
+      break;
+
+    case 'MISSION_COMPLETED':
+      extensionLogger.log('MISSION_COMPLETED, sending to state machine');
+      botActor.send({
+        type: 'MISSION_COMPLETED',
+        missionId: (message as any).missionId,
+      });
+      sendResponse({ success: true });
+      break;
+
+    case 'MISSION_FOUND':
+      extensionLogger.log('MISSION_FOUND, sending event to state machine');
+      const missionData = message as any;
+      const currentState = botActor.getSnapshot().value as string;
+
+      // If we're completing a mission, this is the NEXT mission
+      if (currentState === 'completing') {
+        extensionLogger.log('In completing state, sending NEXT_MISSION_FOUND');
+        botActor.send({
+          type: 'NEXT_MISSION_FOUND',
+          missionId: missionData.missionId,
+          permalink: missionData.permalink,
+        });
+      } else if (missionData.isCurrentPage) {
+        // Already on mission page (first mission)
+        extensionLogger.log('Already on page, sending MISSION_PAGE_LOADED');
+        botActor.send({
+          type: 'MISSION_PAGE_LOADED',
+          missionId: missionData.missionId,
+          permalink: missionData.permalink,
+        });
+      } else {
+        // Need to navigate (first mission)
+        extensionLogger.log('Need to navigate, sending NAVIGATE_TO_MISSION');
+        botActor.send({
+          type: 'NAVIGATE_TO_MISSION',
+          missionId: missionData.missionId,
+          permalink: missionData.permalink,
+        });
+      }
+      sendResponse({ success: true });
+      break;
+
+    case 'NO_MISSIONS_FOUND':
+      extensionLogger.log('NO_MISSIONS_FOUND, sending to state machine');
+      botActor.send({ type: 'NO_MISSIONS_FOUND' });
+      sendResponse({ success: true });
+      break;
+
+    case 'ERROR_OCCURRED':
+      extensionLogger.error('ERROR_OCCURRED, sending to state machine', {
+        errorMessage: (message as any).message || 'Unknown error',
+        currentState: botActor.getSnapshot().value,
+      });
+      botActor.send({
+        type: 'ERROR_OCCURRED',
+        message: (message as any).message || 'Unknown error',
+      });
       sendResponse({ success: true });
       break;
 

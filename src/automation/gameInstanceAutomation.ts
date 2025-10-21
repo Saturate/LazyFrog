@@ -7,7 +7,7 @@ import { devvitLogger } from '../utils/logger';
 import { saveMission, MissionRecord, markMissionCleared, checkMissionClearedInDOM, accumulateMissionLoot } from '../utils/storage';
 import { enemyNames, mapNames } from '../data';
 
-export interface SimpleAutomationConfig {
+export interface GameInstanceAutomationConfig {
   enabled: boolean;
   abilityTierList: string[]; // Preferred abilities in order
   blessingStatPriority: string[]; // Preferred blessing stats in order (e.g., ['Speed', 'Attack', 'Defense'])
@@ -17,7 +17,7 @@ export interface SimpleAutomationConfig {
   clickDelay: number; // Delay between clicks in ms
 }
 
-export const DEFAULT_SIMPLE_CONFIG: SimpleAutomationConfig = {
+export const DEFAULT_GIAE_CONFIG: GameInstanceAutomationConfig = {
   enabled: false,
   abilityTierList: ['IceKnifeOnTurnStart', 'LightningOnCrit', 'HealOnFirstTurn'],
   blessingStatPriority: ['Speed', 'Attack', 'Crit', 'Health', 'Defense', 'Dodge'], // Speed first for faster gameplay
@@ -27,26 +27,26 @@ export const DEFAULT_SIMPLE_CONFIG: SimpleAutomationConfig = {
   clickDelay: 1000,
 };
 
-export class SimpleAutomationEngine {
-  private config: SimpleAutomationConfig;
+export class GameInstanceAutomationEngine {
+  private config: GameInstanceAutomationConfig;
   private intervalId: number | null = null;
   private isProcessing = false;
   private inCombat = false;
   private missionMetadata: any = null;
   private currentPostId: string | null = null;
 
-  constructor(config: SimpleAutomationConfig) {
+  constructor(config: GameInstanceAutomationConfig) {
     // Deep merge config, ensuring arrays are properly preserved
     this.config = {
-      ...DEFAULT_SIMPLE_CONFIG,
+      ...DEFAULT_GIAE_CONFIG,
       ...config,
       // Ensure arrays are properly set, falling back to defaults if not provided
       abilityTierList: Array.isArray(config.abilityTierList) 
         ? config.abilityTierList 
-        : DEFAULT_SIMPLE_CONFIG.abilityTierList,
+        : DEFAULT_GIAE_CONFIG.abilityTierList,
       blessingStatPriority: Array.isArray(config.blessingStatPriority)
         ? config.blessingStatPriority
-        : DEFAULT_SIMPLE_CONFIG.blessingStatPriority,
+        : DEFAULT_GIAE_CONFIG.blessingStatPriority,
     };
     this.setupMessageListener();
   }
@@ -123,7 +123,7 @@ export class SimpleAutomationEngine {
 
       if (existingMission) {
         // Updating existing mission with enriched metadata
-        devvitLogger.log('[SimpleAutomation] Mission metadata enriched', {
+        devvitLogger.log('[GIAE] Mission metadata enriched', {
           postId,
           difficulty: record.difficulty,
           environment: record.environment,
@@ -133,7 +133,7 @@ export class SimpleAutomationEngine {
         });
       } else {
         // New mission discovered from playing (not previously scanned)
-        devvitLogger.log('[SimpleAutomation] 🆕 NEW MISSION discovered from gameplay', {
+        devvitLogger.log('[GIAE] 🆕 NEW MISSION discovered from gameplay', {
           postId,
           difficulty: record.difficulty,
           environment: record.environment,
@@ -144,7 +144,7 @@ export class SimpleAutomationEngine {
         });
       }
     } catch (error) {
-      devvitLogger.error('[SimpleAutomation] Failed to save mission', { error: String(error) });
+      devvitLogger.error('[GIAE] Failed to save mission', { error: String(error) });
     }
   }
 
@@ -153,7 +153,7 @@ export class SimpleAutomationEngine {
    */
   private async markMissionAsCleared(postId: string): Promise<void> {
     try {
-      devvitLogger.log('[SimpleAutomation] Attempting to mark mission as cleared', { 
+      devvitLogger.log('[GIAE] Attempting to mark mission as cleared', { 
         postId,
         hasChromeRuntime: !!chrome.runtime,
         hasChromeRuntimeId: !!chrome.runtime?.id,
@@ -162,9 +162,9 @@ export class SimpleAutomationEngine {
       });
       
       await markMissionCleared(postId);
-      devvitLogger.log('[SimpleAutomation] Mission marked as cleared', { postId });
+      devvitLogger.log('[GIAE] Mission marked as cleared', { postId });
     } catch (error) {
-      devvitLogger.error('[SimpleAutomation] Failed to mark mission cleared', { 
+      devvitLogger.error('[GIAE] Failed to mark mission cleared', { 
         error: String(error),
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         errorStack: error instanceof Error ? error.stack : undefined
@@ -178,7 +178,7 @@ export class SimpleAutomationEngine {
    */
   private async navigateToNextMission(): Promise<void> {
     try {
-      devvitLogger.log('[SimpleAutomation] Getting next uncleared mission...');
+      devvitLogger.log('[GIAE] Getting next uncleared mission...');
 
       // Get filters from storage
       const storageData = await chrome.storage.local.get(['automationFilters']);
@@ -188,14 +188,14 @@ export class SimpleAutomationEngine {
         maxLevel: storageData.automationFilters.maxLevel
       } : undefined;
 
-      devvitLogger.log('[SimpleAutomation] Using filters', { filters });
+      devvitLogger.log('[GIAE] Using filters', { filters });
 
       // Dynamically import to avoid circular dependencies
       const { getNextUnclearedMission } = await import('../utils/storage');
       const nextMission = await getNextUnclearedMission(filters);
 
       if (nextMission && nextMission.permalink) {
-        devvitLogger.log('[SimpleAutomation] Navigating to next mission', {
+        devvitLogger.log('[GIAE] Navigating to next mission', {
           postId: nextMission.postId,
           tags: nextMission.tags,
           permalink: nextMission.permalink,
@@ -212,13 +212,13 @@ export class SimpleAutomationEngine {
         // Navigate directly to next mission (avoids listing page reload)
         window.location.href = nextMission.permalink;
       } else {
-        devvitLogger.log('[SimpleAutomation] No more uncleared missions - automation complete!');
+        devvitLogger.log('[GIAE] No more uncleared missions - automation complete!');
         this.broadcastStatus('Idle');
         alert('No more uncleared missions available. Automation stopped.');
         this.stop();
       }
     } catch (error) {
-      devvitLogger.error('[SimpleAutomation] Failed to navigate to next mission', { error: String(error) });
+      devvitLogger.error('[GIAE] Failed to navigate to next mission', { error: String(error) });
     }
   }
 
@@ -287,7 +287,7 @@ export class SimpleAutomationEngine {
 
           // Log devvit-messages with more detail
           if (isDevvitMessage) {
-            devvitLogger.log('[SimpleAutomation] 📨 devvit-message received', {
+            devvitLogger.log('[GIAE] 📨 devvit-message received', {
               origin: event.origin,
               messageType: messageType,
               hasMessageData: !!event.data?.data?.message?.data,
@@ -311,7 +311,7 @@ export class SimpleAutomationEngine {
           // Store postId for later use (e.g., marking as cleared)
           this.currentPostId = postId;
 
-          devvitLogger.log('[SimpleAutomation] Mission metadata received', {
+          devvitLogger.log('[GIAE] Mission metadata received', {
             postId,
             difficulty: this.missionMetadata?.mission?.difficulty,
             environment: this.missionMetadata?.mission?.environment,
@@ -333,13 +333,13 @@ export class SimpleAutomationEngine {
         // Check for combat events
         if (event.data?.type === 'COMBAT_START') {
           this.inCombat = true;
-          devvitLogger.log('[SimpleAutomation] Combat started - pausing button clicks');
+          devvitLogger.log('[GIAE] Combat started - pausing button clicks');
           this.emitStateChange(); // Notify UI
         }
 
         if (event.data?.type === 'COMBAT_END') {
           this.inCombat = false;
-          devvitLogger.log('[SimpleAutomation] Combat ended - resuming automation');
+          devvitLogger.log('[GIAE] Combat ended - resuming automation');
           this.emitStateChange(); // Notify UI
         }
 
@@ -350,7 +350,7 @@ export class SimpleAutomationEngine {
           (event.data?.type === 'devvit-message' && event.data?.data?.message?.type === 'encounterResult' && event.data.data.message.data);
 
         if (encounterResult) {
-          devvitLogger.log('[SimpleAutomation] Encounter result received', {
+          devvitLogger.log('[GIAE] Encounter result received', {
             victory: encounterResult.victory,
             encounterIndex: encounterResult.encounterAction?.encounterIndex,
             lootCount: encounterResult.encounterLoot?.length,
@@ -368,13 +368,13 @@ export class SimpleAutomationEngine {
 
           // If this is a victory and has loot, accumulate it
           if (encounterResult.victory && encounterResult.encounterLoot && encounterResult.encounterLoot.length > 0 && this.currentPostId) {
-            devvitLogger.log('[SimpleAutomation] Accumulating encounter loot', {
+            devvitLogger.log('[GIAE] Accumulating encounter loot', {
               postId: this.currentPostId,
               encounterIndex: encounterResult.encounterAction?.encounterIndex,
               loot: encounterResult.encounterLoot,
             });
             accumulateMissionLoot(this.currentPostId, encounterResult.encounterLoot).catch((error) => {
-              devvitLogger.error('[SimpleAutomation] Failed to accumulate mission loot', {
+              devvitLogger.error('[GIAE] Failed to accumulate mission loot', {
                 error: String(error),
               });
             });
@@ -387,14 +387,14 @@ export class SimpleAutomationEngine {
             (event.data?.type === 'devvit-message' && event.data?.data?.message?.type === 'missionComplete')) {
           const postId = event.data.data.message.data?.postId;
           if (postId) {
-            devvitLogger.log('[SimpleAutomation] Mission cleared!', { postId });
+            devvitLogger.log('[GIAE] Mission cleared!', { postId });
             this.broadcastStatus('Finished mission, waiting');
             this.markMissionAsCleared(postId);
           }
         }
       } catch (error) {
         // Log parsing errors
-        devvitLogger.error('[SimpleAutomation] Error parsing message', { error: String(error) });
+        devvitLogger.error('[GIAE] Error parsing message', { error: String(error) });
       }
     });
   }
@@ -404,11 +404,11 @@ export class SimpleAutomationEngine {
    */
   public start(): void {
     if (this.intervalId) {
-      devvitLogger.log('[SimpleAutomation] Already running');
+      devvitLogger.log('[GIAE] Already running');
       return;
     }
 
-    devvitLogger.log('[SimpleAutomation] Starting button-clicking automation');
+    devvitLogger.log('[GIAE] Starting button-clicking automation');
     this.config.enabled = true;
     this.broadcastStatus('Waiting for mission to be ready');
 
@@ -426,7 +426,7 @@ export class SimpleAutomationEngine {
    * Stop the automation loop
    */
   public stop(): void {
-    devvitLogger.log('[SimpleAutomation] Stopping automation');
+    devvitLogger.log('[GIAE] Stopping automation');
     this.config.enabled = false;
 
     if (this.intervalId) {
@@ -438,7 +438,7 @@ export class SimpleAutomationEngine {
   /**
    * Update configuration
    */
-  public updateConfig(config: Partial<SimpleAutomationConfig>): void {
+  public updateConfig(config: Partial<GameInstanceAutomationConfig>): void {
     this.config = { ...this.config, ...config };
   }
 
@@ -464,18 +464,18 @@ export class SimpleAutomationEngine {
     // Use utility function to check DOM
     const clearedImage = checkMissionClearedInDOM();
     if (clearedImage) {
-      devvitLogger.log('[SimpleAutomation] Mission cleared detected via DOM (cleared image found)');
+      devvitLogger.log('[GIAE] Mission cleared detected via DOM (cleared image found)');
 
       // Get postId - prioritize the one we stored when initialData was received
       const postId = this.currentPostId;
 
       if (postId) {
-        devvitLogger.log('[SimpleAutomation] Marking mission as cleared', { postId });
+        devvitLogger.log('[GIAE] Marking mission as cleared', { postId });
         this.markMissionAsCleared(postId);
         // DON'T clear currentPostId here - we need it later when clicking Finish button
         // It will be cleared in tryClickContinue after we trigger navigation
       } else {
-        devvitLogger.warn('[SimpleAutomation] Mission appears cleared but no postId available');
+        devvitLogger.warn('[GIAE] Mission appears cleared but no postId available');
       }
     }
   }
@@ -513,7 +513,7 @@ export class SimpleAutomationEngine {
       }
 
       if (gameState === 'unknown') {
-        devvitLogger.log('[SimpleAutomation] Unknown game state, skipping', {
+        devvitLogger.log('[GIAE] Unknown game state, skipping', {
           buttonClasses: buttons.map(b => b.className)
         });
         this.isProcessing = false;
@@ -521,7 +521,7 @@ export class SimpleAutomationEngine {
       }
 
       // Log actionable states with button info
-      devvitLogger.log('[SimpleAutomation] Detected game state', {
+      devvitLogger.log('[GIAE] Detected game state', {
         state: gameState,
         buttons: buttons.map(b => `${b.className}: "${b.textContent?.trim()}"`),
         count: buttons.length
@@ -531,7 +531,7 @@ export class SimpleAutomationEngine {
       const clickedButton = this.clickForState(gameState, buttons);
 
       if (clickedButton) {
-        devvitLogger.log('[SimpleAutomation] Clicked button', {
+        devvitLogger.log('[GIAE] Clicked button', {
           state: gameState,
           button: clickedButton
         });
@@ -539,7 +539,7 @@ export class SimpleAutomationEngine {
         await this.delay(this.config.clickDelay);
       }
     } catch (error) {
-      devvitLogger.error('[SimpleAutomation] Error processing buttons', { error });
+      devvitLogger.error('[GIAE] Error processing buttons', { error });
     } finally {
       this.isProcessing = false;
     }
@@ -760,7 +760,7 @@ export class SimpleAutomationEngine {
       // Safety check: ensure blessingStatPriority is an array
       const statPriority = Array.isArray(this.config.blessingStatPriority) 
         ? this.config.blessingStatPriority 
-        : DEFAULT_SIMPLE_CONFIG.blessingStatPriority;
+        : DEFAULT_GIAE_CONFIG.blessingStatPriority;
 
       for (const stat of statPriority) {
         const blessingButton = skillButtons.find(b => {
@@ -779,7 +779,7 @@ export class SimpleAutomationEngine {
     // Safety check: ensure abilityTierList is an array
     const abilityList = Array.isArray(this.config.abilityTierList)
       ? this.config.abilityTierList
-      : DEFAULT_SIMPLE_CONFIG.abilityTierList;
+      : DEFAULT_GIAE_CONFIG.abilityTierList;
 
     for (const abilityId of abilityList) {
       const abilityButton = skillButtons.find(b => {
@@ -858,28 +858,28 @@ export class SimpleAutomationEngine {
       // Mark mission as cleared when clicking Finish/Dismiss
       const postId = this.currentPostId || this.missionMetadata?.postId;
       
-      devvitLogger.log('[SimpleAutomation] Finish button clicked, checking postId', {
+      devvitLogger.log('[GIAE] Finish button clicked, checking postId', {
         currentPostId: this.currentPostId,
         metadataPostId: this.missionMetadata?.postId,
         finalPostId: postId
       });
 
       if (postId) {
-        devvitLogger.log('[SimpleAutomation] Mission cleared! Clicking Finish/Dismiss button', {
+        devvitLogger.log('[GIAE] Mission cleared! Clicking Finish/Dismiss button', {
           postId
         });
         this.markMissionAsCleared(postId);
 
-        // Navigate to next mission after a short delay
-        setTimeout(() => {
-          devvitLogger.log('[SimpleAutomation] Triggering navigation to next mission');
-          this.navigateToNextMission();
-        }, 2000);
+        // Notify background that mission is completed
+        chrome.runtime.sendMessage({
+          type: 'MISSION_COMPLETED',
+          missionId: postId,
+        });
 
-        // Clear the postId now that we've triggered navigation
+        // Clear the postId now that background will handle navigation
         this.currentPostId = null;
       } else {
-        devvitLogger.warn('[SimpleAutomation] Finish button clicked but no postId available!', {
+        devvitLogger.warn('[GIAE] Finish button clicked but no postId available!', {
           currentPostId: this.currentPostId,
           metadataPostId: this.missionMetadata?.postId,
           hasMissionMetadata: !!this.missionMetadata

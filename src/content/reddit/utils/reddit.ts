@@ -3,28 +3,34 @@
  * Functions for finding elements, parsing posts, and interacting with Reddit's DOM
  */
 
-import { Level, LevelFilters } from '../../../types';
-import { saveMission, MissionRecord } from '../../../utils/storage';
-import { redditLogger } from '../../../utils/logger';
+import { Level, LevelFilters } from "../../../types";
+import { saveMission, MissionRecord } from "../../../utils/storage";
+import { redditLogger } from "../../../utils/logger";
 
 /**
  * Find game iframe in nested shadow DOMs
  */
 export const findGameIframe = (): HTMLIFrameElement | null => {
   // Try direct search first
-  let gameIframe = document.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
+  let gameIframe = document.querySelector(
+    'iframe[src*="devvit.net"]'
+  ) as HTMLIFrameElement;
   if (gameIframe) return gameIframe;
 
   // Search in loader's shadow root
-  const loader = document.querySelector('shreddit-devvit-ui-loader');
+  const loader = document.querySelector("shreddit-devvit-ui-loader");
   if (loader?.shadowRoot) {
-    gameIframe = loader.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
+    gameIframe = loader.shadowRoot.querySelector(
+      'iframe[src*="devvit.net"]'
+    ) as HTMLIFrameElement;
     if (gameIframe) return gameIframe;
 
     // Search in nested shadow DOMs (devvit-blocks-web-view)
-    const webView = loader.shadowRoot.querySelector('devvit-blocks-web-view');
+    const webView = loader.shadowRoot.querySelector("devvit-blocks-web-view");
     if (webView?.shadowRoot) {
-      gameIframe = webView.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
+      gameIframe = webView.shadowRoot.querySelector(
+        'iframe[src*="devvit.net"]'
+      ) as HTMLIFrameElement;
       if (gameIframe) return gameIframe;
     }
   }
@@ -39,19 +45,19 @@ export const findGameIframe = (): HTMLIFrameElement | null => {
 export function parseLevelFromPost(post: Element): Level | null {
   try {
     // Reddit's new UI uses shreddit-post elements with attributes
-    const title = post.getAttribute('post-title') || '';
-    const permalink = post.getAttribute('permalink') || '';
-    const postId = post.getAttribute('id') || ''; // e.g., "t3_1obdqvw"
-    const author = post.getAttribute('author') || '';
+    const title = post.getAttribute("post-title") || "";
+    const permalink = post.getAttribute("permalink") || "";
+    const postId = post.getAttribute("id") || ""; // e.g., "t3_1obdqvw"
+    const author = post.getAttribute("author") || "";
 
     if (!title) {
-      redditLogger.warn('Post has no title', { post });
+      redditLogger.warn("Post has no title", { post });
       return null;
     }
 
     // Skip meta levels that aren't playable missions
-    const metaLevels = ['The Inn'];
-    if (metaLevels.some(meta => title === meta)) {
+    const metaLevels = ["The Inn"];
+    if (metaLevels.some((meta) => title === meta)) {
       redditLogger.log(`Skipping meta level: "${title}"`);
       return null;
     }
@@ -81,34 +87,43 @@ export function parseLevelFromPost(post: Element): Level | null {
     let starDifficulty = 0;
     let isCleared = false;
 
-    const devvitLoader = post.querySelector('shreddit-devvit-ui-loader');
+    const devvitLoader = post.querySelector("shreddit-devvit-ui-loader");
     if (devvitLoader) {
       // Check if preview is still loading
-      const isLoading = devvitLoader.textContent?.includes('Loading');
+      const isLoading = devvitLoader.textContent?.includes("Loading");
 
       // Navigate through nested shadow DOMs to find the renderer
       if (devvitLoader.shadowRoot) {
-        const surface = devvitLoader.shadowRoot.querySelector('devvit-surface');
+        const surface = devvitLoader.shadowRoot.querySelector("devvit-surface");
         if (surface?.shadowRoot) {
-          const renderer = surface.shadowRoot.querySelector('devvit-blocks-renderer');
+          const renderer = surface.shadowRoot.querySelector(
+            "devvit-blocks-renderer"
+          );
           if (renderer?.shadowRoot) {
             // Count filled star images (ap8a5ghsvyre1.png)
-            const filledStars = renderer.shadowRoot.querySelectorAll('img[src*="ap8a5ghsvyre1.png"]');
+            const filledStars = renderer.shadowRoot.querySelectorAll(
+              'img[src*="ap8a5ghsvyre1.png"]'
+            );
             starDifficulty = filledStars.length;
 
             // Check for cleared banner (cleared/done image)
-            const clearedImages = renderer.shadowRoot.querySelectorAll('img[src*="fxlui9egtgbf1.png"]');
+            const clearedImages = renderer.shadowRoot.querySelectorAll(
+              'img[src*="fxlui9egtgbf1.png"]'
+            );
             if (clearedImages.length > 0) {
               isCleared = true;
-              redditLogger.log('Mission marked as cleared (cleared banner detected)', {
-                title: title.substring(0, 50),
-                postId,
-              });
+              redditLogger.log(
+                "Mission marked as cleared (cleared banner detected)",
+                {
+                  title: title.substring(0, 50),
+                  postId,
+                }
+              );
             }
 
             // DEBUG: Log successful parse
             if (starDifficulty > 0) {
-              redditLogger.log('Parsed star difficulty', {
+              redditLogger.log("Parsed star difficulty", {
                 title: title.substring(0, 50),
                 postId,
                 stars: starDifficulty,
@@ -117,10 +132,10 @@ export function parseLevelFromPost(post: Element): Level | null {
           }
         }
       }
-      
+
       // Warn if preview loaded but star detection failed
       if (starDifficulty === 0 && !isLoading) {
-        redditLogger.warn('Preview loaded but no stars detected', {
+        redditLogger.warn("Preview loaded but no stars detected", {
           title: title.substring(0, 50),
           postId,
           isLoading,
@@ -131,12 +146,12 @@ export function parseLevelFromPost(post: Element): Level | null {
     // Cleared check is already done above in the shadow DOM parsing (isCleared variable)
     // Also check for cleared indicators in title as fallback
     const isTitleCleared =
-      title.toLowerCase().includes('cleared') ||
-      title.toLowerCase().includes('completed') ||
-      title.includes('✓') ||
-      title.includes('✔') ||
-      title.includes('[done]') ||
-      title.toLowerCase().includes('solved');
+      title.toLowerCase().includes("cleared") ||
+      title.toLowerCase().includes("completed") ||
+      title.includes("✓") ||
+      title.includes("✔") ||
+      title.includes("[done]") ||
+      title.toLowerCase().includes("solved");
 
     const finalCleared = isCleared || isTitleCleared;
 
@@ -156,7 +171,7 @@ export function parseLevelFromPost(post: Element): Level | null {
       element: post,
     };
   } catch (error) {
-    redditLogger.error('Error parsing level', { error: String(error) });
+    redditLogger.error("Error parsing level", { error: String(error) });
     return null;
   }
 }
@@ -166,7 +181,7 @@ export function parseLevelFromPost(post: Element): Level | null {
  */
 async function saveScannedMission(level: Level): Promise<void> {
   if (!level.postId || !level.href) {
-    redditLogger.warn('Skipping mission - missing data', {
+    redditLogger.warn("Skipping mission - missing data", {
       title: level.title.substring(0, 50),
       postId: level.postId,
       href: level.href,
@@ -177,7 +192,7 @@ async function saveScannedMission(level: Level): Promise<void> {
 
   // Skip missions with no difficulty rating (0 stars = preview not loaded yet)
   if (!level.stars || level.stars === 0) {
-    redditLogger.log('Skipping mission - no difficulty rating yet', {
+    redditLogger.log("Skipping mission - no difficulty rating yet", {
       title: level.title.substring(0, 50),
       postId: level.postId,
     });
@@ -186,24 +201,24 @@ async function saveScannedMission(level: Level): Promise<void> {
 
   try {
     // Check if mission already exists in database
-    const { getMission } = await import('../../../utils/storage');
+    const { getMission } = await import("../../../utils/storage");
     const existingMission = await getMission(level.postId);
 
     // Check if cleared status changed
     if (existingMission && !existingMission.cleared && level.cleared) {
-      redditLogger.log('Mission cleared status detected - updating database', {
+      redditLogger.log("Mission cleared status detected - updating database", {
         postId: level.postId,
         title: level.title.substring(0, 50),
       });
 
       // Mark as cleared in database
-      const { markMissionCleared } = await import('../../../utils/storage');
+      const { markMissionCleared } = await import("../../../utils/storage");
       await markMissionCleared(level.postId);
     }
 
     const record: MissionRecord = {
       postId: level.postId,
-      username: existingMission?.username || level.author || 'unknown', // Preserve original author
+      username: existingMission?.username || level.author || "unknown", // Preserve original author
       timestamp: existingMission?.timestamp || Date.now(), // Preserve original timestamp
       metadata: existingMission?.metadata || null, // Preserve metadata if exists
       tags: existingMission?.tags,
@@ -229,7 +244,7 @@ async function saveScannedMission(level: Level): Promise<void> {
     });
   } catch (error) {
     // ERROR LOG: Show full object
-    redditLogger.error('Failed to save mission', {
+    redditLogger.error("Failed to save mission", {
       error: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
       level: {
@@ -247,14 +262,16 @@ async function saveScannedMission(level: Level): Promise<void> {
  * Get all level posts from the current Reddit page
  */
 export function getAllLevels(): Level[] {
-  const posts = document.querySelectorAll('shreddit-post');
+  const posts = document.querySelectorAll("shreddit-post");
   const levels: Level[] = [];
   let savedCount = 0;
   let skippedCount = 0;
   let parseFailedCount = 0;
   let missingDataCount = 0;
 
-  redditLogger.log('Found posts on page, parsing...', { postsCount: posts.length });
+  redditLogger.log("Found posts on page, parsing...", {
+    postsCount: posts.length,
+  });
 
   posts.forEach((post, index) => {
     const level = parseLevelFromPost(post);
@@ -277,10 +294,10 @@ export function getAllLevels(): Level[] {
         .then(() => {
           savedCount++;
         })
-        .catch(err => {
-          redditLogger.error('Failed to save mission', {
+        .catch((err) => {
+          redditLogger.error("Failed to save mission", {
             error: err instanceof Error ? err.message : String(err),
-            postId: level.postId
+            postId: level.postId,
           });
           skippedCount++;
         });
@@ -289,20 +306,20 @@ export function getAllLevels(): Level[] {
     }
   });
 
-  redditLogger.log('Parsed valid missions from posts', { 
-    validMissions: levels.length, 
-    totalPosts: posts.length 
+  redditLogger.log("Parsed valid missions from posts", {
+    validMissions: levels.length,
+    totalPosts: posts.length,
   });
-  redditLogger.log('Parse stats', { 
-    parseFailedCount, 
-    missingDataCount 
+  redditLogger.log("Parse stats", {
+    parseFailedCount,
+    missingDataCount,
   });
 
   // Log summary after a delay to let saves complete
   setTimeout(() => {
-    redditLogger.log('Save summary', { 
-      savedCount, 
-      skippedCount 
+    redditLogger.log("Save summary", {
+      savedCount,
+      skippedCount,
     });
   }, 2000); // Increased timeout to 2 seconds
 
@@ -321,14 +338,20 @@ export function filterLevels(levels: Level[], filters: LevelFilters): Level[] {
 
     // Level range filter (if we have level number)
     if (level.levelNumber !== null) {
-      if (level.levelNumber < filters.minLevel || level.levelNumber > filters.maxLevel) {
+      if (
+        level.levelNumber < filters.minLevel ||
+        level.levelNumber > filters.maxLevel
+      ) {
         return false;
       }
     }
 
     // If we don't have specific level number but have range, use range max as proxy
     if (level.levelNumber === null && level.levelRangeMax !== null) {
-      if (level.levelRangeMax < filters.minLevel || level.levelRangeMax > filters.maxLevel) {
+      if (
+        level.levelRangeMax < filters.minLevel ||
+        level.levelRangeMax > filters.maxLevel
+      ) {
         return false;
       }
     }
@@ -347,13 +370,13 @@ export function filterLevels(levels: Level[], filters: LevelFilters): Level[] {
  */
 export function clickLevel(level: Level): void {
   if (level.href) {
-    console.log('[REDDIT] Navigating to:', level.href);
+    redditLogger.log("[REDDIT] Navigating to:", level.href);
     window.location.href = level.href;
   } else if (level.element) {
-    console.log('[REDDIT] Clicking level element:', level.title);
+    redditLogger.log("[REDDIT] Clicking level element:", level.title);
     (level.element as HTMLElement).click();
   } else {
-    console.error('[REDDIT] Cannot click level - no href or element');
+    console.error("[REDDIT] Cannot click level - no href or element");
   }
 }
 
@@ -361,50 +384,66 @@ export function clickLevel(level: Level): void {
  * Explore the shadow DOM of the game loader (debug function)
  */
 export function exploreGameLoader(): void {
-  const loader = document.querySelector('shreddit-devvit-ui-loader');
+  const loader = document.querySelector("shreddit-devvit-ui-loader");
 
   if (!loader) {
-    console.log('[REDDIT] No shreddit-devvit-ui-loader found on page');
+    redditLogger.log("[REDDIT] No shreddit-devvit-ui-loader found on page");
     return;
   }
 
-  console.log('[REDDIT] Found shreddit-devvit-ui-loader:', loader);
+  redditLogger.log("[REDDIT] Found shreddit-devvit-ui-loader:", loader);
 
   // Access shadow root
   const shadowRoot = loader.shadowRoot;
   if (shadowRoot) {
-    console.log('[REDDIT] Shadow DOM found!');
-    console.log('[REDDIT] Shadow root innerHTML:', shadowRoot.innerHTML);
+    redditLogger.log("[REDDIT] Shadow DOM found!");
+    redditLogger.log("[REDDIT] Shadow root innerHTML:", shadowRoot.innerHTML);
 
     // Look for iframes
-    const iframes = shadowRoot.querySelectorAll('iframe');
-    console.log('[REDDIT] Iframes in shadow DOM:', iframes.length);
+    const iframes = shadowRoot.querySelectorAll("iframe");
+    redditLogger.log("[REDDIT] Iframes in shadow DOM:", iframes.length);
     iframes.forEach((iframe, index) => {
-      console.log(`[REDDIT] Iframe ${index}:`, iframe.src);
+      redditLogger.log(`[REDDIT] Iframe ${index}:`, iframe.src);
 
       // Try to access iframe contents
       try {
         if (iframe.contentDocument) {
-          console.log(`[REDDIT] Iframe ${index} document:`, iframe.contentDocument.body.innerHTML.substring(0, 500));
+          redditLogger.log(
+            `[REDDIT] Iframe ${index} document:`,
+            iframe.contentDocument.body.innerHTML.substring(0, 500)
+          );
         }
       } catch (e) {
-        console.log(`[REDDIT] Cannot access iframe ${index} content (cross-origin)`, e);
+        redditLogger.log(
+          `[REDDIT] Cannot access iframe ${index} content (cross-origin)`,
+          e
+        );
       }
     });
 
     // List all elements
-    const allElements = shadowRoot.querySelectorAll('*');
-    console.log('[REDDIT] All elements in shadow DOM:', allElements.length);
-    Array.from(allElements).slice(0, 10).forEach((el, index) => {
-      if (index < 10) {
-        console.log(`[REDDIT] Element ${index}:`, el.tagName, el.className, el.textContent?.substring(0, 100));
-      }
-    });
+    const allElements = shadowRoot.querySelectorAll("*");
+    redditLogger.log(
+      "[REDDIT] All elements in shadow DOM:",
+      allElements.length
+    );
+    Array.from(allElements)
+      .slice(0, 10)
+      .forEach((el, index) => {
+        if (index < 10) {
+          console.log(
+            `[REDDIT] Element ${index}:`,
+            el.tagName,
+            el.className,
+            el.textContent?.substring(0, 100)
+          );
+        }
+      });
   } else {
-    console.log('[REDDIT] No shadow root found');
+    redditLogger.log("[REDDIT] No shadow root found");
   }
 
-  console.log('[REDDIT] Loader attributes:', {
+  redditLogger.log("[REDDIT] Loader attributes:", {
     id: loader.id,
     className: loader.className,
     tagName: loader.tagName,
