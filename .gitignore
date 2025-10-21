@@ -43,6 +43,9 @@ coverage/
 tmp/
 temp/
 
+# AI Shit
+.serena
+
 # Extension packaging
 *.crx
 *.zip
