@@ -45,6 +45,7 @@
     "copy-webpack-plugin": "^11.0.0",
     "css-loader": "^6.8.1",
     "html-webpack-plugin": "^5.5.4",
+    "prettier": "3.6.2",
     "sqlite3": "^5.1.7",
     "style-loader": "^3.3.3",
     "ts-loader": "^9.5.1",
