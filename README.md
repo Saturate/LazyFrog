@@ -1,4 +1,4 @@
-# AutoSupper - Sword & Supper Game Bot
+# LazyFrog - Sword & Supper Game Bot
 
 A modern Firefox/Chrome browser extension built with **TypeScript** and **React** that automates level filtering and completion for the Sword & Supper Reddit game.
 
@@ -19,7 +19,7 @@ A modern Firefox/Chrome browser extension built with **TypeScript** and **React*
 
 ## 🏗️ Architecture
 
-AutoSupper uses a **centralized state machine architecture** with XState v5 running in the background service worker:
+LazyFrog uses a **centralized state machine architecture** with XState v5 running in the background service worker:
 
 ```
 Background Service Worker (Persists)
