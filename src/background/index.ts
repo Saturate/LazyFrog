@@ -15,16 +15,29 @@ import { botMachine, getStatusForState, isBotRunning } from '../automation/botSt
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
 // ============================================================================
 
-// Create and start the state machine actor
-const botActor = createActor(botMachine);
-botActor.start();
+// Create the state machine actor - will be initialized after checking storage
+let botActor: any = null;
 
-extensionLogger.log('[StateMachine] Actor started in service worker', {
-  initialState: botActor.getSnapshot().value,
-});
+// Initialize state machine with persistence
+function initializeStateMachine() {
+  // Clear any old snapshot data (was causing issues with XState v5)
+  chrome.storage.local.remove(['botMachineState']);
+
+  // Create a fresh actor
+  botActor = createActor(botMachine);
+  botActor.start();
+
+  extensionLogger.log('[StateMachine] Actor started in service worker', {
+    initialState: botActor.getSnapshot().value,
+  });
+
+  // Subscribe to state changes AFTER actor is created
+  subscribeToStateChanges();
+}
 
 // Subscribe to state changes
-botActor.subscribe((state) => {
+function subscribeToStateChanges() {
+  botActor.subscribe((state: any) => {
   const currentState = state.value as string;
   const context = state.context;
 
@@ -33,6 +46,9 @@ botActor.subscribe((state) => {
     context,
   });
 
+  // TODO: Persist state to storage for service worker restarts
+  // XState v5 snapshot serialization needs proper implementation
+  // For now, we rely on activeBotSession flag for basic persistence
 
   // Broadcast state changes to all tabs (so UI can update)
   chrome.tabs.query({}, (tabs) => {
@@ -49,7 +65,34 @@ botActor.subscribe((state) => {
 
   // Handle state transitions (actions to take when entering states)
   handleStateTransition(currentState, context);
-});
+  });
+}
+
+// Initialize the state machine
+initializeStateMachine();
+
+/**
+ * Safely send event to state machine (handles null check)
+ */
+function sendToStateMachine(event: any): boolean {
+  if (!botActor) {
+    extensionLogger.error('[StateMachine] Actor not initialized, cannot send event', { event });
+    return false;
+  }
+  botActor.send(event);
+  return true;
+}
+
+/**
+ * Safely get state machine snapshot (handles null check)
+ */
+function getStateMachineSnapshot(): any {
+  if (!botActor) {
+    extensionLogger.warn('[StateMachine] Actor not initialized, returning null snapshot');
+    return null;
+  }
+  return botActor.getSnapshot();
+}
 
 /**
  * Handle state transitions - tell content scripts what actions to take
@@ -85,12 +128,29 @@ function handleStateTransition(stateName: string, context: any): void {
       break;
 
     case 'navigating':
-      // Tell reddit-content to navigate to the mission
+      // Navigate to the mission URL using chrome.tabs API
+      // This ensures proper page reload and content script re-injection
+      extensionLogger.log('[StateTransition] Navigating state, checking permalink', {
+        hasPermalink: !!context.currentMissionPermalink,
+        permalink: context.currentMissionPermalink,
+        fullContext: context,
+      });
+
       if (context.currentMissionPermalink) {
-        broadcastToReddit({
-          type: 'NAVIGATE_TO_URL',
-          url: context.currentMissionPermalink,
+        // Find the Reddit tab and navigate it
+        chrome.tabs.query({ url: 'https://www.reddit.com/*' }, (tabs) => {
+          if (tabs.length > 0 && tabs[0].id) {
+            extensionLogger.log('[StateTransition] Navigating tab to mission', {
+              tabId: tabs[0].id,
+              url: context.currentMissionPermalink,
+            });
+            chrome.tabs.update(tabs[0].id, { url: context.currentMissionPermalink });
+          } else {
+            extensionLogger.error('[StateTransition] No Reddit tab found!');
+          }
         });
+      } else {
+        extensionLogger.error('[StateTransition] No permalink set! Cannot navigate!', { context });
       }
       break;
   }
@@ -160,10 +220,16 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'START_BOT':
       extensionLogger.log('START_BOT received, sending to state machine');
 
+      if (!botActor) {
+        extensionLogger.error('State machine not initialized yet!');
+        sendResponse({ error: 'State machine not ready' });
+        break;
+      }
+
       // Get automation config
       chrome.storage.local.get(['automationConfig'], (result) => {
         // Send START_BOT event to state machine
-        botActor.send({
+        sendToStateMachine({
           type: 'START_BOT',
           filters: message.filters,
           config: result.automationConfig || {},
@@ -190,7 +256,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       extensionLogger.log('STOP_BOT received, sending to state machine');
 
       // Send STOP_BOT event to state machine
-      botActor.send({ type: 'STOP_BOT' });
+      sendToStateMachine({ type: 'STOP_BOT' });
 
       // Clear storage
       chrome.storage.local.remove(['activeBotSession', 'automationFilters']);
@@ -276,25 +342,25 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     // Events from content scripts → state machine
     case 'GAME_LOADER_DETECTED':
       extensionLogger.log('GAME_LOADER_DETECTED, sending to state machine');
-      botActor.send({ type: 'GAME_LOADER_DETECTED' });
+      sendToStateMachine({ type: 'GAME_LOADER_DETECTED' });
       sendResponse({ success: true });
       break;
 
     case 'GAME_DIALOG_OPENED':
       extensionLogger.log('GAME_DIALOG_OPENED, sending to state machine');
-      botActor.send({ type: 'GAME_DIALOG_OPENED' });
+      sendToStateMachine({ type: 'GAME_DIALOG_OPENED' });
       sendResponse({ success: true });
       break;
 
     case 'AUTOMATION_READY':
       extensionLogger.log('AUTOMATION_READY, sending AUTOMATION_STARTED to state machine');
-      botActor.send({ type: 'AUTOMATION_STARTED' });
+      sendToStateMachine({ type: 'AUTOMATION_STARTED' });
       sendResponse({ success: true });
       break;
 
     case 'MISSION_COMPLETED':
       extensionLogger.log('MISSION_COMPLETED, sending to state machine');
-      botActor.send({
+      sendToStateMachine({
         type: 'MISSION_COMPLETED',
         missionId: (message as any).missionId,
       });
@@ -304,12 +370,13 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
     case 'MISSION_FOUND':
       extensionLogger.log('MISSION_FOUND, sending event to state machine');
       const missionData = message as any;
-      const currentState = botActor.getSnapshot().value as string;
+      const snapshot = getStateMachineSnapshot();
+      const currentState = snapshot?.value as string;
 
       // If we're completing a mission, this is the NEXT mission
       if (currentState === 'completing') {
         extensionLogger.log('In completing state, sending NEXT_MISSION_FOUND');
-        botActor.send({
+        sendToStateMachine({
           type: 'NEXT_MISSION_FOUND',
           missionId: missionData.missionId,
           permalink: missionData.permalink,
@@ -317,7 +384,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       } else if (missionData.isCurrentPage) {
         // Already on mission page (first mission)
         extensionLogger.log('Already on page, sending MISSION_PAGE_LOADED');
-        botActor.send({
+        sendToStateMachine({
           type: 'MISSION_PAGE_LOADED',
           missionId: missionData.missionId,
           permalink: missionData.permalink,
@@ -325,7 +392,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
       } else {
         // Need to navigate (first mission)
         extensionLogger.log('Need to navigate, sending NAVIGATE_TO_MISSION');
-        botActor.send({
+        sendToStateMachine({
           type: 'NAVIGATE_TO_MISSION',
           missionId: missionData.missionId,
           permalink: missionData.permalink,
@@ -336,19 +403,26 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
     case 'NO_MISSIONS_FOUND':
       extensionLogger.log('NO_MISSIONS_FOUND, sending to state machine');
-      botActor.send({ type: 'NO_MISSIONS_FOUND' });
+      sendToStateMachine({ type: 'NO_MISSIONS_FOUND' });
       sendResponse({ success: true });
       break;
 
     case 'ERROR_OCCURRED':
+      const errorSnapshot = getStateMachineSnapshot();
       extensionLogger.error('ERROR_OCCURRED, sending to state machine', {
         errorMessage: (message as any).message || 'Unknown error',
-        currentState: botActor.getSnapshot().value,
+        currentState: errorSnapshot?.value,
       });
-      botActor.send({
+      sendToStateMachine({
         type: 'ERROR_OCCURRED',
         message: (message as any).message || 'Unknown error',
       });
+      sendResponse({ success: true });
+      break;
+
+    case 'STATUS_UPDATE':
+      // Status updates from content scripts - just acknowledge
+      // These are used for popup UI updates, background doesn't need to process them
       sendResponse({ success: true });
       break;
 

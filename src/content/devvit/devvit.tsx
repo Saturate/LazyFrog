@@ -265,6 +265,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
       break;
 
+    case 'STATE_CHANGED':
+      // Ignore state changes - only reddit-content needs these
+      sendResponse({ success: true });
+      break;
+
     default:
       devvitLogger.warn('Unknown message type', { type: message.type });
       sendResponse({ error: 'Unknown message type: ' + message.type });
