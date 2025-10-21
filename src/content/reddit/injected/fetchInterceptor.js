@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  console.log('[AutoSupper] Installing fetch interceptor in page context');
+  console.log('[LazyFrog] Installing fetch interceptor in page context');
 
   // Save original fetch
   const originalFetch = window.fetch;
@@ -21,7 +21,7 @@
       const text = new TextDecoder().decode(uint8Array);
 
       // Minimal logging in production
-      console.log('[AutoSupper] Parsing response, size:', text.length);
+      console.log('[LazyFrog] Parsing response, size:', text.length);
 
       const data = { postId };
 
@@ -94,10 +94,10 @@
         data.title = titleMatch[1].trim();
       }
 
-      console.log('[AutoSupper] Parsed mission data:', data);
+      console.log('[LazyFrog] Parsed mission data:', data);
       return data;
     } catch (error) {
-      console.error('[AutoSupper] Failed to parse mission data:', error);
+      console.error('[LazyFrog] Failed to parse mission data:', error);
       return null;
     }
   }
@@ -109,7 +109,7 @@
 
     // Check if this is a RenderPostContent request
     if (url.includes('devvit.reddit.custom_post.v1alpha.CustomPost/RenderPostContent')) {
-      console.log('[AutoSupper] ✅ Intercepted RenderPostContent:', url);
+      console.log('[LazyFrog] ✅ Intercepted RenderPostContent:', url);
 
       // Extract postId from headers (can be in different formats)
       let headers = config?.headers || {};
@@ -124,7 +124,7 @@
       }
 
       const postId = headers['devvit-post'];
-      console.log('[AutoSupper] Headers:', headers, postId);
+      console.log('[LazyFrog] Headers:', headers, postId);
 
       // Call original fetch
       const response = await originalFetch.apply(this, args);
@@ -142,10 +142,10 @@
             window.dispatchEvent(new CustomEvent('autosupper:mission-data', {
               detail: data
             }));
-            //console.log('[AutoSupper] ✅ Saved mission:', postId, `(${data.difficulty}★)`, data.foodName || 'Unknown');
+            //console.log('[LazyFrog] ✅ Saved mission:', postId, `(${data.difficulty}★)`, data.foodName || 'Unknown');
           }
         }).catch((err) => {
-          console.error('[AutoSupper] Failed to parse response:', err);
+          console.error('[LazyFrog] Failed to parse response:', err);
         });
       }
 
@@ -156,5 +156,5 @@
     return originalFetch.apply(this, args);
   };
 
-  console.log('[AutoSupper] Fetch interceptor installed successfully');
+  console.log('[LazyFrog] Fetch interceptor installed successfully');
 })();

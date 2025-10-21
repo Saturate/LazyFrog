@@ -1,60 +1,60 @@
 {
-  "manifest_version": 3,
-  "name": "AutoSupper",
-  "version": "0.8.3",
-  "description": "Automation bot for the Sword & Supper Reddit game. Catalogs missions and plays them!",
+	"manifest_version": 3,
+	"name": "LazyFrog",
+	"version": "0.8.3",
+	"description": "Automation bot for the Sword & Supper Reddit game. Catalogs missions and plays them!",
 
-  "permissions": ["storage", "activeTab", "scripting"],
+	"permissions": ["storage", "activeTab", "scripting"],
 
-  "host_permissions": ["https://www.reddit.com/*", "https://*.devvit.net/*"],
+	"host_permissions": ["https://www.reddit.com/*", "https://*.devvit.net/*"],
 
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
-  },
+	"action": {
+		"default_popup": "popup.html",
+		"default_icon": {
+			"16": "icons/icon16.png",
+			"32": "icons/icon32.png",
+			"48": "icons/icon48.png",
+			"128": "icons/icon128.png"
+		}
+	},
 
-  "options_page": "options.html",
+	"options_page": "options.html",
 
-  "content_scripts": [
-    {
-      "matches": ["https://www.reddit.com/*"],
-      "js": ["reddit-content.js"],
-      "run_at": "document_start"
-    },
-    {
-      "matches": ["https://*.devvit.net/*"],
-      "js": ["devvit-content.js"],
-      "run_at": "document_start",
-      "all_frames": true
-    }
-  ],
+	"content_scripts": [
+		{
+			"matches": ["https://www.reddit.com/*"],
+			"js": ["reddit-content.js"],
+			"run_at": "document_start"
+		},
+		{
+			"matches": ["https://*.devvit.net/*"],
+			"js": ["devvit-content.js"],
+			"run_at": "document_start",
+			"all_frames": true
+		}
+	],
 
-  "background": {
-    "service_worker": "background.js"
-  },
+	"background": {
+		"service_worker": "background.js"
+	},
 
-  "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  },
+	"icons": {
+		"16": "icons/icon16.png",
+		"32": "icons/icon32.png",
+		"48": "icons/icon48.png",
+		"128": "icons/icon128.png"
+	},
 
-  "web_accessible_resources": [
-    {
-      "resources": ["fetchInterceptor.js"],
-      "matches": ["https://www.reddit.com/*"]
-    }
-  ],
+	"web_accessible_resources": [
+		{
+			"resources": ["fetchInterceptor.js"],
+			"matches": ["https://www.reddit.com/*"]
+		}
+	],
 
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "autosupper@akj.io"
-    }
-  }
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "autosupper@akj.io"
+		}
+	}
 }
