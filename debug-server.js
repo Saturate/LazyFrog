@@ -208,6 +208,29 @@ app.post('/logs/clear', (req, res) => {
 });
 
 /**
+ * Clear logs up to a certain ID (useful for cleaning up after viewing logs)
+ */
+app.post('/logs/clear-to-id', (req, res) => {
+  try {
+    const { maxId } = req.body;
+
+    if (!maxId) {
+      return res.status(400).json({ error: 'Missing maxId parameter' });
+    }
+
+    const row = db.prepare('SELECT COUNT(*) as count FROM logs WHERE id <= ?').get(maxId);
+    const count = row.count;
+
+    db.prepare('DELETE FROM logs WHERE id <= ?').run(maxId);
+
+    res.json({ message: `Logs cleared up to ID ${maxId}`, count });
+  } catch (err) {
+    console.error('Error clearing logs:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/**
  * Export logs to JSON file
  */
 app.get('/logs/export', (req, res) => {
@@ -290,19 +313,21 @@ app.listen(PORT, () => {
   console.log(`\n🚀 AutoSupper Debug Server (SQLite3)`);
   console.log(`   Listening on http://localhost:${PORT}`);
   console.log(`\n📍 Endpoints:`);
-  console.log(`   POST /log              - Receive logs from extension`);
-  console.log(`   GET  /logs             - Get recent logs (query: context, level, since, limit)`);
-  console.log(`   GET  /logs/summary     - Get logs summary`);
-  console.log(`   GET  /logs/search      - Search logs by text (query: q, limit)`);
-  console.log(`   GET  /logs/export      - Export all logs as JSON file`);
-  console.log(`   POST /logs/clear       - Clear all logs`);
-  console.log(`   GET  /health           - Health check`);
+  console.log(`   POST /log                 - Receive logs from extension`);
+  console.log(`   GET  /logs                - Get recent logs (query: context, level, since, limit)`);
+  console.log(`   GET  /logs/summary        - Get logs summary`);
+  console.log(`   GET  /logs/search         - Search logs by text (query: q, limit)`);
+  console.log(`   GET  /logs/export         - Export all logs as JSON file`);
+  console.log(`   POST /logs/clear          - Clear all logs`);
+  console.log(`   POST /logs/clear-to-id    - Clear logs up to ID (body: {maxId: 12345})`);
+  console.log(`   GET  /health              - Health check`);
   console.log(`\n💡 Usage:`);
   console.log(`   curl http://localhost:${PORT}/logs?context=REDDIT&limit=10`);
   console.log(`   curl http://localhost:${PORT}/logs/summary`);
   console.log(`   curl http://localhost:${PORT}/logs/search?q=mission`);
   console.log(`   curl http://localhost:${PORT}/logs/export -o logs.json`);
   console.log(`   curl -X POST http://localhost:${PORT}/logs/clear`);
+  console.log(`   curl -X POST http://localhost:${PORT}/logs/clear-to-id -H "Content-Type: application/json" -d '{"maxId": 12345}'`);
   console.log(`\n⏳ Waiting for logs...\n`);
 });
 
