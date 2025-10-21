@@ -15,7 +15,15 @@ import {
   getTimeSinceBuild,
   getBuildTimestamp,
 } from "../utils/buildInfo";
-import { Gamepad2, Settings, FileText, Target, BarChart3, Play, Star } from "lucide-react";
+import {
+  Gamepad2,
+  Settings,
+  FileText,
+  Target,
+  BarChart3,
+  Play,
+  Star,
+} from "lucide-react";
 import "./popup.css";
 
 interface AutomationConfig {
@@ -449,6 +457,14 @@ const PopupApp: React.FC = () => {
           >
             u/AKJ90
           </a>
+          {/* TODO: Add github sponsor page link */}-{" "}
+          <a
+            href="https://github.com/Saturate"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Donate
+          </a>
         </p>
       </header>
 
@@ -458,21 +474,30 @@ const PopupApp: React.FC = () => {
           className={`tab ${currentTab === "control" ? "active" : ""}`}
           onClick={() => setCurrentTab("control")}
         >
-          <Gamepad2 size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          <Gamepad2
+            size={16}
+            style={{ marginRight: "6px", verticalAlign: "middle" }}
+          />
           Control
         </button>
         <button
           className={`tab ${currentTab === "missions" ? "active" : ""}`}
           onClick={() => setCurrentTab("missions")}
         >
-          <FileText size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          <FileText
+            size={16}
+            style={{ marginRight: "6px", verticalAlign: "middle" }}
+          />
           Missions ({missionStats.uncleared}/{missionStats.total})
         </button>
         <button
           className={`tab ${currentTab === "options" ? "active" : ""}`}
           onClick={() => setCurrentTab("options")}
         >
-          <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          <Settings
+            size={16}
+            style={{ marginRight: "6px", verticalAlign: "middle" }}
+          />
           Options
         </button>
       </div>
@@ -493,7 +518,7 @@ const PopupApp: React.FC = () => {
                 onClick={handleNavigateToMission}
                 style={{ marginBottom: "8px" }}
               >
-                1️⃣ Navigate to Next Mission
+                1. Navigate to Next Mission
               </button>
 
               <button
@@ -501,7 +526,7 @@ const PopupApp: React.FC = () => {
                 onClick={handleOpenIframe}
                 style={{ marginBottom: "8px" }}
               >
-                2️⃣ Open Dialog (Start Mission)
+                2. Open Dialog (Start Mission)
               </button>
 
               <button
@@ -509,14 +534,14 @@ const PopupApp: React.FC = () => {
                 onClick={handleAutoPlay}
                 style={{ marginBottom: "8px" }}
               >
-                3️⃣ Auto Play Opened Mission
+                3. Auto Play Opened Mission
               </button>
 
               <button
                 className="btn btn-secondary"
                 onClick={handleStopAutomation}
               >
-                ⏹️ Stop Automation
+                Stop Automation
               </button>
             </div>
           )}
@@ -617,7 +642,10 @@ const PopupApp: React.FC = () => {
                 onClick={handleStart}
                 disabled={isRunning}
               >
-                <Play size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                <Play
+                  size={14}
+                  style={{ marginRight: "6px", verticalAlign: "middle" }}
+                />
                 Start Bot{" "}
                 {(() => {
                   const matchingMissions = missions.filter((m) => {
@@ -677,7 +705,13 @@ const PopupApp: React.FC = () => {
           )}
 
           <div className="section">
-            <h3><Target size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Next 5 Missions</h3>
+            <h3>
+              <Target
+                size={18}
+                style={{ marginRight: "6px", verticalAlign: "middle" }}
+              />
+              Next 5 Missions
+            </h3>
             <p className="help-text">
               These are the next missions the bot will play when you press
               Start:
@@ -745,12 +779,27 @@ const PopupApp: React.FC = () => {
                     >
                       {mission.tags || mission.foodName || mission.postId}
                     </div>
-                    <div style={{ fontSize: "11px", color: "#666", display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#666",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
                       {mission.difficulty ? (
                         <>
-                          {Array.from({ length: mission.difficulty }).map((_, i) => (
-                            <Star key={i} size={10} fill="#fbbf24" color="#fbbf24" />
-                          ))}
+                          {Array.from({ length: mission.difficulty }).map(
+                            (_, i) => (
+                              <Star
+                                key={i}
+                                size={10}
+                                fill="#fbbf24"
+                                color="#fbbf24"
+                              />
+                            )
+                          )}
                         </>
                       ) : (
                         "No difficulty"
@@ -773,7 +822,13 @@ const PopupApp: React.FC = () => {
       {currentTab === "missions" && (
         <>
           <div className="section">
-            <h3><BarChart3 size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Mission Stats</h3>
+            <h3>
+              <BarChart3
+                size={18}
+                style={{ marginRight: "6px", verticalAlign: "middle" }}
+              />
+              Mission Stats
+            </h3>
             <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
               <div
                 style={{
