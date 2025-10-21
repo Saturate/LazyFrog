@@ -1,6 +1,6 @@
 {
   "name": "autosupper",
-  "version": "0.8.1",
+  "version": "0.8.3",
   "description": "Sword & Supper game automation extension with TypeScript and React",
   "scripts": {
     "build": "webpack --mode production",
@@ -32,7 +32,8 @@
     "express": "^5.1.0",
     "lucide-react": "^0.546.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "xstate": "^5.23.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.256",

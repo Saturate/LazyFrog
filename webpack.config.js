@@ -4,6 +4,25 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const packageJson = require('./package.json');
 
+// Custom plugin to verify version sync after build
+class VersionSyncPlugin {
+  apply(compiler) {
+    compiler.hooks.afterEmit.tap('VersionSyncPlugin', (compilation) => {
+      const fs = require('fs');
+      const manifestPath = path.resolve(__dirname, 'dist/manifest.json');
+
+      if (fs.existsSync(manifestPath)) {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.version === packageJson.version) {
+          console.log(`✅ Version synced: ${packageJson.version}`);
+        } else {
+          console.error(`❌ Version mismatch! package.json: ${packageJson.version}, manifest.json: ${manifest.version}`);
+        }
+      }
+    });
+  }
+}
+
 module.exports = {
   entry: {
     popup: './src/popup/index.tsx',
@@ -50,10 +69,20 @@ module.exports = {
     }),
     new CopyPlugin({
       patterns: [
-        { from: 'public/manifest.json', to: 'manifest.json' },
+        {
+          from: 'public/manifest.json',
+          to: 'manifest.json',
+          transform(content) {
+            // Parse manifest, inject version from package.json, return as string
+            const manifest = JSON.parse(content.toString());
+            manifest.version = packageJson.version;
+            return JSON.stringify(manifest, null, 2);
+          },
+        },
         { from: 'public/icons', to: 'icons' },
       ],
     }),
+    new VersionSyncPlugin(),
   ],
   optimization: {
     splitChunks: false,

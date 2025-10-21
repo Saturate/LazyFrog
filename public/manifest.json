@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sword & Supper Bot",
-  "version": "2.0.0",
+  "version": "0.8.3",
   "description": "Automation bot for the Sword & Supper Reddit game with TypeScript and React",
 
   "permissions": [
@@ -29,7 +29,7 @@
     {
       "matches": ["https://www.reddit.com/*"],
       "js": ["reddit-content.js"],
-      "run_at": "document_end"
+      "run_at": "document_start"
     },
     {
       "matches": ["https://*.devvit.net/*"],
