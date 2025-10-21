@@ -86,6 +86,7 @@ module.exports = {
           },
         },
         { from: 'public/icons', to: 'icons' },
+        { from: 'src/content/reddit/injected/fetchInterceptor.js', to: 'fetchInterceptor.js' },
       ],
     }),
     new VersionSyncPlugin(),
