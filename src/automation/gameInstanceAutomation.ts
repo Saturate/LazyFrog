@@ -302,31 +302,31 @@ export class GameInstanceAutomationEngine {
 		window.addEventListener('message', (event: MessageEvent) => {
 			try {
 				// Log ALL messages to understand what's coming through
-				if (event.data) {
-					// Check if this is a devvit-message (the format the game uses)
-					const isDevvitMessage = event.data?.type === 'devvit-message';
-					const messageType = event.data?.data?.message?.type;
+				// if (event.data) {
+				// 	// Check if this is a devvit-message (the format the game uses)
+				// 	const isDevvitMessage = event.data?.type === 'devvit-message';
+				// 	const messageType = event.data?.data?.message?.type;
 
-					// Log devvit-messages with more detail
-					if (isDevvitMessage) {
-						devvitLogger.log('📨 devvit-message received', {
-							origin: event.origin,
-							messageType: messageType,
-							hasMessageData: !!event.data?.data?.message?.data,
-							topLevelKeys: Object.keys(event.data).slice(0, 20),
-							messageKeys: event.data?.data?.message
-								? Object.keys(event.data.data.message).slice(0, 20)
-								: [],
-							// Include full data for initialData and encounterResult messages
-							fullData:
-								messageType === 'initialData' ||
-								messageType === 'initialDataInn' ||
-								messageType === 'encounterResult'
-									? event.data
-									: undefined,
-						});
-					}
-				}
+				// 	// Log devvit-messages with more detail
+				// 	if (isDevvitMessage) {
+				// 		devvitLogger.log('📨 devvit-message received', {
+				// 			origin: event.origin,
+				// 			messageType: messageType,
+				// 			hasMessageData: !!event.data?.data?.message?.data,
+				// 			topLevelKeys: Object.keys(event.data).slice(0, 20),
+				// 			messageKeys: event.data?.data?.message
+				// 				? Object.keys(event.data.data.message).slice(0, 20)
+				// 				: [],
+				// 			// Include full data for initialData and encounterResult messages
+				// 			fullData:
+				// 				messageType === 'initialData' ||
+				// 				messageType === 'initialDataInn' ||
+				// 				messageType === 'encounterResult'
+				// 					? event.data
+				// 					: undefined,
+				// 		});
+				// 	}
+				// }
 
 				// Check for initialData message (mission metadata)
 				// Using the EXACT structure the game uses: event.data.type === "devvit-message"
