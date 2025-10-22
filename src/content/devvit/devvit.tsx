@@ -33,7 +33,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 		if (event.data?.type === 'devvit-message') {
 			const messageType = event.data?.data?.message?.type;
 
-			devvitLogger.log('[Devvit] 📨 devvit-message received (early listener)', {
+			devvitLogger.log('📨 devvit-message received (early listener)', {
 				messageType,
 				origin: event.origin,
 				hasMessageData: !!event.data?.data?.message?.data,
@@ -42,12 +42,8 @@ window.addEventListener('message', (event: MessageEvent) => {
 
 			// If it's initialData, store it for later processing
 			if (messageType === 'initialData') {
-				devvitLogger.log('[Devvit] ✅ initialData captured!', {
-					postId: event.data?.data?.message?.data?.postId,
-					username: event.data?.data?.message?.data?.username,
-					difficulty: event.data?.data?.message?.data?.missionMetadata?.mission?.difficulty,
-					environment: event.data?.data?.message?.data?.missionMetadata?.mission?.environment,
-				});
+				const postId = event.data?.data?.message?.data?.postId;
+				devvitLogger.log(`✅ initialData for ${postId} captured!`, event.data?.data);
 
 				// Store the data globally so we can access it after automation engine initializes
 				(window as any).__capturedInitialData = event.data.data.message.data;
@@ -223,22 +219,14 @@ function updateAutomationConfig(config: any): void {
 	chrome.storage.local.set({ automationConfig: config });
 }
 
-/**
- * Get automation state
- */
-function getAutomationState(): any {
-	if (!gameAutomation) {
-		return { error: 'Automation not initialized' };
-	}
-	return gameAutomation.getState();
-}
-
 // Queue for messages received before automation is ready
 let pendingStartMessage: any = null;
 
 // Listen for messages from Chrome extension (via background script)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	devvitLogger.log('Received Chrome message', { type: message.type });
+	devvitLogger.log(`Received ${message.type} message`, {
+		message,
+	});
 
 	switch (message.type) {
 		case 'START_MISSION_AUTOMATION':
