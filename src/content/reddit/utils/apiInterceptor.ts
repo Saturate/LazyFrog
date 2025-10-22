@@ -142,6 +142,7 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 			name: data.foodName || data.title,
 			difficulty: data.difficulty,
 			levels: `${data.minLevel}-${data.maxLevel}`,
+			fullData: data,
 		});
 	} catch (error) {
 		redditLogger.error('❌ Failed to save mission from API', {
@@ -229,7 +230,7 @@ export function installAPIInterceptor(): void {
 		}
 
 		// Check if this is a RenderPostContent request
-		if (url.includes('devvit.reddit.custom_post.v1alpha.CustomPost/RenderPostContent')) {
+		if (url.includes('CustomPost/RenderPostContent')) {
 			redditLogger.log('✅ Intercepted RenderPostContent request', { url });
 
 			// Extract postId from headers
