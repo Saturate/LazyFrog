@@ -1,4 +1,4 @@
-import { MissionRecord } from '../utils/storage';
+import { MissionRecord } from './storage';
 
 // Enemy name mappings
 const enemyNames: Record<string, string> = {

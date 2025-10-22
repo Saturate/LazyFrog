@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload } from 'lucide-react';
 import { getAllMissions, importMissions, MissionRecord } from '../../utils/storage';
-import { generateMissionMarkdown } from '../../missions/missionMarkdown';
+import { generateMissionMarkdown } from '../../utils/missionMarkdown';
 
 interface SortConfig {
 	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'username';
@@ -828,7 +828,7 @@ const MissionsTab: React.FC = () => {
 													className="button btn-action"
 													onClick={async () => {
 														const { generateMissionMarkdown } = await import(
-															'../../missions/missionMarkdown'
+															'../../utils/missionMarkdown'
 														);
 														const md = generateMissionMarkdown(mission);
 														if (md) {
