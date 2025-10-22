@@ -100,14 +100,13 @@ class Logger {
 	 * Core logging function
 	 */
 	private logInternal(level: LogLevel, ...args: any[]): void {
-		// Convert all arguments to strings for the message
+		// Create formatted message for remote logging
 		const message = args
 			.map((arg) =>
 				typeof arg === 'string' ? arg : typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
 			)
 			.join(' ');
 
-		const formattedMessage = this.formatMessage(message);
 		const entry: LogEntry = {
 			timestamp: new Date().toISOString(),
 			context: this.config.context,
@@ -116,10 +115,11 @@ class Logger {
 			data: args.length > 1 ? this.serializeData(args.slice(1)) : undefined,
 		};
 
-		// Log to console using appropriate method
+		// Log to console using appropriate method with native object inspection
 		if (this.config.consoleLogging) {
 			const consoleMethod = console[level] || console.log;
-			consoleMethod(formattedMessage, ...args);
+			// Add context prefix but preserve native console behavior
+			consoleMethod(`[${this.config.context}]`, ...args);
 		}
 
 		// Send to remote server (non-blocking)
