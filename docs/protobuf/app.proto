@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package reddit.devvit.common.v1;
+
+import "reddit/devvit/ads/v1/ads.proto";
+import "reddit/devvit/app_permission/v1/app_permission.proto";
+
+option go_package = "github.snooguts.net/reddit/devplatform-api/go/grpc/devvit/common/v1;devvit_common";
+
+message App {
+  // App unique identifier, eg '04adab23-60c0-467d-9958-948cea1ff6be'
+  string id = 1;
+  // App slug, eg 'my-devvit-app'
+  string slug = 2;
+  // App name, eg 'My Devvit App'
+  string name = 3;
+  // The visibility of the app (PUBLIC, PRIVATE, or UNLISTED)
+  AppVisibility visibility = 4;
+  // Information about the app owner
+  AppOwner owner = 5;
+  // The app version, eg '1.2.3'
+  string version = 6;
+  // Configuration related to ads
+  reddit.devvit.ads.v1.AdsConfig ads_config = 7;
+  // URL to the app's terms and conditions
+  string terms_and_conditions = 8;
+  // URL to the app's privacy policy
+  string privacy_policy = 9;
+  // The permission scopes requested by the app version
+  repeated reddit.devvit.app_permission.v1.Scope requested_permission_scopes = 10;
+}
+
+message AppOwner {
+  // t2_ userId of the app owner, eg 't2_11t51216bu'
+  string user_id = 1;
+  // Username of the app owner, eg 'slowcooked99'
+  string user_name = 2;
+}
+
+enum AppVisibility {
+  PUBLIC = 0;
+  PRIVATE = 1;
+  UNLISTED = 2;
+}
+
+// Loosely models a subset of the fields found in devvit.json.
+message AppConfig {
+  // Map of the app's Post entrypoints mapping entryname to entrypointUrl. Example: "leaderboard" maps to "https://{{slug}}-{{location}}-{{version}}-webview.devvit.net/leaderboard.html">
+  map<string, string> entrypoints = 1;
+}
