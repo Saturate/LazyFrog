@@ -1,58 +1,51 @@
 {
-  "name": "autosupper",
-  "version": "0.9.0",
-  "description": "Sword & Supper game automation extension with TypeScript and React",
-  "scripts": {
-    "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch",
-    "clean": "rm -rf dist artifacts",
-    "type-check": "tsc --noEmit",
-    "package": "pnpm run package:all",
-    "package:all": "pnpm run build && pnpm run package:browsers && pnpm run package:source",
-    "package:browsers": "web-ext build --overwrite-dest && cd artifacts && mv *.zip autosupper-v$npm_package_version.zip && cd ..",
-    "package:firefox": "pnpm run package:browsers",
-    "package:firefox:sign": "web-ext sign --channel=unlisted --api-key=$WEB_EXT_API_KEY --api-secret=$WEB_EXT_API_SECRET",
-    "package:chrome": "pnpm run package:browsers",
-    "package:chrome:crx": "./scripts/build-crx.sh",
-    "package:source": "mkdir -p artifacts && cd dist && zip -q -r ../artifacts/autosupper-source-v$npm_package_version.zip .",
-    "start:firefox": "pnpm run build && web-ext run --target firefox-desktop --start-url https://www.reddit.com/r/SwordAndSupperGame/",
-    "start:chrome": "pnpm run build && web-ext run --target chromium --start-url https://www.reddit.com/r/SwordAndSupperGame/",
-    "lint:firefox": "web-ext lint"
-  },
-  "keywords": [
-    "browser-extension",
-    "reddit",
-    "game-automation",
-    "typescript",
-    "react"
-  ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "express": "^5.1.0",
-    "lucide-react": "^0.546.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "xstate": "^5.23.0"
-  },
-  "devDependencies": {
-    "@types/chrome": "^0.0.256",
-    "@types/node": "^20.10.5",
-    "@types/react": "^18.2.45",
-    "@types/react-dom": "^18.2.18",
-    "@types/webextension-polyfill": "^0.10.7",
-    "better-sqlite3": "^12.4.1",
-    "copy-webpack-plugin": "^11.0.0",
-    "css-loader": "^6.8.1",
-    "html-webpack-plugin": "^5.5.4",
-    "prettier": "3.6.2",
-    "sqlite3": "^5.1.7",
-    "style-loader": "^3.3.3",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.3.3",
-    "web-ext": "^9.0.0",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4"
-  },
-  "packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9bc75946aadfb08d"
+	"name": "lazyfrog",
+	"version": "0.9.1",
+	"description": "Sword & Supper game automation extension with TypeScript and React",
+	"scripts": {
+		"build": "webpack --mode production",
+		"dev": "webpack --mode development --watch",
+		"clean": "rm -rf dist artifacts",
+		"type-check": "tsc --noEmit",
+		"package": "pnpm run build && pnpm run package:zip && pnpm run package:chrome",
+		"package:zip": "web-ext build --overwrite-dest && cd artifacts",
+		"package:chrome": "./scripts/build-crx.sh",
+		"start:chrome": "pnpm run build && web-ext run --target chromium --start-url https://www.reddit.com/r/SwordAndSupperGame/"
+	},
+	"keywords": [
+		"browser-extension",
+		"reddit",
+		"game-automation",
+		"typescript",
+		"react"
+	],
+	"author": "Allan Kimmer Jensen",
+	"license": "MIT",
+	"dependencies": {
+		"express": "^5.1.0",
+		"lucide-react": "^0.546.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+		"xstate": "^5.23.0"
+	},
+	"devDependencies": {
+		"@types/chrome": "^0.0.256",
+		"@types/node": "^20.10.5",
+		"@types/react": "^18.2.45",
+		"@types/react-dom": "^18.2.18",
+		"@types/webextension-polyfill": "^0.10.7",
+		"better-sqlite3": "^12.4.1",
+		"copy-webpack-plugin": "^11.0.0",
+		"css-loader": "^6.8.1",
+		"html-webpack-plugin": "^5.5.4",
+		"prettier": "3.6.2",
+		"sqlite3": "^5.1.7",
+		"style-loader": "^3.3.3",
+		"ts-loader": "^9.5.1",
+		"typescript": "^5.3.3",
+		"web-ext": "^9.0.0",
+		"webpack": "^5.89.0",
+		"webpack-cli": "^5.1.4"
+	},
+	"packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9bc75946aadfb08d"
 }

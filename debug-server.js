@@ -1,5 +1,5 @@
 /**
- * Debug server for receiving logs from the AutoSupper extension
+ * Debug server for receiving logs from the LazyFrog extension
  * Now with SQLite3 for persistent storage across sessions!
  * Run with: node debug-server.js
  */
@@ -310,7 +310,7 @@ app.get('/health', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`\n🚀 AutoSupper Debug Server (SQLite3)`);
+  console.log(`\n🚀 LazyFrog Debug Server (SQLite3)`);
   console.log(`   Listening on http://localhost:${PORT}`);
   console.log(`\n📍 Endpoints:`);
   console.log(`   POST /log                 - Receive logs from extension`);

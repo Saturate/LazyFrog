@@ -1,14 +1,14 @@
 #!/bin/bash
 # Launch Chrome with remote debugging and extension loaded
 
-echo "🔧 AutoSupper Chrome Launcher"
+echo "🔧 LazyFrog Chrome Launcher"
 echo "=============================="
 echo ""
 
 PORT=56744
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 DIST_PATH="$SCRIPT_DIR/dist"
-USER_DATA_DIR="$HOME/.autosupper-chrome-profile"
+USER_DATA_DIR="$HOME/.lazyfrog-chrome-profile"
 
 # Check if dist folder exists
 if [ ! -d "$DIST_PATH" ]; then

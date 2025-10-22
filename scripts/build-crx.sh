@@ -1,9 +1,9 @@
 #!/bin/bash
-# Build CRX package for AutoSupper extension
+# Build CRX package for LazyFrog extension
 
 set -e
 
-echo "Building AutoSupper CRX package..."
+echo "Building LazyFrog CRX package..."
 
 # Get version from package.json
 VERSION=$(node -p "require('./package.json').version")
@@ -28,8 +28,8 @@ EXT_DIR="./dist"
 mkdir -p artifacts
 
 # Output files
-CRX_FILE="artifacts/autosupper-chrome-v${VERSION}.crx"
-PEM_FILE="autosupper-extension.pem"
+CRX_FILE="artifacts/lazyfrog-chrome-v${VERSION}.crx"
+PEM_FILE="lazyfrog-extension.pem"
 
 echo "Packing extension..."
 
