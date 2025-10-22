@@ -204,26 +204,8 @@ const PopupAppNew: React.FC = () => {
 
 	const exportData = async () => {
 		try {
-			const { getAllMissions } = await import('../utils/storage');
-			const missions = await getAllMissions();
-			const settings = await chrome.storage.local.get(null);
-
-			const data = {
-				missions,
-				settings,
-				exportedAt: new Date().toISOString(),
-				version: VERSION,
-			};
-
-			const blob = new Blob([JSON.stringify(data, null, 2)], {
-				type: 'application/json',
-			});
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `lazyfrog-export-${Date.now()}.json`;
-			a.click();
-			URL.revokeObjectURL(url);
+			const { exportAllData } = await import('../utils/exportAllData');
+			await exportAllData();
 		} catch (error) {
 			alert('Failed to export data: ' + error);
 		}
