@@ -35,6 +35,7 @@ import { renderControlPanel, unmountControlPanel, initializeControlPanel } from 
 // Game interaction
 import { clickGameUI, waitForElement } from './game/gameInteraction';
 import { checkForExistingLoader, startObserving } from './game/loaderDetection';
+import { normalizeRedditPermalink } from '../../utils/url';
 
 // Version and build info (replaced by webpack at build time)
 declare const __VERSION__: string;
@@ -441,7 +442,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 						// Check if we're already on this mission page
 						const currentPath = window.location.pathname;
-						const { normalizeRedditPermalink } = await import('./utils/url');
 						const normalized = normalizeRedditPermalink(mission.permalink);
 						const missionPath = new URL(normalized).pathname;
 
