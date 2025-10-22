@@ -454,12 +454,12 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 });
 
 // Load saved state from storage on startup
-chrome.storage.local.get(['completedLevels', 'filters'], (result) => {
+chrome.storage.local.get(['completedLevels', 'automationFilters'], (result) => {
 	if (result.completedLevels) {
 		state.completedLevels = result.completedLevels;
 	}
-	if (result.filters) {
-		state.filters = result.filters;
+	if (result.automationFilters) {
+		state.filters = result.automationFilters;
 	}
 });
 
@@ -467,7 +467,7 @@ chrome.storage.local.get(['completedLevels', 'filters'], (result) => {
 setInterval(() => {
 	chrome.storage.local.set({
 		completedLevels: state.completedLevels,
-		filters: state.filters,
+		automationFilters: state.filters,
 	});
 }, 60000); // Every minute
 

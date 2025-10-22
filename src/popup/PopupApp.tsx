@@ -166,9 +166,9 @@ const PopupApp: React.FC = () => {
 
 	// Load saved filters and automation config on mount
 	useEffect(() => {
-		chrome.storage.local.get(['filters', 'automationConfig'], (result) => {
-			if (result.filters) {
-				setFilters(result.filters);
+		chrome.storage.local.get(['automationFilters', 'automationConfig'], (result) => {
+			if (result.automationFilters) {
+				setFilters(result.automationFilters);
 			}
 			if (result.automationConfig) {
 				// Merge saved config with defaults to ensure new fields exist
@@ -212,7 +212,10 @@ const PopupApp: React.FC = () => {
 
 	// Save filters when they change
 	useEffect(() => {
-		chrome.storage.local.set({ filters });
+		// Save to automationFilters as single source of truth
+		chrome.storage.local.set({
+			automationFilters: filters,
+		});
 	}, [filters]);
 
 	// Save automation config when it changes

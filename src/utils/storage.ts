@@ -561,8 +561,8 @@ export async function getMissionStats(): Promise<{
 	const missionArray = Object.values(missions);
 
 	// Get current filters from storage
-	const result = await chrome.storage.local.get(['filters']);
-	const currentFilters = result.filters || {
+	const result = await chrome.storage.local.get(['automationFilters']);
+	const currentFilters = result.automationFilters || {
 		stars: [1, 2],
 		minLevel: 1,
 		maxLevel: 340,

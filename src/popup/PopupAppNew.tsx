@@ -75,12 +75,12 @@ const PopupAppNew: React.FC = () => {
 		loadStats();
 
 		// Load saved filters and debug mode setting
-		chrome.storage.local.get(['filters', 'automationConfig'], (result) => {
-			if (result.filters) {
+		chrome.storage.local.get(['automationFilters', 'automationConfig'], (result) => {
+			if (result.automationFilters) {
 				setFilters({
-					stars: result.filters.stars || [1, 2],
-					minLevel: result.filters.minLevel || 1,
-					maxLevel: result.filters.maxLevel || 20,
+					stars: result.automationFilters.stars || [1, 2],
+					minLevel: result.automationFilters.minLevel || 1,
+					maxLevel: result.automationFilters.maxLevel || 20,
 				});
 			}
 			if (result.automationConfig) {
@@ -115,15 +115,19 @@ const PopupAppNew: React.FC = () => {
 
 	// Save filters to chrome storage when changed
 	useEffect(() => {
+		const filterData = {
+			stars: filters.stars,
+			minLevel: filters.minLevel,
+			maxLevel: filters.maxLevel,
+			onlyIncomplete: true,
+			autoProcess: false,
+		};
+
+		// Save to automationFilters as single source of truth
 		chrome.storage.local.set({
-			filters: {
-				stars: filters.stars,
-				minLevel: filters.minLevel,
-				maxLevel: filters.maxLevel,
-				onlyIncomplete: true,
-				autoProcess: false,
-			},
+			automationFilters: filterData,
 		});
+
 		// Also reload stats when filters change
 		loadStats();
 	}, [filters]);
