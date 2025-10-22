@@ -12,6 +12,7 @@ import {
 	accumulateMissionLoot,
 } from '../utils/storage';
 import { enemyNames, mapNames } from '../data';
+import { extractPostIdFromUrl } from '../content/devvit/utils/extractPostIdFromUrl';
 
 export interface GameInstanceAutomationConfig {
 	enabled: boolean;
@@ -960,7 +961,13 @@ export class GameInstanceAutomationEngine {
 			this.clickElement(finishButton);
 
 			// Mark mission as cleared when clicking Finish/Dismiss
-			const postId = this.currentPostId || this.missionMetadata?.postId;
+			let postId = this.currentPostId || this.missionMetadata?.postId;
+
+			// Fallback: try to extract postId from URL if still null
+			if (!postId) {
+				postId = extractPostIdFromUrl(window.location.href);
+				devvitLogger.log('Extracted postId from URL as fallback', { postId });
+			}
 
 			devvitLogger.log('Finish button clicked, checking postId', {
 				currentPostId: this.currentPostId,
@@ -998,6 +1005,7 @@ export class GameInstanceAutomationEngine {
 					currentPostId: this.currentPostId,
 					metadataPostId: this.missionMetadata?.postId,
 					hasMissionMetadata: !!this.missionMetadata,
+					url: window.location.href,
 				});
 			}
 
