@@ -26,7 +26,7 @@ import {
 import { safeSendMessage } from './utils/messaging';
 import { scannedPostIds, scanForNewMissions, initializeScrollScanning } from './utils/scanning';
 import { initializeDebugFunctions } from './utils/debug';
-import { installAPIInterceptor } from './utils/apiInterceptor';
+import { installMissionDataHandler } from './utils/missionDataHandler';
 
 // UI components
 import { getStatusText } from './ui/statusText';
@@ -655,7 +655,7 @@ startObserving(currentBotState);
 
 // Initialize API interceptor to capture mission data from gRPC-Web requests
 // This is MORE RELIABLE than DOM scanning!
-installAPIInterceptor();
+installMissionDataHandler();
 
 // DOM scanning disabled - API interception is the primary method now
 // initializeScrollScanning();
