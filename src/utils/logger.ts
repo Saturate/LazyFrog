@@ -99,24 +99,27 @@ class Logger {
 	/**
 	 * Core logging function
 	 */
-	private logInternal(level: LogLevel, message: string, data?: any): void {
+	private logInternal(level: LogLevel, ...args: any[]): void {
+		// Convert all arguments to strings for the message
+		const message = args
+			.map((arg) =>
+				typeof arg === 'string' ? arg : typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
+			)
+			.join(' ');
+
 		const formattedMessage = this.formatMessage(message);
 		const entry: LogEntry = {
 			timestamp: new Date().toISOString(),
 			context: this.config.context,
 			level,
 			message,
-			data: this.serializeData(data),
+			data: args.length > 1 ? this.serializeData(args.slice(1)) : undefined,
 		};
 
 		// Log to console using appropriate method
 		if (this.config.consoleLogging) {
 			const consoleMethod = console[level] || console.log;
-			if (data !== undefined) {
-				consoleMethod(formattedMessage, data);
-			} else {
-				consoleMethod(formattedMessage);
-			}
+			consoleMethod(formattedMessage, ...args);
 		}
 
 		// Send to remote server (non-blocking)
@@ -124,26 +127,26 @@ class Logger {
 	}
 
 	/**
-	 * Public logging methods
+	 * Public logging methods - support unlimited parameters like console.log()
 	 */
-	log(message: string, data?: any): void {
-		this.logInternal('log', message, data);
+	log(...args: any[]): void {
+		this.logInternal('log', ...args);
 	}
 
-	info(message: string, data?: any): void {
-		this.logInternal('info', message, data);
+	info(...args: any[]): void {
+		this.logInternal('info', ...args);
 	}
 
-	warn(message: string, data?: any): void {
-		this.logInternal('warn', message, data);
+	warn(...args: any[]): void {
+		this.logInternal('warn', ...args);
 	}
 
-	error(message: string, data?: any): void {
-		this.logInternal('error', message, data);
+	error(...args: any[]): void {
+		this.logInternal('error', ...args);
 	}
 
-	debug(message: string, data?: any): void {
-		this.logInternal('debug', message, data);
+	debug(...args: any[]): void {
+		this.logInternal('debug', ...args);
 	}
 
 	/**
