@@ -108,7 +108,7 @@
     const url = typeof resource === 'string' ? resource : (resource instanceof Request ? resource.url : resource.toString());
 
     // Check if this is a RenderPostContent request
-    if (url.includes('devvit.reddit.custom_post.v1alpha.CustomPost/RenderPostContent')) {
+    if (url.includes('CustomPost/RenderPostContent')) {
       console.log('[LazyFrog] ✅ Intercepted RenderPostContent:', url);
 
       // Extract postId from headers (can be in different formats)
