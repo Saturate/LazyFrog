@@ -211,10 +211,12 @@ export class GameInstanceAutomationEngine {
 			const nextMission = await getNextUnclearedMission(filters);
 
 			if (nextMission && nextMission.permalink) {
+				const { normalizeRedditPermalink } = await import('../utils/url');
+				const targetUrl = normalizeRedditPermalink(nextMission.permalink);
 				devvitLogger.log('Navigating to next mission', {
 					postId: nextMission.postId,
 					tags: nextMission.tags,
-					permalink: nextMission.permalink,
+					permalink: targetUrl,
 				});
 
 				this.broadcastStatus('Navigating to mission %missionId%', nextMission.postId);
@@ -226,7 +228,7 @@ export class GameInstanceAutomationEngine {
 				});
 
 				// Navigate directly to next mission (avoids listing page reload)
-				window.location.href = nextMission.permalink;
+				window.location.href = targetUrl;
 			} else {
 				devvitLogger.log('No more uncleared missions - automation complete!');
 				this.broadcastStatus('Idle');
