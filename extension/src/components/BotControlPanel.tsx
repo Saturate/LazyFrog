@@ -197,34 +197,6 @@ const BotControlPanel: React.FC<BotControlPanelProps> = ({
 						<Pause size={14} />
 					</button>
 				)}
-
-				{/* Settings button */}
-				<button
-					onClick={onOpenSettings}
-					style={{
-						width: '28px',
-						height: '28px',
-						padding: '0',
-						background: 'transparent',
-						border: 'none',
-						cursor: 'pointer',
-						color: '#525252',
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						transition: 'color 0.2s',
-						flexShrink: 0,
-					}}
-					onMouseEnter={(e) => {
-						e.currentTarget.style.color = '#a1a1a1';
-					}}
-					onMouseLeave={(e) => {
-						e.currentTarget.style.color = '#525252';
-					}}
-					title="Settings"
-				>
-					<Settings size={16} />
-				</button>
 			</div>
 
 			{/* Status text below */}
