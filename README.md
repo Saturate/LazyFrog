@@ -46,7 +46,7 @@ For advanced troubleshooting and richer logs, a local debug server is included.
 ## More docs (for power users)
 - Mission automation overview: [docs/MISSION_AUTOMATION_GUIDE.md](docs/MISSION_AUTOMATION_GUIDE.md)
 - Message flow between parts of the extension: [docs/MESSAGE_FLOW.md](docs/MESSAGE_FLOW.md)
-- Logger usage & migration: [docs/LOGGER_USAGE.md](docs/LOGGER_USAGE.md), [docs/LOGGER_MIGRATION.md](docs/LOGGER_MIGRATION.md)
+- Logger usage: [docs/LOGGER_USAGE.md](docs/LOGGER_USAGE.md)
 - Initialization patterns: [docs/INITIALIZATION_PATTERNS.md](docs/INITIALIZATION_PATTERNS.md)
 
 If you run into issues or have suggestions, please open an issue in this repository. We’d love your feedback.
