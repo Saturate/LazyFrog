@@ -36,19 +36,37 @@ function initializeStateMachine() {
 }
 
 // Subscribe to state changes
+function getPresentationStateName(stateObj: any): string {
+	// Flatten nested states to top-level names expected by UI/status
+	try {
+		if (typeof stateObj?.value === 'string') return stateObj.value;
+		if (stateObj?.value && typeof stateObj.value === 'object') {
+			// Handle nested structure e.g., { gameMission: 'waitingForGame' }
+			if (stateObj.value.gameMission && typeof stateObj.value.gameMission === 'string') {
+				return String(stateObj.value.gameMission);
+			}
+		}
+		// Use matches if available (xstate v5)
+		if (stateObj?.matches) {
+			if (stateObj.matches('gameMission.waitingForGame')) return 'waitingForGame';
+			if (stateObj.matches('gameMission.openingGame')) return 'openingGame';
+			if (stateObj.matches('gameMission.gameReady')) return 'gameReady';
+			if (stateObj.matches('gameMission.running')) return 'running';
+			if (stateObj.matches('gameMission.completing')) return 'completing';
+		}
+	} catch {}
+	return String(stateObj?.value ?? 'unknown');
+}
+
 function subscribeToStateChanges() {
 	botActor.subscribe((state: any) => {
-		const currentState = state.value as string;
 		const context = state.context;
+		const presentationState = getPresentationStateName(state);
 
 		extensionLogger.log('[StateMachine] State changed', {
-			state: currentState,
+			state: presentationState,
 			context,
 		});
-
-		// TODO: Persist state to storage for service worker restarts
-		// XState v5 snapshot serialization needs proper implementation
-		// For now, we rely on activeBotSession flag for basic persistence
 
 		// Broadcast state changes to all tabs (so UI can update)
 		chrome.tabs.query({}, (tabs) => {
@@ -56,15 +74,15 @@ function subscribeToStateChanges() {
 				if (tab.id && tab.url?.includes('reddit.com')) {
 					chrome.tabs.sendMessage(tab.id, {
 						type: 'STATE_CHANGED',
-						state: currentState,
+						state: presentationState,
 						context,
 					});
 				}
 			});
 		});
 
-		// Handle state transitions (actions to take when entering states)
-		handleStateTransition(currentState, context);
+		// Handle state transitions
+		handleStateTransition(state, context);
 	});
 }
 
@@ -97,39 +115,34 @@ function getStateMachineSnapshot(): any {
 /**
  * Handle state transitions - tell content scripts what actions to take
  */
-function handleStateTransition(stateName: string, context: any): void {
-	extensionLogger.log('[StateTransition] Entered state', { state: stateName });
+function handleStateTransition(stateObj: any, context: any): void {
+	const presentationState = getPresentationStateName(stateObj);
+	extensionLogger.log('[StateTransition] Entered state', { state: presentationState });
 
 	// Update legacy state
-	state.isRunning = isBotRunning(stateName);
+	state.isRunning = isBotRunning(presentationState);
 
-	switch (stateName) {
-		case 'waitingForGame':
-			// Tell reddit-content to check for game loader
+	// Nested mission state routing
+	if (stateObj?.matches) {
+		if (stateObj.matches('gameMission.waitingForGame')) {
 			broadcastToReddit({ type: 'CHECK_FOR_GAME_LOADER' });
-			break;
-
-		case 'openingGame':
-			// Tell reddit-content to click game UI
+			return;
+		}
+		if (stateObj.matches('gameMission.openingGame')) {
 			broadcastToReddit({ type: 'CLICK_GAME_UI' });
-			break;
+			return;
+		}
+		if (stateObj.matches('gameMission.gameReady')) {
+			broadcastToAllFrames({ type: 'START_MISSION_AUTOMATION', config: context.automationConfig });
+			return;
+		}
+		if (stateObj.matches('gameMission.completing')) {
+			broadcastToReddit({ type: 'FIND_NEXT_MISSION', filters: context.filters });
+			return;
+		}
+	}
 
-		case 'gameReady':
-			// Tell devvit-content (game iframe) to start automation
-			broadcastToAllFrames({
-				type: 'START_MISSION_AUTOMATION',
-				config: context.automationConfig,
-			});
-			break;
-
-		case 'completing':
-			// Tell reddit-content to find next mission
-			broadcastToReddit({
-				type: 'FIND_NEXT_MISSION',
-				filters: context.filters,
-			});
-			break;
-
+	switch (presentationState) {
 		case 'navigating':
 			// Navigate to the mission URL using chrome.tabs API
 			// This ensures proper page reload and content script re-injection

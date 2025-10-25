@@ -207,7 +207,7 @@ export const botMachine = setup({
 					actions: ['setCompletionReason', 'logTransition'],
 				},
 				MISSION_PAGE_LOADED: {
-					target: 'waitingForGame',
+					target: 'gameMission.waitingForGame',
 					actions: ['setMission', 'logTransition'],
 				},
 				NAVIGATE_TO_MISSION: {
@@ -236,7 +236,7 @@ export const botMachine = setup({
 					actions: ['setCompletionReason', 'logTransition'],
 				},
 				MISSION_PAGE_LOADED: {
-					target: 'waitingForGame',
+					target: 'gameMission.waitingForGame',
 					actions: ['logTransition'],
 				},
 				ERROR_OCCURRED: {
@@ -247,113 +247,71 @@ export const botMachine = setup({
 		},
 
 		// ========================================================================
-		// WAITING_FOR_GAME: On mission page, waiting for game loader to appear
-		// MutationObserver will send GAME_LOADER_DETECTED when it appears
+		// gameMission: Nested mission subflow
 		// ========================================================================
-		waitingForGame: {
-			entry: ['logTransition'],
-			on: {
-				STOP_BOT: {
-					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
+		gameMission: {
+			initial: 'waitingForGame',
+			states: {
+				waitingForGame: {
+					entry: ['logTransition'],
+					on: {
+						GAME_LOADER_DETECTED: { target: 'openingGame', actions: ['logTransition'] },
+						ERROR_OCCURRED: {
+							target: '#bot.error',
+							actions: ['setError', 'setCompletionReason', 'logTransition'],
+						},
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+					},
 				},
-				GAME_LOADER_DETECTED: {
-					target: 'openingGame',
-					actions: ['logTransition'],
+				openingGame: {
+					entry: ['logTransition'],
+					on: {
+						GAME_DIALOG_OPENED: { target: 'gameReady', actions: ['logTransition'] },
+						ERROR_OCCURRED: {
+							target: '#bot.error',
+							actions: ['setError', 'setCompletionReason', 'logTransition'],
+						},
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+					},
 				},
-				ERROR_OCCURRED: {
-					target: 'error',
-					actions: ['setError', 'setCompletionReason', 'logTransition'],
+				gameReady: {
+					entry: ['logTransition'],
+					on: {
+						AUTOMATION_STARTED: { target: 'running', actions: ['logTransition'] },
+						ERROR_OCCURRED: {
+							target: '#bot.error',
+							actions: ['setError', 'setCompletionReason', 'logTransition'],
+						},
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+					},
 				},
-			},
-		},
-
-		// ========================================================================
-		// OPENING_GAME: Clicking game UI to open dialog
-		// MutationObserver watches for iframe/dialog to appear
-		// ========================================================================
-		openingGame: {
-			entry: ['logTransition'],
-			on: {
-				STOP_BOT: {
-					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
+				running: {
+					entry: ['logTransition'],
+					on: {
+						MISSION_COMPLETED: { target: 'completing', actions: ['logTransition'] },
+						ERROR_OCCURRED: {
+							target: '#bot.error',
+							actions: ['setError', 'setCompletionReason', 'logTransition'],
+						},
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+					},
 				},
-				GAME_DIALOG_OPENED: {
-					target: 'gameReady',
-					actions: ['logTransition'],
-				},
-				ERROR_OCCURRED: {
-					target: 'error',
-					actions: ['setError', 'setCompletionReason', 'logTransition'],
-				},
-			},
-		},
-
-		// ========================================================================
-		// GAME_READY: Game dialog is open, ready to start automation
-		// ========================================================================
-		gameReady: {
-			entry: ['logTransition'],
-			on: {
-				STOP_BOT: {
-					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
-				},
-				AUTOMATION_STARTED: {
-					target: 'running',
-					actions: ['logTransition'],
-				},
-				ERROR_OCCURRED: {
-					target: 'error',
-					actions: ['setError', 'setCompletionReason', 'logTransition'],
-				},
-			},
-		},
-
-		// ========================================================================
-		// RUNNING: Automation is actively playing the mission
-		// MutationObserver watches for mission completion indicators
-		// ========================================================================
-		running: {
-			entry: ['logTransition'],
-			on: {
-				STOP_BOT: {
-					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
-				},
-				MISSION_COMPLETED: {
-					target: 'completing',
-					actions: ['logTransition'],
-				},
-				ERROR_OCCURRED: {
-					target: 'error',
-					actions: ['setError', 'setCompletionReason', 'logTransition'],
-				},
-			},
-		},
-
-		// ========================================================================
-		// COMPLETING: Mission finished, preparing to navigate to next
-		// ========================================================================
-		completing: {
-			entry: ['logTransition'],
-			on: {
-				STOP_BOT: {
-					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
-				},
-				NEXT_MISSION_FOUND: {
-					target: 'navigating',
-					actions: ['setMission', 'clearError', 'logTransition'],
-				},
-				NO_MISSIONS_FOUND: {
-					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
-				},
-				ERROR_OCCURRED: {
-					target: 'error',
-					actions: ['setError', 'setCompletionReason', 'logTransition'],
+				completing: {
+					entry: ['logTransition'],
+					on: {
+						NEXT_MISSION_FOUND: {
+							target: '#bot.navigating',
+							actions: ['setMission', 'clearError', 'logTransition'],
+						},
+						NO_MISSIONS_FOUND: {
+							target: '#bot.idle',
+							actions: ['setCompletionReason', 'logTransition'],
+						},
+						ERROR_OCCURRED: {
+							target: '#bot.error',
+							actions: ['setError', 'setCompletionReason', 'logTransition'],
+						},
+					},
 				},
 			},
 		},
