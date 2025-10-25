@@ -47,8 +47,7 @@ temp/
 .serena
 
 # Extension packaging
-*.crx
-*.zip
+
 *.pem
 artifacts/
 web-ext-artifacts/
