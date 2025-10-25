@@ -10,9 +10,10 @@
 		"test": "vitest",
 		"test:ui": "vitest --ui",
 		"test:run": "vitest run",
-		"package": "pnpm run build && pnpm run package:zip && pnpm run package:chrome",
+		"package": "pnpm run build && pnpm run package:zip && pnpm run package:chrome && pnpm run copy-to-website",
 		"package:zip": "web-ext build --overwrite-dest && cd artifacts",
 		"package:chrome": "./scripts/build-crx.sh",
+		"copy-to-website": "mkdir -p ../website/public/downloads && cp artifacts/lazyfrog-*.zip ../website/public/downloads/",
 		"start:chrome": "pnpm run build && web-ext run --target chromium --start-url https://www.reddit.com/r/SwordAndSupperGame/"
 	},
 	"keywords": [
