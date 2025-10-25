@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { getMissionStats } from '../utils/storage';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
-import './popup-new.css';
+import './popup.css';
 import { MissionStats } from './MissionStats';
 
 interface MissionStats {
@@ -34,7 +34,7 @@ interface MissionFilters {
 	maxLevel: number;
 }
 
-const PopupAppNew: React.FC = () => {
+const PopupApp: React.FC = () => {
 	const [isRunning, setIsRunning] = useState(false);
 	const [statusText, setStatusText] = useState('Idle');
 	const [currentMission, setCurrentMission] = useState<string | null>(null);
@@ -261,7 +261,7 @@ const PopupAppNew: React.FC = () => {
 	};
 
 	return (
-		<div className="popup-container-new">
+		<div className="popup-container">
 			{/* Status Section */}
 			<div className="status-section">
 				<div className="status-header">
@@ -498,4 +498,4 @@ const PopupAppNew: React.FC = () => {
 	);
 };
 
-export default PopupAppNew;
+export default PopupApp;
