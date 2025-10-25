@@ -26,11 +26,20 @@ export const metadata: Metadata = {
     url: "https://lazyfrog.dev",
     siteName: "LazyFrog",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "LazyFrog - Automation Bot for Sword & Supper",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "LazyFrog - Automation Bot for Sword & Supper",
     description: "Automate your Sword & Supper gameplay with LazyFrog. Automatic mission finding, customizable choices, and smart decisions.",
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,

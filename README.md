@@ -1,6 +1,6 @@
-## AutoSupper — your Reddit game automation companion
+## LazyFrog — your Reddit game automation companion
 
-AutoSupper is a browser extension that adds an in-page control panel and a convenient popup to help you automate supported Reddit game experiences. It focuses on a smooth, user-friendly flow with clear status, control, and safety features.
+LazyFrog is a browser extension that adds an in-page control panel and a convenient popup to help you automate supported Reddit game experiences. It focuses on a smooth, user-friendly flow with clear status, control, and safety features.
 
 ### Highlights
 - **One‑click automation**: Start/stop from the page or the toolbar popup.
@@ -12,14 +12,14 @@ AutoSupper is a browser extension that adds an in-page control panel and a conve
 
 ### Quick start (Chrome/Brave/Edge)
 1. **Get the extension**
-   - Use a prebuilt file from `extension/artifacts/` (look for the latest `autosupper-*.crx` or `autosupper-*.zip`).
+   - Use a prebuilt file from `extension/artifacts/` (look for the latest `lazyfrog-*.crx` or `lazyfrog-*.zip`).
    - Or load the development build from `extension/dist/`.
 2. **Install**
    - Go to `chrome://extensions`, enable Developer mode.
    - Either drag the `.crx` onto the page, or click “Load unpacked” and select the extracted folder (or `extension/dist/`).
 3. **Use it**
    - Open Reddit and navigate to a supported game page.
-   - Click the AutoSupper toolbar icon or use the in-page control panel.
+   - Click the LazyFrog toolbar icon or use the in-page control panel.
    - Press “Start” to begin automation.
 
 ### What you’ll see
@@ -36,7 +36,7 @@ AutoSupper is a browser extension that adds an in-page control panel and a conve
 - For help and deeper visibility, see the Debug Server section below.
 
 ## Website (WIP)
-The public website lives in `webite/` and is a work‑in‑progress. If you’re curious, you can browse the sources there; production hosting is separate and may differ.
+The public website lives in `website/` and is a work‑in‑progress. If you’re curious, you can browse the sources there; production hosting is separate and may differ.
 
 ## Debug server (optional)
 For advanced troubleshooting and richer logs, a local debug server is included.

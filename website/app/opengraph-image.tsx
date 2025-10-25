@@ -57,9 +57,9 @@ export default async function Image() {
             gap: 40,
           }}
         >
-          <span>✅ Auto Mission Finder</span>
-          <span>✅ Customizable Choices</span>
-          <span>✅ Smart Decisions</span>
+          <span>• Auto Mission Finder</span>
+          <span>• Customizable Choices</span>
+          <span>• Smart Decisions</span>
         </div>
       </div>
     ),
