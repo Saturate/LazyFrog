@@ -35,8 +35,8 @@ LazyFrog is a browser extension that adds an in-page control panel and a conveni
 - If something looks off, enable logging in the Settings tab and retry.
 - For help and deeper visibility, see the Debug Server section below.
 
-## Website (WIP)
-The public website lives in `website/` and is a work‑in‑progress. If you’re curious, you can browse the sources there; production hosting is separate and may differ.
+## Website
+The live site is at [lazyfrog.akj.io](https://lazyfrog.akj.io/). Source lives in `website/`.
 
 ## Debug server (optional)
 For advanced troubleshooting and richer logs, a local debug server is included.
