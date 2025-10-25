@@ -70,6 +70,7 @@ const PopupAppNew: React.FC = () => {
 		const saved = localStorage.getItem('popup.showStepControls');
 		return saved !== null ? JSON.parse(saved) : false;
 	});
+	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
 	// Load stats and filters on mount
 	useEffect(() => {
@@ -81,12 +82,14 @@ const PopupAppNew: React.FC = () => {
 				setFilters({
 					stars: result.automationFilters.stars || [1, 2],
 					minLevel: result.automationFilters.minLevel || 1,
-					maxLevel: result.automationFilters.maxLevel || 20,
+					maxLevel: result.automationFilters.maxLevel || 340,
 				});
 			}
 			if (result.automationConfig) {
 				setShowStepByStepControls(result.automationConfig.showStepByStepControls || false);
 			}
+			// Mark initial load as complete
+			setIsInitialLoad(false);
 		});
 
 		// Update build age every minute
@@ -114,8 +117,13 @@ const PopupAppNew: React.FC = () => {
 		localStorage.setItem('popup.showStepControls', JSON.stringify(showStepControls));
 	}, [showStepControls]);
 
-	// Save filters to chrome storage when changed
+	// Save filters to chrome storage when changed (but not during initial load)
 	useEffect(() => {
+		// Skip saving during initial load to prevent overwriting saved values
+		if (isInitialLoad) {
+			return;
+		}
+
 		const filterData = {
 			stars: filters.stars,
 			minLevel: filters.minLevel,
@@ -131,7 +139,7 @@ const PopupAppNew: React.FC = () => {
 
 		// Also reload stats when filters change
 		loadStats();
-	}, [filters]);
+	}, [filters, isInitialLoad]);
 
 	// Listen for messages from background
 	useEffect(() => {
