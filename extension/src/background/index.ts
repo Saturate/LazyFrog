@@ -6,10 +6,10 @@
  * The XState machine lives here to maintain state across page reloads
  */
 
-import { createActor } from 'xstate';
-import { BotState, ChromeMessage, LevelFilters } from '../types';
-import { extensionLogger } from '../utils/logger';
-import { botMachine, isBotRunning } from '../automation/botStateMachine';
+import { createActor } from '../../../../extension/node_modules/.pnpm/xstate@5.23.0/node_modules/xstate/dist/declarations/src/index.js';
+import { BotState, ChromeMessage, LevelFilters } from '../types/index.js';
+import { extensionLogger } from '../utils/logger.js';
+import { botMachine, isBotRunning } from '../automation/botStateMachine.js';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)

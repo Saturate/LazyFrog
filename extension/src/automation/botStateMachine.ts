@@ -6,8 +6,12 @@
  * which decides what actions to take based on the current state.
  */
 
-import { setup, assign, fromPromise } from 'xstate';
-import { LevelFilters } from '../types';
+import {
+	setup,
+	assign,
+	fromPromise,
+} from '../../../../extension/node_modules/.pnpm/xstate@5.23.0/node_modules/xstate/dist/declarations/src/index.js';
+import { LevelFilters } from '../types/index.js';
 
 // ============================================================================
 // Types
