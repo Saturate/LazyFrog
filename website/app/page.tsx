@@ -1,4 +1,4 @@
-import { Download, Zap, Target, Brain, Shield, Activity } from 'lucide-react';
+import { Download, Zap, Target, Brain, Shield, Activity, AlertCircle, Heart, Github, Search, Sparkles } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -29,6 +29,16 @@ export default function Home() {
           Features
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <FeatureCard
+            icon={<Search size={32} />}
+            title="Auto Mission Finder"
+            description="Unlike other bots, LazyFrog automatically finds and navigates to the next mission to complete. Fully autonomous from start to finish."
+          />
+          <FeatureCard
+            icon={<Sparkles size={32} />}
+            title="Customizable Choices"
+            description="Rank blessings, items, and decisions based on your preferences. The bot makes choices according to your personalized strategy."
+          />
           <FeatureCard
             icon={<Target size={32} />}
             title="Mission Catalog"
@@ -120,6 +130,84 @@ export default function Home() {
             title="4. Monitor Progress"
             description="Check the extension's logs to see what decisions the bot is making, track mission completions, and debug any issues. Access logs through the extension popup or DevTools console."
           />
+        </div>
+      </section>
+
+      {/* Known Issues */}
+      <section className="container mx-auto px-6 py-16">
+        <h2 className="text-4xl font-bold text-center text-emerald-800 dark:text-emerald-400 mb-12">
+          Known Issues
+        </h2>
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-8">
+            <div className="flex items-start gap-4 mb-6">
+              <AlertCircle className="text-amber-600 dark:text-amber-400 flex-shrink-0" size={32} />
+              <div>
+                <h3 className="text-2xl font-semibold text-amber-800 dark:text-amber-300 mb-3">
+                  Automation May Stop
+                </h3>
+                <p className="text-amber-700 dark:text-amber-200 mb-4">
+                  Sometimes the automation stops and never completes. This is a known issue that I'm actively working on fixing.
+                  If this happens, you may need to restart the bot manually.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-4 border-t border-amber-200 dark:border-amber-800">
+              <Github className="text-amber-600 dark:text-amber-400" size={24} />
+              <div>
+                <p className="text-amber-700 dark:text-amber-200 mb-2">
+                  Found a bug or have a suggestion?
+                </p>
+                <a
+                  href="https://github.com/Saturate/LazyFrog/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold hover:underline"
+                >
+                  Report an issue on GitHub →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Donate Section */}
+      <section className="container mx-auto px-6 py-16">
+        <h2 className="text-4xl font-bold text-center text-emerald-800 dark:text-emerald-400 mb-12">
+          Support Development
+        </h2>
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-pink-50 dark:bg-pink-900/20 border-2 border-pink-200 dark:border-pink-800 rounded-xl p-8 text-center">
+            <Heart className="text-pink-600 dark:text-pink-400 mx-auto mb-6" size={48} />
+            <h3 className="text-2xl font-semibold text-pink-800 dark:text-pink-300 mb-4">
+              Enjoying LazyFrog?
+            </h3>
+            <p className="text-pink-700 dark:text-pink-200 mb-4 text-lg">
+              This extension is completely free and always will be. You don't need to donate to use it!
+            </p>
+            <p className="text-pink-700 dark:text-pink-200 mb-6">
+              However, if you'd like to support the development and help me continue improving LazyFrog,
+              I would be very happy! Your support helps me dedicate more time to fixing bugs, adding features,
+              and maintaining the project.
+            </p>
+            <a
+              href="https://github.com/sponsors/Saturate"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 bg-pink-600 hover:bg-pink-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-colors shadow-lg"
+            >
+              <Heart size={24} />
+              Sponsor on GitHub
+            </a>
+            <p className="text-sm text-pink-600 dark:text-pink-300 mt-4 opacity-75">
+              Not required • Not needed • Just appreciated 💚
+            </p>
+            <p className="text-pink-700 dark:text-pink-200 mt-8 pt-8 border-t border-pink-200 dark:border-pink-800">
+              ⚔️ <strong>Love Sword & Supper?</strong> Don't forget to support the game developers too!
+              They created this amazing game that we all enjoy. 🎮
+            </p>
+          </div>
         </div>
       </section>
 

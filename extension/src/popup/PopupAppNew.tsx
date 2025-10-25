@@ -13,6 +13,7 @@ import {
 	ChevronRight,
 	Star,
 	Bug,
+	Heart,
 } from 'lucide-react';
 import { getMissionStats } from '../utils/storage';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
@@ -450,6 +451,35 @@ const PopupAppNew: React.FC = () => {
 				<Settings size={20} />
 				MORE
 			</button>
+
+			{/* Sponsor Link */}
+			<div style={{ padding: '8px 16px', textAlign: 'center' }}>
+				<a
+					href="https://github.com/sponsors/Saturate"
+					target="_blank"
+					rel="noopener noreferrer"
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: '6px',
+						color: '#ec4899',
+						fontSize: '12px',
+						textDecoration: 'none',
+						padding: '6px 12px',
+						borderRadius: '6px',
+						transition: 'background-color 0.2s',
+					}}
+					onMouseEnter={(e) => {
+						e.currentTarget.style.backgroundColor = 'rgba(236, 72, 153, 0.1)';
+					}}
+					onMouseLeave={(e) => {
+						e.currentTarget.style.backgroundColor = 'transparent';
+					}}
+				>
+					<Heart size={12} fill="#ec4899" />
+					<span>Support Development</span>
+				</a>
+			</div>
 
 			{/* Footer */}
 			<div className="footer">
