@@ -11,7 +11,30 @@ import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
  * Save mission data from API response
  */
 async function saveMissionFromAPI(data: MissionData): Promise<void> {
+	// Validate that we have all required data before saving
 	if (!data.difficulty || data.difficulty === 0) {
+		redditLogger.log('⚠️ Skipping mission: no difficulty data', { postId: data.postId });
+		return;
+	}
+
+	// Require both minLevel and maxLevel to be present
+	if (data.minLevel === undefined || data.maxLevel === undefined) {
+		redditLogger.log('⚠️ Skipping mission: missing level data', {
+			postId: data.postId,
+			minLevel: data.minLevel,
+			maxLevel: data.maxLevel,
+			difficulty: data.difficulty,
+		});
+		return;
+	}
+
+	// Sanity check: maxLevel should be >= minLevel
+	if (data.maxLevel < data.minLevel) {
+		redditLogger.error('⚠️ Skipping mission: invalid level range', {
+			postId: data.postId,
+			minLevel: data.minLevel,
+			maxLevel: data.maxLevel,
+		});
 		return;
 	}
 

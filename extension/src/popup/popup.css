@@ -317,6 +317,76 @@ body {
   color: #a1a1aa;
 }
 
+/* Next Missions */
+.next-missions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.next-mission-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: #0f0f0f;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.next-mission-item:hover {
+  background: #171717;
+  border-color: #3f3f46;
+}
+
+.mission-index {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mission-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.mission-title {
+  font-size: 13px;
+  color: #e5e5e5;
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #a1a1aa;
+}
+
+.mission-difficulty {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mission-level {
+  font-weight: 500;
+}
+
 /* Footer */
 .footer {
   padding: 12px 16px;

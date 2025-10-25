@@ -7,18 +7,16 @@ import {
 	Play,
 	Pause,
 	Settings,
-	BarChart3,
-	Wrench,
-	ChevronDown,
-	ChevronRight,
-	Star,
-	Bug,
 	Heart,
 } from 'lucide-react';
-import { getMissionStats } from '../utils/storage';
+import { getMissionStats, getNextMissions, MissionRecord } from '../utils/storage';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
 import './popup.css';
 import { MissionStats } from './MissionStats';
+import { NextMissions } from './sections/NextMissions';
+import { MissionFilters } from './sections/MissionFilters';
+import { StepByStepControls } from './sections/StepByStepControls';
+import { DebugTools } from './sections/DebugTools';
 
 interface MissionStats {
 	queued: number;
@@ -72,6 +70,15 @@ const PopupApp: React.FC = () => {
 	});
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+	// Next missions state
+	const [showNextMissions, setShowNextMissions] = useState(true);
+	const [nextMissionsCount, setNextMissionsCount] = useState(5);
+	const [nextMissions, setNextMissions] = useState<MissionRecord[]>([]);
+	const [showNextMissionsSection, setShowNextMissionsSection] = useState(() => {
+		const saved = localStorage.getItem('popup.showNextMissionsSection');
+		return saved !== null ? JSON.parse(saved) : true;
+	});
+
 	// Load mission statistics
 	const loadStats = useCallback(async () => {
 		try {
@@ -81,6 +88,24 @@ const PopupApp: React.FC = () => {
 			console.error('Failed to load stats:', error);
 		}
 	}, []);
+
+	// Load next missions
+	const loadNextMissions = useCallback(async () => {
+		if (!showNextMissions) {
+			setNextMissions([]);
+			return;
+		}
+		try {
+			const missions = await getNextMissions(nextMissionsCount, {
+				stars: filters.stars,
+				minLevel: filters.minLevel,
+				maxLevel: filters.maxLevel,
+			});
+			setNextMissions(missions);
+		} catch (error) {
+			console.error('Failed to load next missions:', error);
+		}
+	}, [showNextMissions, nextMissionsCount, filters]);
 
 	// Load stats and filters on mount
 	useEffect(() => {
@@ -97,6 +122,8 @@ const PopupApp: React.FC = () => {
 			}
 			if (result.automationConfig) {
 				setShowStepByStepControls(result.automationConfig.showStepByStepControls || false);
+				setShowNextMissions(result.automationConfig.showNextMissions !== false);
+				setNextMissionsCount(result.automationConfig.nextMissionsCount || 5);
 			}
 			// Mark initial load as complete
 			setIsInitialLoad(false);
@@ -126,6 +153,15 @@ const PopupApp: React.FC = () => {
 	useEffect(() => {
 		localStorage.setItem('popup.showStepControls', JSON.stringify(showStepControls));
 	}, [showStepControls]);
+
+	useEffect(() => {
+		localStorage.setItem('popup.showNextMissionsSection', JSON.stringify(showNextMissionsSection));
+	}, [showNextMissionsSection]);
+
+	// Load next missions when filters or settings change
+	useEffect(() => {
+		loadNextMissions();
+	}, [loadNextMissions]);
 
 	// Save filters to chrome storage when changed (but not during initial load)
 	useEffect(() => {
@@ -161,14 +197,15 @@ const PopupApp: React.FC = () => {
 				// Update stats when state changes
 				loadStats();
 			} else if (message.type === 'MISSIONS_CHANGED') {
-				// Missions were added or updated, reload stats
+				// Missions were added or updated, reload stats and next missions
 				loadStats();
+				loadNextMissions();
 			}
 		};
 
 		chrome.runtime.onMessage.addListener(messageListener);
 		return () => chrome.runtime.onMessage.removeListener(messageListener);
-	}, [loadStats]);
+	}, [loadStats, loadNextMissions]);
 
 	// Handle start button
 	const handleStart = () => {
@@ -291,171 +328,47 @@ const PopupApp: React.FC = () => {
 
 			{/* Step-by-Step Controls - Only shown when enabled in settings */}
 			{showStepByStepControls && (
-				<div className="collapsible-section">
-					<div className="section-header" onClick={() => setShowStepControls(!showStepControls)}>
-						{showStepControls ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-						<Bug size={14} />
-						<span>Step-by-Step Controls</span>
-					</div>
-					{showStepControls && (
-						<div className="section-content">
-							<p
-								style={{
-									fontSize: '12px',
-									color: '#a1a1aa',
-									marginBottom: '12px',
-								}}
-							>
-								Test each automation step individually:
-							</p>
-							<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-								<button
-									className="debug-button"
-									onClick={handleNavigateToMission}
-									style={{
-										width: '100%',
-										textAlign: 'left',
-										padding: '10px 12px',
-									}}
-								>
-									1. Navigate to Next Mission
-								</button>
-								<button
-									className="debug-button"
-									onClick={handleOpenIframe}
-									style={{
-										width: '100%',
-										textAlign: 'left',
-										padding: '10px 12px',
-									}}
-								>
-									2. Open Dialog (Start Mission)
-								</button>
-								<button
-									className="debug-button"
-									onClick={handleAutoPlay}
-									style={{
-										width: '100%',
-										textAlign: 'left',
-										padding: '10px 12px',
-									}}
-								>
-									3. Auto Play Opened Mission
-								</button>
-								<button
-									className="debug-button"
-									onClick={handleStopAutomation}
-									style={{
-										width: '100%',
-										textAlign: 'left',
-										padding: '10px 12px',
-										color: '#ef4444',
-									}}
-								>
-									Stop Automation
-								</button>
-							</div>
-						</div>
-					)}
-				</div>
+				<StepByStepControls
+					showSection={showStepControls}
+					onToggle={() => setShowStepControls(!showStepControls)}
+					onNavigateToMission={handleNavigateToMission}
+					onOpenIframe={handleOpenIframe}
+					onAutoPlay={handleAutoPlay}
+					onStopAutomation={handleStopAutomation}
+				/>
 			)}
 
 			{/* Mission Filters - Collapsible */}
-			<div className="collapsible-section">
-				<div className="section-header" onClick={() => setShowFilters(!showFilters)}>
-					{showFilters ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-					<span>Mission Filters</span>
-				</div>
-				{showFilters && (
-					<div className="section-content" style={{ padding: '12px 16px' }}>
-						<div style={{ marginBottom: '10px' }}>
-							<label className="filter-label" style={{ marginBottom: '6px' }}>
-								Difficulty:
-							</label>
-							<div className="star-buttons">
-								{[1, 2, 3, 4, 5].map((star) => (
-									<button
-										key={star}
-										className={`star-button ${filters.stars.includes(star) ? 'active' : ''}`}
-										onClick={() => toggleStar(star)}
-										disabled={isRunning}
-									>
-										<Star
-											size={10}
-											fill={filters.stars.includes(star) ? '#eab308' : 'none'}
-											color="#eab308"
-										/>
-										{star}
-									</button>
-								))}
-							</div>
-						</div>
-						<div>
-							<label className="filter-label" style={{ marginBottom: '6px' }}>
-								Level:
-							</label>
-							<div className="level-inputs">
-								<input
-									type="number"
-									min="1"
-									max="340"
-									value={filters.minLevel}
-									onChange={(e) =>
-										setFilters((prev) => ({
-											...prev,
-											minLevel: parseInt(e.target.value) || 1,
-										}))
-									}
-									disabled={isRunning}
-									placeholder="Min"
-								/>
-								<span>-</span>
-								<input
-									type="number"
-									min="1"
-									max="340"
-									value={filters.maxLevel}
-									onChange={(e) =>
-										setFilters((prev) => ({
-											...prev,
-											maxLevel: parseInt(e.target.value) || 340,
-										}))
-									}
-									disabled={isRunning}
-									placeholder="Max"
-								/>
-							</div>
-						</div>
-					</div>
-				)}
-			</div>
+			<MissionFilters
+				filters={filters}
+				isRunning={isRunning}
+				showSection={showFilters}
+				onToggle={() => setShowFilters(!showFilters)}
+				onToggleStar={toggleStar}
+				onMinLevelChange={(level) => setFilters((prev) => ({ ...prev, minLevel: level }))}
+				onMaxLevelChange={(level) => setFilters((prev) => ({ ...prev, maxLevel: level }))}
+			/>
 
 			{/* Mission Stats - Collapsible */}
 			<MissionStats stats={stats} />
 
+			{/* Mission Queue - Collapsible */}
+			{showNextMissions && (
+				<NextMissions
+					nextMissions={nextMissions}
+					showSection={showNextMissionsSection}
+					onToggle={() => setShowNextMissionsSection(!showNextMissionsSection)}
+				/>
+			)}
+
 			{/* Debug Tools - Collapsible */}
-			<div className="collapsible-section">
-				<div className="section-header" onClick={() => setShowDebug(!showDebug)}>
-					{showDebug ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-					<Wrench size={14} />
-					<span>Debug Tools</span>
-				</div>
-				{showDebug && (
-					<div className="section-content">
-						<div className="debug-grid">
-							<button className="debug-button" onClick={viewLogs}>
-								View Logs
-							</button>
-							<button className="debug-button" onClick={testSelectors}>
-								Test Selectors
-							</button>
-							<button className="debug-button" onClick={exportData}>
-								Export Data
-							</button>
-						</div>
-					</div>
-				)}
-			</div>
+			<DebugTools
+				showSection={showDebug}
+				onToggle={() => setShowDebug(!showDebug)}
+				onViewLogs={viewLogs}
+				onTestSelectors={testSelectors}
+				onExportData={exportData}
+			/>
 
 			{/* Big More Button */}
 			<button className="settings-button" onClick={openSettings}>

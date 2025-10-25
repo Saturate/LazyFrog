@@ -2,6 +2,26 @@
  * Type definitions for Sword & Supper Bot
  */
 
+export interface MissionRecord {
+	postId: string;
+	username?: string;
+	timestamp: number;
+	metadata?: any;
+	tags?: string;
+	difficulty?: number;
+	environment?: string;
+	minLevel?: number;
+	maxLevel?: number;
+	missionTitle?: string;
+	foodName?: string;
+	cleared?: boolean;
+	clearedAt?: number;
+	permalink?: string;
+	totalLoot?: Array<{ id: string; quantity: number }>;
+	disabled?: boolean;
+	title?: string;
+}
+
 export interface Level {
   title: string;
   href: string | null;
@@ -67,7 +87,9 @@ export type MessageType =
   | 'MISSION_FOUND'
   | 'MISSION_PAGE_LOADED'
   | 'NO_MISSIONS_FOUND'
-  | 'ERROR_OCCURRED';
+  | 'ERROR_OCCURRED'
+  | 'MISSIONS_UPDATED'
+  | 'MISSIONS_CHANGED';
 
 export interface ChromeMessage extends Message {
   type: MessageType;

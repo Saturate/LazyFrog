@@ -9,6 +9,8 @@ interface DebugSettings {
 	debugMode: boolean;
 	remoteLogging: boolean;
 	showStepByStepControls: boolean;
+	showNextMissions: boolean;
+	nextMissionsCount: number;
 }
 
 const SettingsTab: React.FC = () => {
@@ -16,6 +18,8 @@ const SettingsTab: React.FC = () => {
 		debugMode: false,
 		remoteLogging: true,
 		showStepByStepControls: false,
+		showNextMissions: true,
+		nextMissionsCount: 5,
 	});
 
 	// Load settings on mount
@@ -26,6 +30,8 @@ const SettingsTab: React.FC = () => {
 					debugMode: result.automationConfig.debugMode || false,
 					remoteLogging: result.automationConfig.remoteLogging !== false,
 					showStepByStepControls: result.automationConfig.showStepByStepControls || false,
+					showNextMissions: result.automationConfig.showNextMissions !== false,
+					nextMissionsCount: result.automationConfig.nextMissionsCount || 5,
 				});
 			}
 		});
@@ -39,6 +45,8 @@ const SettingsTab: React.FC = () => {
 				debugMode: settings.debugMode,
 				remoteLogging: settings.remoteLogging,
 				showStepByStepControls: settings.showStepByStepControls,
+				showNextMissions: settings.showNextMissions,
+				nextMissionsCount: settings.nextMissionsCount,
 			};
 			chrome.storage.local.set({ automationConfig: fullConfig });
 		});
@@ -128,6 +136,75 @@ const SettingsTab: React.FC = () => {
 					>
 						Shows step-by-step automation controls in the popup (1. Navigate, 2. Open, 3. Play).
 					</p>
+				</div>
+
+				<div className="form-group" style={{ marginBottom: '20px' }}>
+					<label
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: '8px',
+							cursor: 'pointer',
+						}}
+					>
+						<input
+							type="checkbox"
+							checked={settings.showNextMissions}
+							onChange={(e) =>
+								setSettings((prev) => ({
+									...prev,
+									showNextMissions: e.target.checked,
+								}))
+							}
+							style={{ cursor: 'pointer' }}
+						/>
+						<span>Show Mission Queue</span>
+					</label>
+					<p
+						style={{
+							color: '#a1a1aa',
+							fontSize: '13px',
+							marginTop: '8px',
+							marginLeft: '28px',
+						}}
+					>
+						Shows the queue of upcoming missions in the popup that match your current filters.
+					</p>
+					{settings.showNextMissions && (
+						<div style={{ marginTop: '12px', marginLeft: '28px' }}>
+							<label
+								style={{
+									display: 'block',
+									fontSize: '13px',
+									color: '#e5e5e5',
+									marginBottom: '8px',
+								}}
+							>
+								Number of missions to show:
+							</label>
+							<input
+								type="number"
+								min="1"
+								max="20"
+								value={settings.nextMissionsCount}
+								onChange={(e) =>
+									setSettings((prev) => ({
+										...prev,
+										nextMissionsCount: parseInt(e.target.value) || 5,
+									}))
+								}
+								style={{
+									padding: '6px 12px',
+									background: '#171717',
+									border: '1px solid #1a1a1a',
+									borderRadius: '6px',
+									color: '#e5e5e5',
+									fontSize: '13px',
+									width: '80px',
+								}}
+							/>
+						</div>
+					)}
 				</div>
 
 				<div className="form-group" style={{ marginBottom: '20px' }}>

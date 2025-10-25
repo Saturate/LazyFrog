@@ -190,6 +190,29 @@ async function saveScannedMission(level: Level): Promise<void> {
 		return;
 	}
 
+	// Skip missions with missing level data - we need both minLevel and maxLevel to filter properly
+	if (!level.levelRangeMin || !level.levelRangeMax) {
+		redditLogger.log('⚠️ Skipping mission - missing level range data', {
+			title: level.title.substring(0, 50),
+			postId: level.postId,
+			levelRange: level.levelRange,
+			minLevel: level.levelRangeMin,
+			maxLevel: level.levelRangeMax,
+		});
+		return;
+	}
+
+	// Sanity check: maxLevel should be >= minLevel
+	if (level.levelRangeMax < level.levelRangeMin) {
+		redditLogger.error('⚠️ Skipping mission - invalid level range', {
+			title: level.title.substring(0, 50),
+			postId: level.postId,
+			minLevel: level.levelRangeMin,
+			maxLevel: level.levelRangeMax,
+		});
+		return;
+	}
+
 	try {
 		// Check if mission already exists in database
 		const { getMission } = await import('../../../utils/storage');

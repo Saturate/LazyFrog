@@ -548,6 +548,21 @@ export async function getNextUnclearedMission(filters?: {
 }
 
 /**
+ * Get next N uncleared missions matching filters
+ */
+export async function getNextMissions(
+	count: number,
+	filters?: {
+		stars?: number[];
+		minLevel?: number;
+		maxLevel?: number;
+	},
+): Promise<MissionRecord[]> {
+	const unclearedMissions = await getFilteredUnclearedMissions(filters);
+	return unclearedMissions.slice(0, count);
+}
+
+/**
  * Get all uncleared missions
  */
 export async function getUnclearedMissions(): Promise<MissionRecord[]> {

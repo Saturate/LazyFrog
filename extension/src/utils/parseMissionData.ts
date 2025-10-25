@@ -54,8 +54,8 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 					try {
 						const dataView = new DataView(arrayBuffer, minIndex + offset, 8);
 						const minLevelValue = dataView.getFloat64(0, true);
-						// Valid minLevel should be >= 1
-						if (minLevelValue >= 1 && minLevelValue <= 20) {
+						// Valid minLevel should be >= 1 and <= 340 (max game level)
+						if (minLevelValue >= 1 && minLevelValue <= 340) {
 							data.minLevel = Math.round(minLevelValue);
 							break;
 						}
@@ -75,8 +75,8 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 					try {
 						const dataView = new DataView(arrayBuffer, maxIndex + offset, 8);
 						const maxLevelValue = dataView.getFloat64(0, true);
-						// Valid maxLevel should be >= 1
-						if (maxLevelValue >= 1 && maxLevelValue <= 20) {
+						// Valid maxLevel should be >= 1 and <= 340 (max game level)
+						if (maxLevelValue >= 1 && maxLevelValue <= 340) {
 							data.maxLevel = Math.round(maxLevelValue);
 							break;
 						}
