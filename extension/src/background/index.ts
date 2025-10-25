@@ -452,6 +452,16 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			sendResponse({ success: true });
 			break;
 
+		case 'MISSIONS_UPDATED':
+			// Missions were updated, notify all popup instances
+			chrome.runtime.sendMessage({
+				type: 'MISSIONS_CHANGED',
+			}).catch(() => {
+				// No listeners (popup not open) - ignore
+			});
+			sendResponse({ success: true });
+			break;
+
 		case 'STATUS_UPDATE':
 			// Status updates from content scripts - just acknowledge
 			// These are used for popup UI updates, background doesn't need to process them

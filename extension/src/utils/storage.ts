@@ -67,6 +67,12 @@ export async function saveMission(mission: MissionRecord): Promise<void> {
 				if (chrome.runtime.lastError) {
 					reject(chrome.runtime.lastError);
 				} else {
+					// Notify background script that missions changed
+					chrome.runtime.sendMessage({
+						type: 'MISSIONS_UPDATED',
+					}).catch(() => {
+						// Ignore errors if no listeners
+					});
 					resolve();
 				}
 			});

@@ -150,6 +150,9 @@ const PopupApp: React.FC = () => {
 				setIsRunning(!['idle', 'error'].includes(message.state));
 				// Update stats when state changes
 				loadStats();
+			} else if (message.type === 'MISSIONS_CHANGED') {
+				// Missions were added or updated, reload stats
+				loadStats();
 			}
 		};
 
