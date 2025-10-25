@@ -512,6 +512,10 @@ export async function getFilteredUnclearedMissions(filters?: {
 			}
 
 			// Level range filter
+			// A mission is suitable only if it is ENTIRELY within the filter range
+			// Mission range: [m.minLevel, m.maxLevel]
+			// Filter range: [filters.minLevel, filters.maxLevel]
+			// Mission must satisfy: m.minLevel >= filters.minLevel AND m.maxLevel <= filters.maxLevel
 			if (filters.minLevel !== undefined && m.minLevel !== undefined) {
 				if (m.minLevel < filters.minLevel) {
 					return false;

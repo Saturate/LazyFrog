@@ -2,7 +2,7 @@
  * Simplified Popup - Status Dashboard with Debug Tools
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
 	Play,
 	Pause,
@@ -72,6 +72,16 @@ const PopupApp: React.FC = () => {
 	});
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+	// Load mission statistics
+	const loadStats = useCallback(async () => {
+		try {
+			const missionStats = await getMissionStats();
+			setStats(missionStats);
+		} catch (error) {
+			console.error('Failed to load stats:', error);
+		}
+	}, []);
+
 	// Load stats and filters on mount
 	useEffect(() => {
 		loadStats();
@@ -98,7 +108,7 @@ const PopupApp: React.FC = () => {
 		}, 60000);
 
 		return () => clearInterval(interval);
-	}, []);
+	}, [loadStats]);
 
 	// Save collapsible states to localStorage
 	useEffect(() => {
@@ -139,7 +149,7 @@ const PopupApp: React.FC = () => {
 
 		// Also reload stats when filters change
 		loadStats();
-	}, [filters, isInitialLoad]);
+	}, [filters, isInitialLoad, loadStats]);
 
 	// Listen for messages from background
 	useEffect(() => {
@@ -158,17 +168,7 @@ const PopupApp: React.FC = () => {
 
 		chrome.runtime.onMessage.addListener(messageListener);
 		return () => chrome.runtime.onMessage.removeListener(messageListener);
-	}, []);
-
-	// Load mission statistics
-	const loadStats = async () => {
-		try {
-			const missionStats = await getMissionStats();
-			setStats(missionStats);
-		} catch (error) {
-			console.error('Failed to load stats:', error);
-		}
-	};
+	}, [loadStats]);
 
 	// Handle start button
 	const handleStart = () => {
