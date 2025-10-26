@@ -1,4 +1,16 @@
-import { Download, Zap, Target, Brain, Shield, Activity, AlertCircle, Heart, Github, Search, Sparkles } from 'lucide-react';
+import {
+  Download,
+  Zap,
+  Target,
+  Brain,
+  Shield,
+  Activity,
+  AlertCircle,
+  Heart,
+  Github,
+  Search,
+  Sparkles,
+} from "lucide-react";
 
 export default function Home() {
   return (
@@ -14,11 +26,11 @@ export default function Home() {
             Automation bot for Sword & Supper on Reddit
           </p>
           <a
-            href="/downloads/lazyfrog-0.9.2.zip"
+            href="/downloads/lazyfrog-0.10.0.zip"
             className="inline-flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-colors shadow-lg"
           >
             <Download size={24} />
-            Download v0.9.2
+            Download v0.10.0
           </a>
         </div>
       </header>
@@ -141,19 +153,26 @@ export default function Home() {
         <div className="max-w-3xl mx-auto">
           <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-8">
             <div className="flex items-start gap-4 mb-6">
-              <AlertCircle className="text-amber-600 dark:text-amber-400 flex-shrink-0" size={32} />
+              <AlertCircle
+                className="text-amber-600 dark:text-amber-400 flex-shrink-0"
+                size={32}
+              />
               <div>
                 <h3 className="text-2xl font-semibold text-amber-800 dark:text-amber-300 mb-3">
                   Automation May Stop
                 </h3>
                 <p className="text-amber-700 dark:text-amber-200 mb-4">
-                  Sometimes the automation stops and never completes. This is a known issue that I'm actively working on fixing.
-                  If this happens, you may need to restart the bot manually.
+                  Sometimes the automation stops and never completes. This is a
+                  known issue that I'm actively working on fixing. If this
+                  happens, you may need to restart the bot manually.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3 pt-4 border-t border-amber-200 dark:border-amber-800">
-              <Github className="text-amber-600 dark:text-amber-400" size={24} />
+              <Github
+                className="text-amber-600 dark:text-amber-400"
+                size={24}
+              />
               <div>
                 <p className="text-amber-700 dark:text-amber-200 mb-2">
                   Found a bug or have a suggestion?
@@ -179,17 +198,22 @@ export default function Home() {
         </h2>
         <div className="max-w-3xl mx-auto">
           <div className="bg-pink-50 dark:bg-pink-900/20 border-2 border-pink-200 dark:border-pink-800 rounded-xl p-8 text-center">
-            <Heart className="text-pink-600 dark:text-pink-400 mx-auto mb-6" size={48} />
+            <Heart
+              className="text-pink-600 dark:text-pink-400 mx-auto mb-6"
+              size={48}
+            />
             <h3 className="text-2xl font-semibold text-pink-800 dark:text-pink-300 mb-4">
               Enjoying LazyFrog?
             </h3>
             <p className="text-pink-700 dark:text-pink-200 mb-4 text-lg">
-              This extension is completely free and always will be. You don't need to donate to use it!
+              This extension is completely free and always will be. You don't
+              need to donate to use it!
             </p>
             <p className="text-pink-700 dark:text-pink-200 mb-6">
-              However, if you'd like to support the development and help me continue improving LazyFrog,
-              I would be very happy! Your support helps me dedicate more time to fixing bugs, adding features,
-              and maintaining the project.
+              However, if you'd like to support the development and help me
+              continue improving LazyFrog, I would be very happy! Your support
+              helps me dedicate more time to fixing bugs, adding features, and
+              maintaining the project.
             </p>
             <a
               href="https://github.com/sponsors/Saturate"
@@ -204,8 +228,9 @@ export default function Home() {
               Not required • Not needed • Just appreciated 💚
             </p>
             <p className="text-pink-700 dark:text-pink-200 mt-8 pt-8 border-t border-pink-200 dark:border-pink-800">
-              ⚔️ <strong>Love Sword & Supper?</strong> Don't forget to support the game developers too!
-              They created this amazing game that we all enjoy. 🎮
+              ⚔️ <strong>Love Sword & Supper?</strong> Don't forget to support
+              the game developers too! They created this amazing game that we
+              all enjoy. 🎮
             </p>
           </div>
         </div>
@@ -220,38 +245,68 @@ export default function Home() {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="bg-white dark:bg-zinc-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
       <div className="text-emerald-600 dark:text-emerald-400 mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-300 mb-2">{title}</h3>
+      <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-300 mb-2">
+        {title}
+      </h3>
       <p className="text-gray-600 dark:text-gray-300">{description}</p>
     </div>
   );
 }
 
-function InstallStep({ number, title, description }: { number: number; title: string; description: string }) {
+function InstallStep({
+  number,
+  title,
+  description,
+}: {
+  number: number;
+  title: string;
+  description: string;
+}) {
   return (
     <li className="flex gap-4">
       <div className="flex-shrink-0 w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center font-bold">
         {number}
       </div>
       <div>
-        <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-300 mb-1">{title}</h3>
+        <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-300 mb-1">
+          {title}
+        </h3>
         <p className="text-gray-600 dark:text-gray-300">{description}</p>
       </div>
     </li>
   );
 }
 
-function UsageCard({ title, description, code }: { title: string; description: string; code?: string[] }) {
+function UsageCard({
+  title,
+  description,
+  code,
+}: {
+  title: string;
+  description: string;
+  code?: string[];
+}) {
   return (
     <div className="bg-white dark:bg-zinc-800 p-6 rounded-xl shadow-lg">
-      <h3 className="text-2xl font-semibold text-emerald-800 dark:text-emerald-300 mb-3">{title}</h3>
+      <h3 className="text-2xl font-semibold text-emerald-800 dark:text-emerald-300 mb-3">
+        {title}
+      </h3>
       <p className="text-gray-600 dark:text-gray-300 mb-4">{description}</p>
       {code && (
         <pre className="bg-zinc-900 text-emerald-400 p-4 rounded-lg overflow-x-auto">
-          <code>{code.join('\n')}</code>
+          <code>{code.join("\n")}</code>
         </pre>
       )}
     </div>
