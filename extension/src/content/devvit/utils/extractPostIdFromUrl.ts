@@ -32,7 +32,8 @@ export function extractPostIdFromUrl(url: string): string | null {
 	try {
 		// For Devvit iframe URLs, try to extract from context parameter
 		// URL format: https://cabbageidle-eimoap-0-0-50-webview.devvit.net/index.html?context=%7B...%7D
-		const contextMatch = url.match(/context=([^&]+)/);
+		// Stop at & or # to avoid capturing hash fragments
+		const contextMatch = url.match(/context=([^&#]+)/);
 		if (contextMatch) {
 			try {
 				const contextJson = decodeURIComponent(contextMatch[1]);
@@ -59,7 +60,8 @@ export function extractPostIdFromUrl(url: string): string | null {
 		}
 
 		// Fallback: try to extract from JWT token in webbit_token parameter
-		const tokenMatch = url.match(/webbit_token=([^&]+)/);
+		// Stop at & or # to avoid capturing hash fragments
+		const tokenMatch = url.match(/webbit_token=([^&#]+)/);
 		if (tokenMatch) {
 			try {
 				// JWT tokens have 3 parts separated by dots
