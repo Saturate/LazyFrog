@@ -1,5 +1,4 @@
 import {
-  Download,
   Zap,
   Target,
   Brain,
@@ -11,8 +10,14 @@ import {
   Search,
   Sparkles,
 } from "lucide-react";
+import DownloadButton from "@/components/DownloadButton";
+import { getLatestDownload } from "@/lib/getLatestDownload";
+
+export const dynamic = "force-static";
+export const revalidate = false; // Build-time only; updates on next build
 
 export default function Home() {
+  const latest = getLatestDownload();
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 dark:from-zinc-900 dark:to-emerald-950">
       {/* Hero Section */}
@@ -25,13 +30,10 @@ export default function Home() {
           <p className="text-2xl text-emerald-600 dark:text-emerald-300 mb-8">
             Automation bot for Sword & Supper on Reddit
           </p>
-          <a
-            href="/downloads/lazyfrog-0.10.0.zip"
-            className="inline-flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-colors shadow-lg"
-          >
-            <Download size={24} />
-            Download v0.10.0
-          </a>
+          <DownloadButton
+            href={latest.href}
+            label={`Download v${latest.version}`}
+          />
         </div>
       </header>
 
@@ -163,7 +165,7 @@ export default function Home() {
                 </h3>
                 <p className="text-amber-700 dark:text-amber-200 mb-4">
                   Sometimes the automation stops and never completes. This is a
-                  known issue that I'm actively working on fixing. If this
+                  known issue that I&apos;m actively working on fixing. If this
                   happens, you may need to restart the bot manually.
                 </p>
               </div>
@@ -206,11 +208,11 @@ export default function Home() {
               Enjoying LazyFrog?
             </h3>
             <p className="text-pink-700 dark:text-pink-200 mb-4 text-lg">
-              This extension is completely free and always will be. You don't
-              need to donate to use it!
+              This extension is completely free and always will be. You
+              don&apos;t need to donate to use it!
             </p>
             <p className="text-pink-700 dark:text-pink-200 mb-6">
-              However, if you'd like to support the development and help me
+              However, if you&apos;d like to support the development and help me
               continue improving LazyFrog, I would be very happy! Your support
               helps me dedicate more time to fixing bugs, adding features, and
               maintaining the project.
@@ -228,9 +230,9 @@ export default function Home() {
               Not required • Not needed • Just appreciated 💚
             </p>
             <p className="text-pink-700 dark:text-pink-200 mt-8 pt-8 border-t border-pink-200 dark:border-pink-800">
-              ⚔️ <strong>Love Sword & Supper?</strong> Don't forget to support
-              the game developers too! They created this amazing game that we
-              all enjoy. 🎮
+              ⚔️ <strong>Love Sword & Supper?</strong> Don&apos;t forget to
+              support the game developers too! They created this amazing game
+              that we all enjoy. 🎮
             </p>
           </div>
         </div>
