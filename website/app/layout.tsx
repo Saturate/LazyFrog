@@ -13,17 +13,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lazyfrog.dev'),
+  metadataBase: new URL("https://lazyfrog.akj.io"),
   title: "LazyFrog - Automation Bot for Sword & Supper",
-  description: "LazyFrog is a Chrome extension that automates Sword & Supper gameplay on Reddit. Features automatic mission finding, customizable choices, smart decisions, and mission analytics. Fully autonomous and runs locally in your browser.",
-  keywords: ["LazyFrog", "Sword & Supper", "Reddit", "game automation", "bot", "Chrome extension", "automation tool"],
-  authors: [{ name: "Allan Kimmer Jensen", url: "https://github.com/Saturate" }],
+  description:
+    "LazyFrog is a Chrome extension that automates Sword & Supper gameplay on Reddit. Features automatic mission finding, customizable choices, smart decisions, and mission analytics. Fully autonomous and runs locally in your browser.",
+  keywords: [
+    "LazyFrog",
+    "Sword & Supper",
+    "Reddit",
+    "game automation",
+    "bot",
+    "Chrome extension",
+    "automation tool",
+  ],
+  authors: [
+    { name: "Allan Kimmer Jensen", url: "https://github.com/Saturate" },
+  ],
   creator: "Allan Kimmer Jensen",
   publisher: "Allan Kimmer Jensen",
   openGraph: {
     title: "LazyFrog - Automation Bot for Sword & Supper",
-    description: "Automate your Sword & Supper gameplay with LazyFrog. Automatic mission finding, customizable choices, and smart decisions.",
-    url: "https://lazyfrog.dev",
+    description:
+      "Automate your Sword & Supper gameplay with LazyFrog. Automatic mission finding, customizable choices, and smart decisions.",
+    url: "https://lazyfrog.akj.io",
     siteName: "LazyFrog",
     type: "website",
     images: [
@@ -38,7 +50,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "LazyFrog - Automation Bot for Sword & Supper",
-    description: "Automate your Sword & Supper gameplay with LazyFrog. Automatic mission finding, customizable choices, and smart decisions.",
+    description:
+      "Automate your Sword & Supper gameplay with LazyFrog. Automatic mission finding, customizable choices, and smart decisions.",
     images: ["/opengraph-image"],
   },
   robots: {
