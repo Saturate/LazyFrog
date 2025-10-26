@@ -27,6 +27,8 @@ export function getStatusText(state: string, context: any): string {
       return "Running";
     case "completing":
       return "Finding next mission...";
+    case "waitingForDialogClose":
+      return "Waiting for mission to complete...";
     case "error":
       return `Error: ${context?.errorMessage || "Unknown"}`;
     default:
