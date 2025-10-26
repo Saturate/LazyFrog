@@ -9,6 +9,7 @@ import BotControlPanel from '../../components/BotControlPanel';
 import { Level, LevelFilters, ChromeMessage } from '../../types';
 import {
 	findGameIframe,
+	isGameDialogOpen,
 	parseLevelFromPost,
 	getAllLevels,
 	filterLevels,
@@ -87,6 +88,7 @@ chrome.storage.local.get(['activeBotSession'], (result) => {
 					permalink,
 				});
 
+				// Mission was already filtered at selection time - trust it's valid and proceed
 				safeSendMessage({
 					type: 'MISSION_FOUND',
 					missionId: postId,
@@ -105,6 +107,7 @@ chrome.storage.local.get(['activeBotSession'], (result) => {
 							permalink,
 						});
 
+						// Mission was already filtered at selection time - trust it's valid and proceed
 						safeSendMessage({
 							type: 'MISSION_FOUND',
 							missionId: postId,
@@ -169,6 +172,14 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			redditLogger.log('[CHECK_FOR_GAME_LOADER] Checking for loader');
 			checkForExistingLoader(currentBotState);
 			sendResponse({ success: true });
+			break;
+
+		case 'CHECK_GAME_DIALOG_STATUS':
+			// Background wants to know if game dialog is currently open
+			const isOpen = isGameDialogOpen();
+			redditLogger.log('[CHECK_GAME_DIALOG_STATUS] Dialog status', { isOpen });
+			sendResponse({ isOpen });
+			return true; // Will respond synchronously
 			break;
 
 		case 'CLICK_GAME_UI':

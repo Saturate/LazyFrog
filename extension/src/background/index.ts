@@ -17,9 +17,21 @@ import { botMachine, isBotRunning } from '../automation/botStateMachine';
 
 // Create the state machine actor - will be initialized after checking storage
 let botActor: any = null;
+let saveStateIntervalId: NodeJS.Timeout | null = null;
 
 // Initialize state machine with persistence
 function initializeStateMachine() {
+	// Clean up existing actor if it exists
+	if (botActor) {
+		extensionLogger.log('[StateMachine] Stopping existing actor before creating new one');
+		try {
+			botActor.stop();
+		} catch (error) {
+			extensionLogger.warn('[StateMachine] Error stopping existing actor', { error: String(error) });
+		}
+		botActor = null;
+	}
+
 	// Clear any old snapshot data (was causing issues with XState v5)
 	chrome.storage.local.remove(['botMachineState']);
 
@@ -53,6 +65,7 @@ function getPresentationStateName(stateObj: any): string {
 			if (stateObj.matches('gameMission.gameReady')) return 'gameReady';
 			if (stateObj.matches('gameMission.running')) return 'running';
 			if (stateObj.matches('gameMission.completing')) return 'completing';
+			if (stateObj.matches('gameMission.waitingForDialogClose')) return 'waitingForDialogClose';
 		}
 	} catch {}
 	return String(stateObj?.value ?? 'unknown');
@@ -115,6 +128,53 @@ function getStateMachineSnapshot(): any {
 /**
  * Handle state transitions - tell content scripts what actions to take
  */
+
+/**
+ * Check if game dialog is open before allowing navigation
+ * Returns a promise that resolves to true if safe to navigate, false otherwise
+ */
+async function canNavigateAway(): Promise<boolean> {
+	return new Promise((resolve) => {
+		// Query Reddit tabs
+		chrome.tabs.query({ url: 'https://www.reddit.com/*' }, (tabs) => {
+			if (tabs.length === 0 || !tabs[0].id) {
+				// No Reddit tab found, safe to navigate
+				extensionLogger.log('[canNavigateAway] No Reddit tab found, safe to navigate');
+				resolve(true);
+				return;
+			}
+
+			// Ask content script if game dialog is open
+			chrome.tabs.sendMessage(
+				tabs[0].id,
+				{ type: 'CHECK_GAME_DIALOG_STATUS' },
+				(response) => {
+					if (chrome.runtime.lastError) {
+						// Content script not ready or error occurred, assume safe
+						extensionLogger.warn('[canNavigateAway] Error checking dialog status', {
+							error: chrome.runtime.lastError.message,
+						});
+						resolve(true);
+						return;
+					}
+
+					const isDialogOpen = response?.isOpen || false;
+					extensionLogger.log('[canNavigateAway] Dialog status check result', {
+						isDialogOpen,
+						canNavigate: !isDialogOpen,
+					});
+
+					// Can navigate only if dialog is NOT open
+					resolve(!isDialogOpen);
+				},
+			);
+		});
+	});
+}
+
+// Track the last retry count to avoid sending duplicate FIND_NEXT_MISSION
+let lastCompletingRetryCount = -1;
+
 function handleStateTransition(stateObj: any, context: any): void {
 	const presentationState = getPresentationStateName(stateObj);
 	extensionLogger.log('[StateTransition] Entered state', { state: presentationState });
@@ -137,12 +197,67 @@ function handleStateTransition(stateObj: any, context: any): void {
 			return;
 		}
 		if (stateObj.matches('gameMission.completing')) {
-			broadcastToReddit({ type: 'FIND_NEXT_MISSION', filters: context.filters });
+			const retryCount = context.findMissionRetryCount || 0;
+
+			// Only send FIND_NEXT_MISSION if retry count changed (prevents duplicate sends on internal transitions)
+			if (retryCount === lastCompletingRetryCount) {
+				extensionLogger.log('[StateTransition] Skipping duplicate FIND_NEXT_MISSION', {
+					retryCount,
+					lastRetryCount: lastCompletingRetryCount,
+				});
+				return;
+			}
+
+			lastCompletingRetryCount = retryCount;
+
+			// Add a small delay if this is a retry
+			if (retryCount > 0) {
+				extensionLogger.log('[StateTransition] Retrying FIND_NEXT_MISSION', {
+					retryCount,
+					delayMs: retryCount * 2000,
+				});
+				// Exponential backoff: 2s, 4s, 6s
+				setTimeout(() => {
+					broadcastToReddit({ type: 'FIND_NEXT_MISSION', filters: context.filters });
+				}, retryCount * 2000);
+			} else {
+				broadcastToReddit({ type: 'FIND_NEXT_MISSION', filters: context.filters });
+			}
+			return;
+		}
+		if (stateObj.matches('gameMission.waitingForDialogClose')) {
+			// Reset completing retry counter when leaving completing state
+			lastCompletingRetryCount = -1;
+
+			// Check if dialog is closed, then send appropriate event
+			extensionLogger.log('[StateTransition] Checking if game dialog is closed');
+			canNavigateAway().then((canNavigate) => {
+				if (canNavigate) {
+					extensionLogger.log('[StateTransition] Dialog is closed, sending GAME_DIALOG_CLOSED event');
+					sendToStateMachine({ type: 'GAME_DIALOG_CLOSED' });
+				} else {
+					extensionLogger.log('[StateTransition] Dialog still open, will retry check in 2s');
+					// Retry check after 2 seconds
+					setTimeout(() => {
+						// Re-check by triggering state transition again
+						const snapshot = getStateMachineSnapshot();
+						if (snapshot && snapshot.matches && snapshot.matches('gameMission.waitingForDialogClose')) {
+							extensionLogger.log('[StateTransition] Re-checking dialog status');
+							handleStateTransition(snapshot, snapshot.context);
+						}
+					}, 2000);
+				}
+			});
 			return;
 		}
 	}
 
 	switch (presentationState) {
+		case 'idle':
+		case 'error':
+			// Reset completing retry counter when going idle or error
+			lastCompletingRetryCount = -1;
+			break;
 		case 'navigating':
 			// Navigate to the mission URL using chrome.tabs API
 			// This ensures proper page reload and content script re-injection
@@ -154,6 +269,7 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			if (context.currentMissionPermalink) {
 				// Find the Reddit tab and navigate it
+				// Note: We only reach this state after waitingForDialogClose confirms dialog is closed
 				chrome.tabs.query({ url: 'https://www.reddit.com/*' }, (tabs) => {
 					if (tabs.length > 0 && tabs[0].id) {
 						extensionLogger.log('[StateTransition] Navigating tab to mission', {
@@ -175,13 +291,14 @@ function handleStateTransition(stateObj: any, context: any): void {
 }
 
 /**
- * Broadcast message to reddit tabs only
+ * Broadcast message to reddit tabs only (top-level frame only, not iframes)
  */
 function broadcastToReddit(message: any): void {
 	chrome.tabs.query({}, (tabs) => {
 		tabs.forEach((tab) => {
 			if (tab.id && tab.url?.includes('reddit.com')) {
-				chrome.tabs.sendMessage(tab.id, message);
+				// Send only to top-level frame (frameId: 0) to avoid sending to Devvit iframe
+				chrome.tabs.sendMessage(tab.id, message, { frameId: 0 });
 			}
 		});
 	});
@@ -403,7 +520,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			extensionLogger.log('MISSION_FOUND, sending event to state machine');
 			const missionData = message as any;
 			const snapshot = getStateMachineSnapshot();
-			const currentState = snapshot?.value as string;
+			const currentState = getPresentationStateName(snapshot);
 
 			// If we're completing a mission, this is the NEXT mission
 			if (currentState === 'completing') {
@@ -487,11 +604,50 @@ chrome.storage.local.get(['completedLevels', 'automationFilters'], (result) => {
 });
 
 // Save state periodically
-setInterval(() => {
+saveStateIntervalId = setInterval(() => {
 	chrome.storage.local.set({
 		completedLevels: state.completedLevels,
 		automationFilters: state.filters,
 	});
 }, 60000); // Every minute
+
+// Cleanup function for when service worker suspends or extension unloads
+function cleanup() {
+	extensionLogger.log('[Cleanup] Cleaning up background resources');
+
+	// Stop state machine actor
+	if (botActor) {
+		try {
+			botActor.stop();
+			extensionLogger.log('[Cleanup] Stopped botActor');
+		} catch (error) {
+			extensionLogger.warn('[Cleanup] Error stopping botActor', { error: String(error) });
+		}
+		botActor = null;
+	}
+
+	// Clear interval
+	if (saveStateIntervalId) {
+		clearInterval(saveStateIntervalId);
+		saveStateIntervalId = null;
+		extensionLogger.log('[Cleanup] Cleared saveState interval');
+	}
+
+	// Save final state
+	chrome.storage.local.set({
+		completedLevels: state.completedLevels,
+		automationFilters: state.filters,
+	});
+}
+
+// Listen for service worker suspend/shutdown
+// Note: Service workers don't have 'beforeunload', but we can use runtime.onSuspend
+// However, onSuspend is not available in MV3, so this is best-effort cleanup
+if (chrome.runtime.onSuspend) {
+	chrome.runtime.onSuspend.addListener(() => {
+		extensionLogger.log('[ServiceWorker] Suspending, running cleanup');
+		cleanup();
+	});
+}
 
 extensionLogger.log('Sword & Supper Bot background script loaded');

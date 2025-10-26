@@ -498,12 +498,19 @@ export async function getFilteredUnclearedMissions(filters?: {
 }): Promise<MissionRecord[]> {
 	const missions = await getAllMissions();
 	let unclearedMissions = Object.values(missions).filter(
-		(m) => !m.cleared && !m.disabled && (m.difficulty ?? 0) > 0,
-	); // Only return missions with star difficulty data
+		(m) =>
+			!m.cleared &&
+			!m.disabled &&
+			(m.difficulty ?? 0) > 0 &&
+			m.minLevel !== undefined &&
+			m.maxLevel !== undefined,
+	); // Only return missions with complete data (difficulty AND level range)
 
 	// Apply filters if provided
 	if (filters) {
 		unclearedMissions = unclearedMissions.filter((m) => {
+			// Note: minLevel and maxLevel are already guaranteed to be defined by the initial filter above
+
 			// Star difficulty filter
 			if (filters.stars && filters.stars.length > 0) {
 				if (!filters.stars.includes(m.difficulty || 0)) {
@@ -516,14 +523,15 @@ export async function getFilteredUnclearedMissions(filters?: {
 			// Mission range: [m.minLevel, m.maxLevel]
 			// Filter range: [filters.minLevel, filters.maxLevel]
 			// Mission must satisfy: m.minLevel >= filters.minLevel AND m.maxLevel <= filters.maxLevel
-			if (filters.minLevel !== undefined && m.minLevel !== undefined) {
-				if (m.minLevel < filters.minLevel) {
+			// Note: minLevel and maxLevel are guaranteed to be defined by initial filter
+			if (filters.minLevel !== undefined) {
+				if (m.minLevel! < filters.minLevel) {
 					return false;
 				}
 			}
 
-			if (filters.maxLevel !== undefined && m.maxLevel !== undefined) {
-				if (m.maxLevel > filters.maxLevel) {
+			if (filters.maxLevel !== undefined) {
+				if (m.maxLevel! > filters.maxLevel) {
 					return false;
 				}
 			}
@@ -603,10 +611,14 @@ export async function getMissionStats(): Promise<{
 		(m) => m.cleared && m.clearedAt && m.clearedAt > oneDayAgo,
 	).length;
 
-	// Queued missions (uncleared + matching filters)
+	// Queued missions (uncleared + matching filters + complete data)
 	const queued = missionArray.filter((m) => {
 		if (m.cleared) return false;
 		if (m.disabled) return false;
+
+		// CRITICAL: Mission must have complete data (difficulty and level range)
+		if ((m.difficulty ?? 0) === 0) return false;
+		if (m.minLevel === undefined || m.maxLevel === undefined) return false;
 
 		// Star difficulty filter
 		if (currentFilters.stars && currentFilters.stars.length > 0) {
@@ -616,13 +628,13 @@ export async function getMissionStats(): Promise<{
 		}
 
 		// Level range filter
-		if (currentFilters.minLevel !== undefined && m.minLevel !== undefined) {
+		if (currentFilters.minLevel !== undefined) {
 			if (m.minLevel < currentFilters.minLevel) {
 				return false;
 			}
 		}
 
-		if (currentFilters.maxLevel !== undefined && m.maxLevel !== undefined) {
+		if (currentFilters.maxLevel !== undefined) {
 			if (m.maxLevel > currentFilters.maxLevel) {
 				return false;
 			}

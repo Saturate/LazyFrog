@@ -35,6 +35,32 @@ export const findGameIframe = (): HTMLIFrameElement | null => {
 };
 
 /**
+ * Check if game dialog/iframe is currently open and active
+ * Returns true if the game modal is visible and the iframe is loaded
+ */
+export const isGameDialogOpen = (): boolean => {
+	// Check if iframe exists and is visible
+	const gameIframe = findGameIframe();
+	if (!gameIframe) return false;
+
+	// Check if the fullscreen controls modal is present (indicates game is open)
+	const fullscreenControls = document.querySelector('devvit-fullscreen-web-view-controls');
+	if (!fullscreenControls) return false;
+
+	// Check if iframe has loaded content (not just empty)
+	const iframeLoaded = !!(gameIframe.src && gameIframe.src.includes('devvit.net'));
+
+	redditLogger.log('Game dialog status check', {
+		hasIframe: !!gameIframe,
+		hasFullscreenControls: !!fullscreenControls,
+		iframeLoaded,
+		isOpen: !!gameIframe && !!fullscreenControls && iframeLoaded,
+	});
+
+	return !!gameIframe && !!fullscreenControls && iframeLoaded;
+};
+
+/**
  * Parse level information from a Reddit post
  * Reddit uses <shreddit-post> custom elements with attributes
  */

@@ -23,6 +23,7 @@ export interface BotContext {
 	currentMissionPermalink: string | null;
 	errorMessage: string | null;
 	retryCount: number;
+	findMissionRetryCount: number;
 	automationConfig: any;
 	completionReason: 'stopped' | 'no_missions' | 'error' | null;
 }
@@ -33,6 +34,7 @@ export type BotEvent =
 	| { type: 'MISSION_PAGE_LOADED'; missionId: string; permalink: string }
 	| { type: 'GAME_LOADER_DETECTED' }
 	| { type: 'GAME_DIALOG_OPENED' }
+	| { type: 'GAME_DIALOG_CLOSED' }
 	| { type: 'GAME_IFRAME_DETECTED' }
 	| { type: 'AUTOMATION_STARTED' }
 	| { type: 'MISSION_COMPLETED'; missionId: string }
@@ -130,13 +132,34 @@ export const botMachine = setup({
 			retryCount: 0,
 		}),
 
+		// Log why we're going idle (before reset clears it)
+		logIdleReason: ({ context, event }) => {
+			console.log('[BotStateMachine] Entering idle state', {
+				event: event.type,
+				completionReason: context.completionReason,
+				errorMessage: context.errorMessage,
+				currentMissionId: context.currentMissionId,
+			});
+		},
+
 		// Reset context on stop
 		resetContext: assign({
 			currentMissionId: null,
 			currentMissionPermalink: null,
 			errorMessage: null,
 			retryCount: 0,
+			findMissionRetryCount: 0,
 			completionReason: null,
+		}),
+
+		// Increment find mission retry count
+		incrementFindMissionRetry: assign({
+			findMissionRetryCount: ({ context }) => context.findMissionRetryCount + 1,
+		}),
+
+		// Reset find mission retry count
+		resetFindMissionRetry: assign({
+			findMissionRetryCount: 0,
 		}),
 
 		// Set completion reason
@@ -157,6 +180,16 @@ export const botMachine = setup({
 				return reason;
 			},
 		}),
+
+		// Log error state entry
+		logError: ({ context, event }) => {
+			console.error('[BotStateMachine] Entered error state', {
+				event: event.type,
+				errorMessage: context.errorMessage,
+				retryCount: context.retryCount,
+				currentMissionId: context.currentMissionId,
+			});
+		},
 
 		// Log state transitions
 		logTransition: ({ context, event }) => {
@@ -182,6 +215,7 @@ export const botMachine = setup({
 		currentMissionPermalink: null,
 		errorMessage: null,
 		retryCount: 0,
+		findMissionRetryCount: 0,
 		automationConfig: {},
 		completionReason: null,
 	},
@@ -191,7 +225,7 @@ export const botMachine = setup({
 		// ========================================================================
 		idle: {
 			description: 'Bot is stopped, no automation',
-			entry: ['resetContext', 'logTransition'],
+			entry: ['logIdleReason', 'resetContext', 'logTransition'],
 			on: {
 				START_BOT: {
 					target: 'starting',
@@ -301,19 +335,55 @@ export const botMachine = setup({
 					},
 				},
 				completing: {
-					entry: ['logTransition'],
+					entry: ['logTransition', 'resetFindMissionRetry'],
 					on: {
 						NEXT_MISSION_FOUND: {
-							target: '#bot.navigating',
-							actions: ['setMission', 'clearError', 'logTransition'],
+							target: 'waitingForDialogClose',
+							actions: ['setMission', 'clearError', 'resetFindMissionRetry', 'logTransition'],
 						},
-						NO_MISSIONS_FOUND: {
-							target: '#bot.idle',
-							actions: ['setCompletionReason', 'logTransition'],
+						NO_MISSIONS_FOUND: [
+							{
+								// If we've retried less than 3 times, increment retry count
+								// Internal transition (no target) - stays in completing state without re-entering
+								guard: ({ context }) => context.findMissionRetryCount < 3,
+								actions: ['incrementFindMissionRetry', 'logTransition'],
+							},
+							{
+								// After 3 retries, give up and go idle
+								target: '#bot.idle',
+								actions: ['setCompletionReason', 'logTransition'],
+							},
+						],
+						ERROR_OCCURRED: [
+							{
+								// If we've retried less than 3 times, increment retry count
+								// Internal transition (no target) - stays in completing state without re-entering
+								guard: ({ context }) => context.findMissionRetryCount < 3,
+								actions: ['incrementFindMissionRetry', 'setError', 'logTransition'],
+							},
+							{
+								// After 3 retries, go to error state
+								target: '#bot.error',
+								actions: ['setError', 'setCompletionReason', 'logTransition'],
+							},
+						],
+					},
+				},
+				waitingForDialogClose: {
+					description: 'Waiting for game dialog to close before navigating to next mission',
+					entry: ['logTransition'],
+					on: {
+						GAME_DIALOG_CLOSED: {
+							target: '#bot.navigating',
+							actions: ['logTransition'],
 						},
 						ERROR_OCCURRED: {
 							target: '#bot.error',
 							actions: ['setError', 'setCompletionReason', 'logTransition'],
+						},
+						STOP_BOT: {
+							target: '#bot.idle',
+							actions: ['setCompletionReason', 'logTransition'],
 						},
 					},
 				},
@@ -324,7 +394,7 @@ export const botMachine = setup({
 		// ERROR: Something went wrong, need user intervention or retry
 		// ========================================================================
 		error: {
-			entry: ['logTransition'],
+			entry: ['logError', 'logTransition'],
 			on: {
 				STOP_BOT: {
 					target: 'idle',

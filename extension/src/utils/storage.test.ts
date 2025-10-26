@@ -15,18 +15,23 @@ global.chrome = {
 						result[key] = mockStorage.get(key);
 					}
 				});
-				if (callback) {
-					callback(result);
-				}
+				// Call callback synchronously to simulate chrome.storage.local.get behavior
+				setTimeout(() => {
+					if (callback) {
+						callback(result);
+					}
+				}, 0);
 				return Promise.resolve(result);
 			}),
 			set: vi.fn((items, callback?) => {
 				Object.entries(items).forEach(([key, value]) => {
 					mockStorage.set(key, value);
 				});
-				if (callback) {
-					callback();
-				}
+				setTimeout(() => {
+					if (callback) {
+						callback();
+					}
+				}, 0);
 				return Promise.resolve();
 			}),
 		},
@@ -34,6 +39,7 @@ global.chrome = {
 	runtime: {
 		id: 'test-extension-id',
 		lastError: null,
+		sendMessage: vi.fn(() => Promise.resolve()),
 	},
 } as any;
 
