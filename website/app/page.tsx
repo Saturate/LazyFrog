@@ -15,6 +15,7 @@ import { getLatestDownload } from "@/lib/getLatestDownload";
 
 export const dynamic = "force-static";
 export const revalidate = false; // Build-time only; updates on next build
+export const runtime = "nodejs";
 
 export default function Home() {
   const latest = getLatestDownload();

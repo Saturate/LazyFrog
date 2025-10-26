@@ -9,6 +9,8 @@ export const size = {
 };
 
 export const contentType = "image/png";
+export const runtime = "nodejs"; // needed because we read from fs
+export const dynamic = "force-static"; // build-time render
 
 // Image generation
 export default async function Image() {
@@ -36,6 +38,8 @@ export default async function Image() {
             color: "#6ee7b7",
             marginBottom: 20,
             textAlign: "center",
+            display: "flex",
+            justifyContent: "center",
           }}
         >
           LazyFrog
@@ -46,6 +50,8 @@ export default async function Image() {
             color: "#a7f3d0",
             textAlign: "center",
             maxWidth: "900px",
+            display: "flex",
+            justifyContent: "center",
           }}
         >
           Automation Bot for Sword & Supper
@@ -55,6 +61,8 @@ export default async function Image() {
             fontSize: 36,
             color: "#bbf7d0",
             marginTop: 20,
+            display: "flex",
+            justifyContent: "center",
           }}
         >
           v{version}

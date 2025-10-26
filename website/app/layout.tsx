@@ -3,6 +3,10 @@ import { getLatestDownload } from "@/lib/getLatestDownload";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+export const runtime = "nodejs";
+export const dynamic = "force-static";
+export const revalidate = false;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
