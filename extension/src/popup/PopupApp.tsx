@@ -324,8 +324,8 @@ const PopupApp: React.FC = () => {
 					showSection={showFilters}
 					onToggle={() => setShowFilters(!showFilters)}
 					onToggleStar={toggleStar}
-					onMinLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, minLevel: level }) : null)}
-					onMaxLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, maxLevel: level }) : null)}
+					onMinLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, minLevel: level }) : prev)}
+					onMaxLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, maxLevel: level }) : prev)}
 				/>
 			)}
 
