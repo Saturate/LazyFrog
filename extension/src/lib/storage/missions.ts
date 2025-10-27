@@ -45,6 +45,48 @@ export async function saveMission(mission: MissionRecord): Promise<void> {
 }
 
 /**
+ * Save multiple missions to storage in a single batch operation
+ */
+export async function saveMissionsBatch(missions: MissionRecord[]): Promise<void> {
+	return new Promise((resolve, reject) => {
+		// Check if extension context is still valid
+		if (!chrome.runtime?.id) {
+			reject(new Error('Extension context invalidated'));
+			return;
+		}
+
+		chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
+			// Check for errors on get
+			if (chrome.runtime.lastError) {
+				reject(chrome.runtime.lastError);
+				return;
+			}
+
+			const existingMissions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
+
+			// Add all new missions using postId as key
+			missions.forEach((mission) => {
+				existingMissions[mission.postId] = mission;
+			});
+
+			chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: existingMissions }, () => {
+				if (chrome.runtime.lastError) {
+					reject(chrome.runtime.lastError);
+				} else {
+					// Notify background script that missions changed
+					chrome.runtime.sendMessage({
+						type: 'MISSIONS_UPDATED',
+					}).catch(() => {
+						// Ignore errors if no listeners
+					});
+					resolve();
+				}
+			});
+		});
+	});
+}
+
+/**
  * Get all saved missions
  */
 export async function getAllMissions(): Promise<Record<string, MissionRecord>> {

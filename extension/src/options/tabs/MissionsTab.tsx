@@ -4,10 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload } from 'lucide-react';
+import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link } from 'lucide-react';
 import { getAllMissions, importMissions } from '../../lib/storage/missions';
 import { MissionRecord } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
+import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
 
 interface SortConfig {
 	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'username';
@@ -18,6 +19,7 @@ const MissionsTab: React.FC = () => {
 	const [missions, setMissions] = useState<MissionRecord[]>([]);
 	const [filteredMissions, setFilteredMissions] = useState<MissionRecord[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [isImportFromUrlsModalOpen, setIsImportFromUrlsModalOpen] = useState(false);
 
 	// Load filter state from localStorage
 	const [searchQuery, setSearchQuery] = useState(() => {
@@ -347,7 +349,53 @@ const MissionsTab: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Filters & Actions */}
+			{/* Actions */}
+			<div className="card" style={{ marginBottom: '24px' }}>
+				<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+					<button
+						onClick={loadMissions}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						<RefreshCw size={16} />
+						Refresh
+					</button>
+					<button
+						onClick={handleImport}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						<Upload size={16} />
+						Import
+					</button>
+					<button
+						onClick={() => setIsImportFromUrlsModalOpen(true)}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						<Link size={16} />
+						Import from URLs
+					</button>
+					<button
+						onClick={handleExport}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						<Download size={16} />
+						Export
+					</button>
+				</div>
+				{/* Hidden file input */}
+				<input
+					ref={fileInputRef}
+					type="file"
+					accept=".json,application/json"
+					onChange={handleFileSelect}
+					style={{ display: 'none' }}
+				/>
+			</div>
+
+			{/* Filters  */}
 			<div className="card" style={{ marginBottom: '24px' }}>
 				<div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
 					{/* Search */}
@@ -400,39 +448,6 @@ const MissionsTab: React.FC = () => {
 					</div>
 
 					{/* Action buttons */}
-					<button
-						onClick={loadMissions}
-						className="button"
-						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-					>
-						<RefreshCw size={16} />
-						Refresh
-					</button>
-					<button
-						onClick={handleImport}
-						className="button"
-						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-					>
-						<Upload size={16} />
-						Import
-					</button>
-					<button
-						onClick={handleExport}
-						className="button"
-						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-					>
-						<Download size={16} />
-						Export
-					</button>
-
-					{/* Hidden file input */}
-					<input
-						ref={fileInputRef}
-						type="file"
-						accept=".json,application/json"
-						onChange={handleFileSelect}
-						style={{ display: 'none' }}
-					/>
 				</div>
 
 				{/* Filters */}
@@ -847,7 +862,9 @@ const MissionsTab: React.FC = () => {
 												<button
 													className="button"
 													onClick={async () => {
-														const { setMissionDisabled } = await import('../../lib/storage/missions');
+														const { setMissionDisabled } = await import(
+															'../../lib/storage/missions'
+														);
 														await setMissionDisabled(mission.postId, !mission.disabled);
 														setMissions((prev) =>
 															prev.map((m) =>
@@ -882,6 +899,13 @@ const MissionsTab: React.FC = () => {
 					</div>
 				)}
 			</div>
+
+			{/* Import from URLs Modal */}
+			<ImportFromUrlsModal
+				isOpen={isImportFromUrlsModalOpen}
+				onClose={() => setIsImportFromUrlsModalOpen(false)}
+				onImportComplete={loadMissions}
+			/>
 		</div>
 	);
 };
