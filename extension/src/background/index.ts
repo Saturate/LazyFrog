@@ -325,7 +325,6 @@ const state: BotState = {
 		minLevel: 1,
 		maxLevel: 340,
 		onlyIncomplete: true,
-		autoProcess: false,
 	},
 };
 

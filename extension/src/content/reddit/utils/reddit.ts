@@ -4,7 +4,8 @@
  */
 
 import { Level, LevelFilters } from '../../../types';
-import { saveMission, MissionRecord } from '../../../utils/storage';
+import { saveMission } from '../../../lib/storage/missions';
+import { MissionRecord } from '../../../lib/storage/types';
 import { redditLogger } from '../../../utils/logger';
 
 /**

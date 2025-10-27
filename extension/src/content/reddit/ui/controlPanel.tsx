@@ -50,7 +50,6 @@ export function renderControlPanel(
             minLevel: 1,
             maxLevel: 340,
             onlyIncomplete: true,
-            autoProcess: false,
           };
 
           safeSendMessage({

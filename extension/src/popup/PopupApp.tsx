@@ -9,7 +9,10 @@ import {
 	Settings,
 	Heart,
 } from 'lucide-react';
-import { getMissionStats, getNextMissions, MissionRecord } from '../utils/storage';
+import { getMissionStats } from '../lib/storage/missionStats';
+import { getNextMissions } from '../lib/storage/missionQueries';
+import { MissionRecord, AutomationFilters } from '../lib/storage/types';
+import { getAutomationFilters } from '../lib/storage/getAutomationFilters';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
 import './popup.css';
 import { MissionStats } from './MissionStats';
@@ -26,11 +29,7 @@ interface MissionStats {
 	todayCleared: number;
 }
 
-interface MissionFilters {
-	stars: number[];
-	minLevel: number;
-	maxLevel: number;
-}
+// Remove local interface in favor of imported AutomationFilters
 
 const PopupApp: React.FC = () => {
 	const [isRunning, setIsRunning] = useState(false);
@@ -44,11 +43,8 @@ const PopupApp: React.FC = () => {
 		todayCleared: 0,
 	});
 	const [buildAge, setBuildAge] = useState(getTimeSinceBuild());
-	const [filters, setFilters] = useState<MissionFilters>({
-		stars: [1, 2],
-		minLevel: 1,
-		maxLevel: 340,
-	});
+	// Initialize filters as null, will be loaded from storage
+	const [filters, setFilters] = useState<AutomationFilters | null>(null);
 
 	// Collapsible section states
 	const [showFilters, setShowFilters] = useState(() => {
@@ -91,7 +87,7 @@ const PopupApp: React.FC = () => {
 
 	// Load next missions
 	const loadNextMissions = useCallback(async () => {
-		if (!showNextMissions) {
+		if (!showNextMissions || !filters) {
 			setNextMissions([]);
 			return;
 		}
@@ -111,22 +107,22 @@ const PopupApp: React.FC = () => {
 	useEffect(() => {
 		loadStats();
 
-		// Load saved filters and debug mode setting
-		chrome.storage.local.get(['automationFilters', 'automationConfig'], (result) => {
-			if (result.automationFilters) {
-				setFilters({
-					stars: result.automationFilters.stars || [1, 2],
-					minLevel: result.automationFilters.minLevel || 1,
-					maxLevel: result.automationFilters.maxLevel || 340,
-				});
-			}
+		// Load filters from storage (with defaults initialization)
+		getAutomationFilters().then((loadedFilters) => {
+			setFilters(loadedFilters);
+			setIsInitialLoad(false);
+		}).catch((error) => {
+			console.error('Failed to load filters:', error);
+			setIsInitialLoad(false);
+		});
+
+		// Load automation config
+		chrome.storage.local.get(['automationConfig'], (result) => {
 			if (result.automationConfig) {
 				setShowStepByStepControls(result.automationConfig.showStepByStepControls || false);
 				setShowNextMissions(result.automationConfig.showNextMissions !== false);
 				setNextMissionsCount(result.automationConfig.nextMissionsCount || 5);
 			}
-			// Mark initial load as complete
-			setIsInitialLoad(false);
 		});
 
 		// Update build age every minute
@@ -166,21 +162,13 @@ const PopupApp: React.FC = () => {
 	// Save filters to chrome storage when changed (but not during initial load)
 	useEffect(() => {
 		// Skip saving during initial load to prevent overwriting saved values
-		if (isInitialLoad) {
+		if (isInitialLoad || !filters) {
 			return;
 		}
 
-		const filterData = {
-			stars: filters.stars,
-			minLevel: filters.minLevel,
-			maxLevel: filters.maxLevel,
-			onlyIncomplete: true,
-			autoProcess: false,
-		};
-
 		// Save to automationFilters as single source of truth
 		chrome.storage.local.set({
-			automationFilters: filterData,
+			automationFilters: filters,
 		});
 
 		// Also reload stats when filters change
@@ -209,15 +197,10 @@ const PopupApp: React.FC = () => {
 
 	// Handle start button
 	const handleStart = () => {
+		if (!filters) return;
 		chrome.runtime.sendMessage({
 			type: 'START_BOT',
-			filters: {
-				stars: filters.stars,
-				minLevel: filters.minLevel,
-				maxLevel: filters.maxLevel,
-				onlyIncomplete: true,
-				autoProcess: false,
-			},
+			filters,
 		});
 	};
 
@@ -266,15 +249,10 @@ const PopupApp: React.FC = () => {
 
 	// Debug step functions
 	const handleNavigateToMission = () => {
+		if (!filters) return;
 		chrome.runtime.sendMessage({
 			type: 'NAVIGATE_TO_MISSION',
-			filters: {
-				stars: filters.stars,
-				minLevel: filters.minLevel,
-				maxLevel: filters.maxLevel,
-				onlyIncomplete: true,
-				autoProcess: false,
-			},
+			filters,
 		});
 	};
 
@@ -339,15 +317,17 @@ const PopupApp: React.FC = () => {
 			)}
 
 			{/* Mission Filters - Collapsible */}
-			<MissionFilters
-				filters={filters}
-				isRunning={isRunning}
-				showSection={showFilters}
-				onToggle={() => setShowFilters(!showFilters)}
-				onToggleStar={toggleStar}
-				onMinLevelChange={(level) => setFilters((prev) => ({ ...prev, minLevel: level }))}
-				onMaxLevelChange={(level) => setFilters((prev) => ({ ...prev, maxLevel: level }))}
-			/>
+			{filters && (
+				<MissionFilters
+					filters={filters}
+					isRunning={isRunning}
+					showSection={showFilters}
+					onToggle={() => setShowFilters(!showFilters)}
+					onToggleStar={toggleStar}
+					onMinLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, minLevel: level }) : prev)}
+					onMaxLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, maxLevel: level }) : prev)}
+				/>
+			)}
 
 			{/* Mission Stats - Collapsible */}
 			<MissionStats stats={stats} />

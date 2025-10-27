@@ -10,7 +10,7 @@ import {
   Star,
   Bug,
 } from "lucide-react";
-import { getMissionStats } from "../utils/storage";
+import { getMissionStats } from "../lib/storage/missionStats";
 
 interface MissionStats {
   queued: number;

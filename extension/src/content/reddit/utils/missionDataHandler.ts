@@ -4,7 +4,8 @@
  */
 
 import { redditLogger } from '../../../utils/logger';
-import { saveMission, MissionRecord } from '../../../utils/storage';
+import { saveMission } from '../../../lib/storage/missions';
+import { MissionRecord } from '../../../lib/storage/types';
 import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
 
 /**
