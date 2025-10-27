@@ -644,6 +644,15 @@ export class GameInstanceAutomationEngine {
 		const buttonTexts = buttons.map((b) => b.textContent?.trim().toLowerCase() || '');
 		const buttonClasses = buttons.map((b) => b.className);
 
+		// Check for Inn Instance
+		// TODO: Do something with this state. Most likely we need to mark the mission as cleared and navigate to the next mission.
+		if (
+			document.querySelector('.navbar-tooltip') &&
+			document.querySelector('.navbar-tooltip')?.textContent.trim() === 'Find and play missions'
+		) {
+			return 'inn';
+		}
+
 		// Check for skip button (intro/dialogue)
 		if (buttonClasses.some((c) => c.includes('skip-button'))) {
 			return 'skip';
