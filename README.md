@@ -1,4 +1,4 @@
-## LazyFrog — your Reddit game automation companion
+## 🐸 LazyFrog
 
 LazyFrog is a browser extension that adds an in-page control panel and a convenient popup to help you automate supported Reddit game experiences. It focuses on a smooth, user-friendly flow with clear status, control, and safety features.
 
