@@ -341,12 +341,13 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				break;
 			}
 
-			// Get automation config
-			chrome.storage.local.get(['automationConfig'], (result) => {
+			// Get automation config and filters from storage
+			chrome.storage.local.get(['automationConfig', 'automationFilters'], (result) => {
+				const filters = result.automationFilters;
+
 				// Send START_BOT event to state machine
 				sendToStateMachine({
 					type: 'START_BOT',
-					filters: message.filters,
 					config: result.automationConfig || {},
 				});
 
@@ -354,13 +355,13 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				chrome.storage.local.set({
 					activeBotSession: true,
 					automationConfig: result.automationConfig || {},
-					automationFilters: message.filters,
+					automationFilters: filters,
 				});
 
 				// Tell reddit-content to find first mission
 				broadcastToReddit({
 					type: 'FIND_NEXT_MISSION',
-					filters: message.filters,
+					filters: filters,
 				});
 			});
 

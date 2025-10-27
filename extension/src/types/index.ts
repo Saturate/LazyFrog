@@ -101,7 +101,6 @@ export interface GetLevelsMessage extends ChromeMessage {
 
 export interface StartBotMessage extends ChromeMessage {
   type: 'START_BOT';
-  filters: LevelFilters;
 }
 
 export interface LevelsFoundMessage extends ChromeMessage {

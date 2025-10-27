@@ -43,18 +43,8 @@ export function renderControlPanel(
       onStart={() => {
         redditLogger.log("[ControlPanel] Start button clicked");
 
-        // Get filters and send START_BOT to background
-        chrome.storage.local.get(["filters"], (result) => {
-          const filters = result.filters || {
-            stars: [1, 2],
-            minLevel: 1,
-            maxLevel: 340,
-          };
-
-          safeSendMessage({
-            type: "START_BOT",
-            filters,
-          });
+        safeSendMessage({
+          type: "START_BOT",
         });
       }}
       onStop={() => {

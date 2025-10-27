@@ -199,10 +199,8 @@ const PopupApp: React.FC = () => {
 
 	// Handle start button
 	const handleStart = () => {
-		if (!filters) return;
 		chrome.runtime.sendMessage({
 			type: 'START_BOT',
-			filters,
 		});
 	};
 

@@ -24,7 +24,7 @@ export interface BotContext {
 }
 
 export type BotEvent =
-	| { type: 'START_BOT'; filters: LevelFilters; config: any }
+	| { type: 'START_BOT'; config: any }
 	| { type: 'STOP_BOT' }
 	| { type: 'MISSION_PAGE_LOADED'; missionId: string; permalink: string }
 	| { type: 'GAME_LOADER_DETECTED' }
