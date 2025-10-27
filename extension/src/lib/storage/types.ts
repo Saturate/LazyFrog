@@ -35,14 +35,12 @@ export interface AutomationFilters {
 	stars: number[];
 	minLevel: number;
 	maxLevel: number;
-	onlyIncomplete?: boolean;
 }
 
 export const DEFAULT_AUTOMATION_FILTERS: AutomationFilters = {
 	stars: [1, 2, 3],
 	minLevel: 1,
 	maxLevel: 30,
-	onlyIncomplete: true,
 };
 
 export const STORAGE_KEYS = {

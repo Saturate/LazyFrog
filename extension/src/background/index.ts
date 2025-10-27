@@ -324,7 +324,6 @@ const state: BotState = {
 		stars: [1, 2],
 		minLevel: 1,
 		maxLevel: 340,
-		onlyIncomplete: true,
 	},
 };
 

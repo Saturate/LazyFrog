@@ -64,7 +64,6 @@ export const botMachine = setup({
 					stars: [1, 2],
 					minLevel: 1,
 					maxLevel: 340,
-					onlyIncomplete: true,
 				};
 			},
 		}),
@@ -207,7 +206,6 @@ export const botMachine = setup({
 			stars: [1, 2],
 			minLevel: 1,
 			maxLevel: 340,
-			onlyIncomplete: true,
 		},
 		currentMissionId: null,
 		currentMissionPermalink: null,

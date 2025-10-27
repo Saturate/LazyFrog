@@ -49,7 +49,6 @@ export function renderControlPanel(
             stars: [1, 2],
             minLevel: 1,
             maxLevel: 340,
-            onlyIncomplete: true,
           };
 
           safeSendMessage({

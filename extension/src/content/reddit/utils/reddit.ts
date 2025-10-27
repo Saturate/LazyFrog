@@ -393,8 +393,8 @@ export function filterLevels(levels: Level[], filters: LevelFilters): Level[] {
 			}
 		}
 
-		// Cleared filter
-		if (filters.onlyIncomplete && level.cleared) {
+		// Always skip cleared missions
+		if (level.cleared) {
 			return false;
 		}
 

@@ -42,7 +42,6 @@ export interface LevelFilters {
   stars: number[]; // Array of star ratings to include (e.g., [1, 2] for 1-2 stars)
   minLevel: number;
   maxLevel: number;
-  onlyIncomplete: boolean;
 }
 
 export interface BotState {
