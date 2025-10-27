@@ -47,7 +47,7 @@ const MissionsTab: React.FC = () => {
 	});
 	const [maxLevelFilter, setMaxLevelFilter] = useState<number>(() => {
 		const saved = localStorage.getItem('missionsTab.maxLevelFilter');
-		return saved !== null ? parseInt(saved) : 340;
+		return saved !== null ? parseInt(saved) : 999;
 	});
 	const [sortConfig, setSortConfig] = useState<SortConfig>(() => {
 		const saved = localStorage.getItem('missionsTab.sortConfig');
@@ -111,9 +111,20 @@ const MissionsTab: React.FC = () => {
 		}
 
 		// Filter by difficulty
+		// If all difficulties are selected (1-5), include missions with null difficulty
+		const allDifficultiesSelected = difficultyFilter.length === 5 &&
+			[1, 2, 3, 4, 5].every(d => difficultyFilter.includes(d));
+
 		filtered = filtered.filter((m) => {
-			const diff = m.difficulty || 0;
-			return diff === 0 || difficultyFilter.includes(diff);
+			const diff = m.difficulty;
+
+			// If all difficulties selected, include everything (including null)
+			if (allDifficultiesSelected) {
+				return true;
+			}
+
+			// Otherwise, only include if difficulty matches filter (excluding null)
+			return diff !== undefined && diff !== null && difficultyFilter.includes(diff);
 		});
 
 		// Filter by miniboss presence
@@ -543,7 +554,6 @@ const MissionsTab: React.FC = () => {
 						<input
 							type="number"
 							min="1"
-							max="340"
 							value={minLevelFilter}
 							onChange={(e) => setMinLevelFilter(parseInt(e.target.value) || 1)}
 							style={{
@@ -563,9 +573,8 @@ const MissionsTab: React.FC = () => {
 						<input
 							type="number"
 							min="1"
-							max="340"
 							value={maxLevelFilter}
-							onChange={(e) => setMaxLevelFilter(parseInt(e.target.value) || 340)}
+							onChange={(e) => setMaxLevelFilter(parseInt(e.target.value) || 999)}
 							style={{
 								width: '70px',
 								padding: '6px 8px',

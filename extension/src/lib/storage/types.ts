@@ -38,9 +38,9 @@ export interface AutomationFilters {
 }
 
 export const DEFAULT_AUTOMATION_FILTERS: AutomationFilters = {
-	stars: [1, 2, 3],
+	stars: [1, 2, 3, 4, 5],
 	minLevel: 1,
-	maxLevel: 30,
+	maxLevel: 340,
 };
 
 export const STORAGE_KEYS = {

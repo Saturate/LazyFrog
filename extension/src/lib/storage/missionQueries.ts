@@ -62,14 +62,20 @@ export async function getFilteredUnclearedMissions(filters?: {
 	maxLevel?: number;
 }): Promise<MissionRecord[]> {
 	const missions = await getAllMissions();
+
+	// Check if all star difficulties are selected OR if no star filter is provided
+	const allStarsSelected = !filters?.stars ||
+		(filters.stars.length === 5 && [1, 2, 3, 4, 5].every(d => filters.stars!.includes(d)));
+
 	let unclearedMissions = Object.values(missions).filter(
 		(m) =>
 			!m.cleared &&
 			!m.disabled &&
-			(m.difficulty ?? 0) > 0 &&
 			m.minLevel !== undefined &&
-			m.maxLevel !== undefined,
-	); // Only return missions with complete data (difficulty AND level range)
+			m.maxLevel !== undefined &&
+			// If all stars selected or no star filter, include missions with null difficulty
+			(allStarsSelected || ((m.difficulty ?? 0) > 0)),
+	); // Only return missions with complete data (level range, and optionally difficulty)
 
 	// Apply filters if provided
 	if (filters) {
@@ -78,7 +84,10 @@ export async function getFilteredUnclearedMissions(filters?: {
 
 			// Star difficulty filter
 			if (filters.stars && filters.stars.length > 0) {
-				if (!filters.stars.includes(m.difficulty || 0)) {
+				// If all stars selected, include missions regardless of difficulty (including null)
+				if (allStarsSelected) {
+					// No filtering needed - include all
+				} else if (!filters.stars.includes(m.difficulty || 0)) {
 					return false;
 				}
 			}

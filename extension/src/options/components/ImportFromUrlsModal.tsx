@@ -16,7 +16,7 @@ interface ImportFromUrlsModalProps {
 const ImportFromUrlsModal: React.FC<ImportFromUrlsModalProps> = ({ isOpen, onClose, onImportComplete }) => {
 	const [urls, setUrls] = useState('');
 	const [minLevel, setMinLevel] = useState(1);
-	const [maxLevel, setMaxLevel] = useState(340);
+	const [maxLevel, setMaxLevel] = useState(999);
 	const [isImporting, setIsImporting] = useState(false);
 	const [importResult, setImportResult] = useState<ImportFromUrlsResult | null>(null);
 	const [levelWarning, setLevelWarning] = useState<string | null>(null);
@@ -134,12 +134,12 @@ const ImportFromUrlsModal: React.FC<ImportFromUrlsModalProps> = ({ isOpen, onClo
 			return;
 		}
 
-		if (minLevel < 1 || minLevel > 340 || maxLevel < 1 || maxLevel > 340) {
+		if (minLevel < 1 || maxLevel < 1) {
 			setImportResult({
 				imported: 0,
 				skipped: 0,
 				failed: 1,
-				errors: ['Levels must be between 1 and 340'],
+				errors: ['Levels must be at least 1'],
 			});
 			return;
 		}
@@ -183,7 +183,7 @@ const ImportFromUrlsModal: React.FC<ImportFromUrlsModalProps> = ({ isOpen, onClo
 		// Reset form
 		setUrls('');
 		setMinLevel(1);
-		setMaxLevel(340);
+		setMaxLevel(999);
 		setImportResult(null);
 		setLevelWarning(null);
 		onClose();
@@ -454,7 +454,6 @@ const ImportFromUrlsModal: React.FC<ImportFromUrlsModalProps> = ({ isOpen, onClo
 								<input
 									type="number"
 									min="1"
-									max="340"
 									value={minLevel}
 									onChange={(e) => setMinLevel(parseInt(e.target.value) || 1)}
 									style={{
@@ -475,9 +474,8 @@ const ImportFromUrlsModal: React.FC<ImportFromUrlsModalProps> = ({ isOpen, onClo
 								<input
 									type="number"
 									min="1"
-									max="340"
 									value={maxLevel}
-									onChange={(e) => setMaxLevel(parseInt(e.target.value) || 340)}
+									onChange={(e) => setMaxLevel(parseInt(e.target.value) || 999)}
 									style={{
 										width: '100%',
 										padding: '10px 12px',
