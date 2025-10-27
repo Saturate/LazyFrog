@@ -6,11 +6,7 @@
  * which decides what actions to take based on the current state.
  */
 
-import {
-	setup,
-	assign,
-	fromPromise,
-} from 'xstate';
+import { setup, assign, fromPromise } from 'xstate';
 import { LevelFilters } from '../types/index';
 
 // ============================================================================
@@ -221,11 +217,11 @@ export const botMachine = setup({
 		// ========================================================================
 		idle: {
 			description: 'Bot is stopped, no automation',
-			entry: ['logIdleReason', 'resetContext', 'logTransition'],
+			entry: ['logIdleReason', 'resetContext'],
 			on: {
 				START_BOT: {
 					target: 'starting',
-					actions: ['setFilters', 'setConfig', 'logTransition'],
+					actions: ['setFilters', 'setConfig'],
 				},
 			},
 		},
@@ -238,23 +234,23 @@ export const botMachine = setup({
 			on: {
 				STOP_BOT: {
 					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
+					actions: ['setCompletionReason'],
 				},
 				MISSION_PAGE_LOADED: {
 					target: 'gameMission.waitingForGame',
-					actions: ['setMission', 'logTransition'],
+					actions: ['setMission'],
 				},
 				NAVIGATE_TO_MISSION: {
 					target: 'navigating',
-					actions: ['setMission', 'logTransition'],
+					actions: ['setMission'],
 				},
 				NO_MISSIONS_FOUND: {
 					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
+					actions: ['setCompletionReason'],
 				},
 				ERROR_OCCURRED: {
 					target: 'error',
-					actions: ['setError', 'logTransition'],
+					actions: ['setError'],
 				},
 			},
 		},
@@ -267,15 +263,14 @@ export const botMachine = setup({
 			on: {
 				STOP_BOT: {
 					target: 'idle',
-					actions: ['setCompletionReason', 'logTransition'],
+					actions: ['setCompletionReason'],
 				},
 				MISSION_PAGE_LOADED: {
 					target: 'gameMission.waitingForGame',
-					actions: ['logTransition'],
 				},
 				ERROR_OCCURRED: {
 					target: 'error',
-					actions: ['setError', 'setCompletionReason', 'logTransition'],
+					actions: ['setError', 'setCompletionReason'],
 				},
 			},
 		},
@@ -292,9 +287,9 @@ export const botMachine = setup({
 						GAME_LOADER_DETECTED: { target: 'openingGame', actions: ['logTransition'] },
 						ERROR_OCCURRED: {
 							target: '#bot.error',
-							actions: ['setError', 'setCompletionReason', 'logTransition'],
+							actions: ['setError', 'setCompletionReason'],
 						},
-						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason'] },
 					},
 				},
 				openingGame: {
@@ -303,9 +298,9 @@ export const botMachine = setup({
 						GAME_DIALOG_OPENED: { target: 'gameReady', actions: ['logTransition'] },
 						ERROR_OCCURRED: {
 							target: '#bot.error',
-							actions: ['setError', 'setCompletionReason', 'logTransition'],
+							actions: ['setError', 'setCompletionReason'],
 						},
-						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason'] },
 					},
 				},
 				gameReady: {
@@ -314,9 +309,9 @@ export const botMachine = setup({
 						AUTOMATION_STARTED: { target: 'running', actions: ['logTransition'] },
 						ERROR_OCCURRED: {
 							target: '#bot.error',
-							actions: ['setError', 'setCompletionReason', 'logTransition'],
+							actions: ['setError', 'setCompletionReason'],
 						},
-						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason'] },
 					},
 				},
 				running: {
@@ -325,9 +320,9 @@ export const botMachine = setup({
 						MISSION_COMPLETED: { target: 'completing', actions: ['logTransition'] },
 						ERROR_OCCURRED: {
 							target: '#bot.error',
-							actions: ['setError', 'setCompletionReason', 'logTransition'],
+							actions: ['setError', 'setCompletionReason'],
 						},
-						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason', 'logTransition'] },
+						STOP_BOT: { target: '#bot.idle', actions: ['setCompletionReason'] },
 					},
 				},
 				completing: {
@@ -335,19 +330,19 @@ export const botMachine = setup({
 					on: {
 						NEXT_MISSION_FOUND: {
 							target: 'waitingForDialogClose',
-							actions: ['setMission', 'clearError', 'resetFindMissionRetry', 'logTransition'],
+							actions: ['setMission', 'clearError', 'resetFindMissionRetry'],
 						},
 						NO_MISSIONS_FOUND: [
 							{
 								// If we've retried less than 3 times, increment retry count
 								// Internal transition (no target) - stays in completing state without re-entering
 								guard: ({ context }) => context.findMissionRetryCount < 3,
-								actions: ['incrementFindMissionRetry', 'logTransition'],
+								actions: ['incrementFindMissionRetry'],
 							},
 							{
 								// After 3 retries, give up and go idle
 								target: '#bot.idle',
-								actions: ['setCompletionReason', 'logTransition'],
+								actions: ['setCompletionReason'],
 							},
 						],
 						ERROR_OCCURRED: [
@@ -355,12 +350,12 @@ export const botMachine = setup({
 								// If we've retried less than 3 times, increment retry count
 								// Internal transition (no target) - stays in completing state without re-entering
 								guard: ({ context }) => context.findMissionRetryCount < 3,
-								actions: ['incrementFindMissionRetry', 'setError', 'logTransition'],
+								actions: ['incrementFindMissionRetry', 'setError'],
 							},
 							{
 								// After 3 retries, go to error state
 								target: '#bot.error',
-								actions: ['setError', 'setCompletionReason', 'logTransition'],
+								actions: ['setError', 'setCompletionReason'],
 							},
 						],
 					},
@@ -371,15 +366,14 @@ export const botMachine = setup({
 					on: {
 						GAME_DIALOG_CLOSED: {
 							target: '#bot.navigating',
-							actions: ['logTransition'],
-						},
+								},
 						ERROR_OCCURRED: {
 							target: '#bot.error',
-							actions: ['setError', 'setCompletionReason', 'logTransition'],
+							actions: ['setError', 'setCompletionReason'],
 						},
 						STOP_BOT: {
 							target: '#bot.idle',
-							actions: ['setCompletionReason', 'logTransition'],
+							actions: ['setCompletionReason'],
 						},
 					},
 				},
@@ -390,15 +384,15 @@ export const botMachine = setup({
 		// ERROR: Something went wrong, need user intervention or retry
 		// ========================================================================
 		error: {
-			entry: ['logError', 'logTransition'],
+			entry: ['logError'],
 			on: {
 				STOP_BOT: {
 					target: 'idle',
-					actions: ['clearError', 'setCompletionReason', 'logTransition'],
+					actions: ['clearError', 'setCompletionReason'],
 				},
 				RETRY: {
 					target: 'starting',
-					actions: ['clearError', 'logTransition'],
+					actions: ['clearError'],
 				},
 			},
 		},
