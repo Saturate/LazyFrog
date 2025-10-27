@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload } from 'lucide-react';
-import { getAllMissions, importMissions, MissionRecord } from '../../utils/storage';
+import { getAllMissions, importMissions } from '../../lib/storage/missions';
+import { MissionRecord } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
 
 interface SortConfig {

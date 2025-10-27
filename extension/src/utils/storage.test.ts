@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getFilteredUnclearedMissions } from './storage';
-import type { MissionRecord } from '../types';
+import { getFilteredUnclearedMissions } from '../lib/storage/missionQueries';
+import type { MissionRecord } from '../lib/storage/types';
 
 // Mock chrome.storage API
 const mockStorage = new Map();

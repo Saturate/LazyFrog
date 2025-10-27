@@ -4,13 +4,9 @@
  */
 
 import { devvitGIAELogger as devvitLogger } from '../utils/logger';
-import {
-	saveMission,
-	MissionRecord,
-	markMissionCleared,
-	checkMissionClearedInDOM,
-	accumulateMissionLoot,
-} from '../utils/storage';
+import { saveMission, markMissionCleared, accumulateMissionLoot } from '../lib/storage/missions';
+import { MissionRecord } from '../lib/storage/types';
+import { checkMissionClearedInDOM } from '../lib/storage/domUtils';
 import { enemyNames, mapNames } from '../data';
 import { extractPostIdFromUrl } from '../content/devvit/utils/extractPostIdFromUrl';
 

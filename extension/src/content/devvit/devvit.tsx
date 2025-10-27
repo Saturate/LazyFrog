@@ -10,7 +10,6 @@ import {
 } from '../../automation/gameInstanceAutomation';
 import { analyzeGamePage, extractGameState, clickButton, getClickableElements } from './utils/dom';
 import { devvitLogger } from '../../utils/logger';
-import * as storage from '../../utils/storage';
 
 // Version and build info (replaced by webpack at build time)
 declare const __VERSION__: string;

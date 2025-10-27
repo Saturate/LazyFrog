@@ -17,11 +17,9 @@ import {
 	exploreGameLoader,
 } from './utils/reddit';
 import { redditLogger } from '../../utils/logger';
-import {
-	getNextUnclearedMission,
-	checkMissionClearedInDOM,
-	markMissionCleared,
-} from '../../utils/storage';
+import { getNextUnclearedMission } from '../../lib/storage/missionQueries';
+import { checkMissionClearedInDOM } from '../../lib/storage/domUtils';
+import { markMissionCleared } from '../../lib/storage/missions';
 
 // Utility functions
 import { safeSendMessage } from './utils/messaging';

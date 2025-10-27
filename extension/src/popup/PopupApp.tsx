@@ -9,8 +9,9 @@ import {
 	Settings,
 	Heart,
 } from 'lucide-react';
-import { getMissionStats, getNextMissions, MissionRecord } from '../utils/storage';
-import { AutomationFilters } from '../lib/storage/types';
+import { getMissionStats } from '../lib/storage/missionStats';
+import { getNextMissions } from '../lib/storage/missionQueries';
+import { MissionRecord, AutomationFilters } from '../lib/storage/types';
 import { getAutomationFilters } from '../lib/storage/getAutomationFilters';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
 import './popup.css';
