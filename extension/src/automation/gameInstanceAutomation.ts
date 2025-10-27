@@ -35,8 +35,8 @@ export class GameInstanceAutomationEngine {
 	private intervalId: number | null = null;
 	private isProcessing = false;
 	private inCombat = false;
-	private missionMetadata: any = null;
-	private currentPostId: string | null = null;
+	public missionMetadata: any = null;
+	public currentPostId: string | null = null;
 
 	constructor(config: GameInstanceAutomationConfig) {
 		// Deep merge config, ensuring arrays are properly preserved

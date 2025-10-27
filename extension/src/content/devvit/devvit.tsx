@@ -119,7 +119,7 @@ function initializeAutomation(): void {
 					: DEFAULT_GIAE_CONFIG.autoAcceptSkillBargains,
 			skillBargainStrategy: config.skillBargainStrategy || DEFAULT_GIAE_CONFIG.skillBargainStrategy,
 			crossroadsStrategy: config.crossroadsStrategy || DEFAULT_GIAE_CONFIG.crossroadsStrategy,
-			clickDelay: 1000,
+			clickDelay: 300,
 		};
 
 		gameAutomation = new GameInstanceAutomationEngine(giaeConfig);
@@ -146,8 +146,8 @@ function initializeAutomation(): void {
 
 				// IMPORTANT: Also set currentPostId so it's available when mission completes
 				// This is normally set by the message listener, but since we captured it early, we need to set it manually
-				(gameAutomation as any).currentPostId = postId;
-				(gameAutomation as any).missionMetadata = missionMetadata;
+				gameAutomation.currentPostId = postId;
+				gameAutomation.missionMetadata = missionMetadata;
 
 				devvitLogger.log('[Devvit] Set currentPostId from captured initialData', { postId });
 			}
@@ -261,7 +261,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 			break;
 
 		default:
-			devvitLogger.warn('Unknown message type', { type: message.type, message });
+			devvitLogger.warn(`Unknown message type: ${message.type}`, { message });
 			sendResponse({ error: 'Unknown message type: ' + message.type });
 	}
 
