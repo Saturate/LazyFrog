@@ -14,7 +14,6 @@ import { LevelFilters } from '../types/index';
 // ============================================================================
 
 export interface BotContext {
-	filters: LevelFilters;
 	currentMissionId: string | null;
 	currentMissionPermalink: string | null;
 	errorMessage: string | null;
@@ -50,20 +49,6 @@ export const botMachine = setup({
 		events: {} as BotEvent,
 	},
 	actions: {
-		// Set filters from START_BOT event
-		setFilters: assign({
-			filters: ({ event }) => {
-				if (event.type === 'START_BOT') {
-					return event.filters;
-				}
-				return {
-					stars: [1, 2],
-					minLevel: 1,
-					maxLevel: 340,
-				};
-			},
-		}),
-
 		// Set automation config
 		setConfig: assign({
 			automationConfig: ({ event }) => {
@@ -198,11 +183,6 @@ export const botMachine = setup({
 	description: 'Overall bot state machine',
 	initial: 'idle',
 	context: {
-		filters: {
-			stars: [1, 2],
-			minLevel: 1,
-			maxLevel: 340,
-		},
 		currentMissionId: null,
 		currentMissionPermalink: null,
 		errorMessage: null,
@@ -221,7 +201,7 @@ export const botMachine = setup({
 			on: {
 				START_BOT: {
 					target: 'starting',
-					actions: ['setFilters', 'setConfig'],
+					actions: ['setConfig'],
 				},
 			},
 		},

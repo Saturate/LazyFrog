@@ -7,7 +7,7 @@
  */
 
 import { createActor } from 'xstate';
-import { BotState, ChromeMessage, LevelFilters } from '../types/index';
+import { ChromeMessage, LevelFilters } from '../types/index';
 import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 
@@ -17,7 +17,6 @@ import { botMachine, isBotRunning } from '../automation/botStateMachine';
 
 // Create the state machine actor - will be initialized after checking storage
 let botActor: any = null;
-let saveStateIntervalId: NodeJS.Timeout | null = null;
 
 // Initialize state machine with persistence
 function initializeStateMachine() {
@@ -179,9 +178,6 @@ function handleStateTransition(stateObj: any, context: any): void {
 	const presentationState = getPresentationStateName(stateObj);
 	extensionLogger.log('[StateTransition] Entered state', { state: presentationState });
 
-	// Update legacy state
-	state.isRunning = isBotRunning(presentationState);
-
 	// Nested mission state routing
 	if (stateObj?.matches) {
 		if (stateObj.matches('gameMission.waitingForGame')) {
@@ -218,10 +214,22 @@ function handleStateTransition(stateObj: any, context: any): void {
 				});
 				// Exponential backoff: 2s, 4s, 6s
 				setTimeout(() => {
-					broadcastToReddit({ type: 'FIND_NEXT_MISSION', filters: context.filters });
+					// Get filters from storage
+					chrome.storage.local.get(['automationFilters'], (result) => {
+						broadcastToReddit({
+							type: 'FIND_NEXT_MISSION',
+							filters: result.automationFilters
+						});
+					});
 				}, retryCount * 2000);
 			} else {
-				broadcastToReddit({ type: 'FIND_NEXT_MISSION', filters: context.filters });
+				// Get filters from storage
+				chrome.storage.local.get(['automationFilters'], (result) => {
+					broadcastToReddit({
+						type: 'FIND_NEXT_MISSION',
+						filters: result.automationFilters
+					});
+				});
 			}
 			return;
 		}
@@ -315,18 +323,6 @@ function broadcastToAllFrames(message: any): void {
 	});
 }
 
-// Extension state (legacy, will be phased out)
-const state: BotState = {
-	isRunning: false,
-	completedLevels: [],
-	currentLevel: null,
-	filters: {
-		stars: [1, 2],
-		minLevel: 1,
-		maxLevel: 340,
-	},
-};
-
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
 	extensionLogger.log('Received message', { type: message.type });
@@ -335,22 +331,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 	});
 
 	switch (message.type) {
-		// State management
-		case 'GET_STATE':
-			sendResponse(state);
-			break;
-
-		case 'UPDATE_STATE':
-			Object.assign(state, message.state);
-			sendResponse({ success: true });
-			break;
-
-		case 'LEVEL_COMPLETED':
-			state.completedLevels.push(message.level);
-			state.currentLevel = null;
-			sendResponse({ success: true });
-			break;
-
 		// Messages from popup - route to state machine
 		case 'START_BOT':
 			extensionLogger.log('START_BOT received, sending to state machine');
@@ -445,7 +425,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 		// Start mission automation - broadcast to all frames (including game iframe)
 		case 'START_MISSION_AUTOMATION':
-			state.isRunning = true;
 			extensionLogger.log('Broadcasting START_MISSION_AUTOMATION to all frames');
 			chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 				if (tabs[0]?.id) {
@@ -474,7 +453,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 		// Stop mission automation - broadcast to all frames
 		case 'STOP_MISSION_AUTOMATION':
-			state.isRunning = false;
 			extensionLogger.log('Broadcasting STOP_MISSION_AUTOMATION to all frames');
 			chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 				if (tabs[0]?.id) {
@@ -591,24 +569,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 	return true; // Keep message channel open for async response
 });
 
-// Load saved state from storage on startup
-chrome.storage.local.get(['completedLevels', 'automationFilters'], (result) => {
-	if (result.completedLevels) {
-		state.completedLevels = result.completedLevels;
-	}
-	if (result.automationFilters) {
-		state.filters = result.automationFilters;
-	}
-});
-
-// Save state periodically
-saveStateIntervalId = setInterval(() => {
-	chrome.storage.local.set({
-		completedLevels: state.completedLevels,
-		automationFilters: state.filters,
-	});
-}, 60000); // Every minute
-
 // Cleanup function for when service worker suspends or extension unloads
 function cleanup() {
 	extensionLogger.log('[Cleanup] Cleaning up background resources');
@@ -623,19 +583,6 @@ function cleanup() {
 		}
 		botActor = null;
 	}
-
-	// Clear interval
-	if (saveStateIntervalId) {
-		clearInterval(saveStateIntervalId);
-		saveStateIntervalId = null;
-		extensionLogger.log('[Cleanup] Cleared saveState interval');
-	}
-
-	// Save final state
-	chrome.storage.local.set({
-		completedLevels: state.completedLevels,
-		automationFilters: state.filters,
-	});
 }
 
 // Listen for service worker suspend/shutdown
