@@ -161,8 +161,8 @@ export const botMachine = setup({
 
 		// Log state transitions
 		logTransition: ({ context, event }) => {
-			console.log('[BotStateMachine] Transition:', {
-				event: event.type,
+			console.log(`[BotStateMachine] Transition: ${event.type}`, {
+				event: event,
 				context,
 			});
 		},
@@ -226,6 +226,7 @@ export const botMachine = setup({
 		// NAVIGATING: Navigating to a mission page
 		// ========================================================================
 		navigating: {
+			description: 'Navigating to a mission page',
 			entry: ['logTransition'],
 			on: {
 				STOP_BOT: {
@@ -236,6 +237,7 @@ export const botMachine = setup({
 					target: 'gameMission.waitingForGame',
 				},
 				ERROR_OCCURRED: {
+					description: 'Error occurred while navigating to a mission page',
 					target: 'error',
 					actions: ['setError', 'setCompletionReason'],
 				},
@@ -333,7 +335,7 @@ export const botMachine = setup({
 					on: {
 						GAME_DIALOG_CLOSED: {
 							target: '#bot.navigating',
-								},
+						},
 						ERROR_OCCURRED: {
 							target: '#bot.error',
 							actions: ['setError', 'setCompletionReason'],
