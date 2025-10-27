@@ -7,6 +7,7 @@ import { redditLogger } from '../../../utils/logger';
 import { saveMission } from '../../../lib/storage/missions';
 import { MissionRecord } from '../../../lib/storage/types';
 import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
+import { fetchLevelFromRedditAPI } from '../../../utils/redditAPI';
 
 /**
  * Save mission data from API response
@@ -18,15 +19,28 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 		return;
 	}
 
-	// Require both minLevel and maxLevel to be present
+	// Try to get levels from protobuf, fallback to Reddit JSON API if missing
 	if (data.minLevel === undefined || data.maxLevel === undefined) {
-		redditLogger.log('⚠️ Skipping mission: missing level data', {
+		redditLogger.log('⚠️ Missing level data from protobuf, trying Reddit API fallback', {
 			postId: data.postId,
-			minLevel: data.minLevel,
-			maxLevel: data.maxLevel,
 			difficulty: data.difficulty,
 		});
-		return;
+
+		const levelData = await fetchLevelFromRedditAPI(data.postId);
+		if (levelData && levelData.minLevel !== undefined && levelData.maxLevel !== undefined) {
+			data.minLevel = levelData.minLevel;
+			data.maxLevel = levelData.maxLevel;
+			redditLogger.log('✅ Retrieved levels from Reddit API', {
+				postId: data.postId,
+				minLevel: data.minLevel,
+				maxLevel: data.maxLevel,
+			});
+		} else {
+			redditLogger.log('❌ Could not retrieve levels from Reddit API, skipping mission', {
+				postId: data.postId,
+			});
+			return;
+		}
 	}
 
 	// Sanity check: maxLevel should be >= minLevel
