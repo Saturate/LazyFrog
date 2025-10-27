@@ -39,9 +39,9 @@ export interface AutomationFilters {
 }
 
 export const DEFAULT_AUTOMATION_FILTERS: AutomationFilters = {
-	stars: [1, 2],
+	stars: [1, 2, 3],
 	minLevel: 1,
-	maxLevel: 340,
+	maxLevel: 30,
 	onlyIncomplete: true,
 };
 
