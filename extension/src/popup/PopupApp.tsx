@@ -65,6 +65,7 @@ const PopupApp: React.FC = () => {
 		return saved !== null ? JSON.parse(saved) : false;
 	});
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
+	const [debugMode, setDebugMode] = useState(false);
 
 	// Next missions state
 	const [showNextMissions, setShowNextMissions] = useState(true);
@@ -122,6 +123,7 @@ const PopupApp: React.FC = () => {
 				setShowStepByStepControls(result.automationConfig.showStepByStepControls || false);
 				setShowNextMissions(result.automationConfig.showNextMissions !== false);
 				setNextMissionsCount(result.automationConfig.nextMissionsCount || 5);
+				setDebugMode(result.automationConfig.debugMode || false);
 			}
 		});
 
@@ -344,14 +346,16 @@ const PopupApp: React.FC = () => {
 				/>
 			)}
 
-			{/* Debug Tools - Collapsible */}
-			<DebugTools
-				showSection={showDebug}
-				onToggle={() => setShowDebug(!showDebug)}
-				onViewLogs={viewLogs}
-				onTestSelectors={testSelectors}
-				onExportData={exportData}
-			/>
+			{/* Debug Tools - Collapsible (only shown when debugMode is enabled) */}
+			{debugMode && (
+				<DebugTools
+					showSection={showDebug}
+					onToggle={() => setShowDebug(!showDebug)}
+					onViewLogs={viewLogs}
+					onTestSelectors={testSelectors}
+					onExportData={exportData}
+				/>
+			)}
 
 			{/* Big More Button */}
 			<button className="settings-button" onClick={openSettings}>
