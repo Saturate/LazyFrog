@@ -11,6 +11,7 @@ import { ChromeMessage, LevelFilters } from '../types/index';
 import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
+import { markMissionCleared } from '../lib/storage/missions';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
@@ -175,6 +176,9 @@ let lastCompletingRetryCount = -1;
 
 /**
  * Find next mission from database and send appropriate event to state machine
+ * Sends different events based on current state:
+ * - starting state: NAVIGATE_TO_MISSION or MISSION_PAGE_LOADED
+ * - completing state: NEXT_MISSION_FOUND
  */
 async function findAndSendNextMission(): Promise<void> {
 	try {
@@ -197,12 +201,74 @@ async function findAndSendNextMission(): Promise<void> {
 				permalink: mission.permalink,
 			});
 
-			// Send NEXT_MISSION_FOUND to state machine
-			sendToStateMachine({
-				type: 'NEXT_MISSION_FOUND',
-				missionId: mission.postId,
-				permalink: mission.permalink,
-			});
+			// Get current state to determine which event to send
+			extensionLogger.log('[findAndSendNextMission] Getting state machine snapshot...');
+			const snapshot = getStateMachineSnapshot();
+			extensionLogger.log('[findAndSendNextMission] Got snapshot', { snapshot });
+
+			extensionLogger.log('[findAndSendNextMission] Getting presentation state name...');
+			const currentState = getPresentationStateName(snapshot);
+			extensionLogger.log('[findAndSendNextMission] Current state', { currentState });
+
+			if (currentState === 'completing') {
+				// From completing state, always send NEXT_MISSION_FOUND
+				extensionLogger.log('[findAndSendNextMission] In completing state, sending NEXT_MISSION_FOUND');
+				sendToStateMachine({
+					type: 'NEXT_MISSION_FOUND',
+					missionId: mission.postId,
+					permalink: mission.permalink,
+				});
+			} else {
+				// In starting or other state, check if we're on the mission page
+				// Use a timeout to ensure we don't hang if tabs.query fails
+				let eventSent = false;
+
+				const timeoutId = setTimeout(() => {
+					if (!eventSent) {
+						extensionLogger.warn('[findAndSendNextMission] Tab query timeout, defaulting to NAVIGATE_TO_MISSION');
+						eventSent = true;
+						sendToStateMachine({
+							type: 'NAVIGATE_TO_MISSION',
+							missionId: mission.postId,
+							permalink: mission.permalink,
+						});
+					}
+				}, 1000);
+
+				chrome.tabs.query({ url: 'https://www.reddit.com/*' }, (tabs) => {
+					if (eventSent) return; // Already handled by timeout
+					clearTimeout(timeoutId);
+					eventSent = true;
+
+					const currentUrl = tabs[0]?.url || '';
+					const isOnMissionPage = currentUrl.includes(mission.postId);
+
+					extensionLogger.log('[findAndSendNextMission] Tab check', {
+						currentUrl,
+						missionPostId: mission.postId,
+						isOnMissionPage,
+						tabsFound: tabs.length,
+					});
+
+					if (isOnMissionPage) {
+						// Already on the mission page (first mission on startup)
+						extensionLogger.log('[findAndSendNextMission] Already on mission page, sending MISSION_PAGE_LOADED');
+						sendToStateMachine({
+							type: 'MISSION_PAGE_LOADED',
+							missionId: mission.postId,
+							permalink: mission.permalink,
+						});
+					} else {
+						// Need to navigate to mission page
+						extensionLogger.log('[findAndSendNextMission] Need to navigate, sending NAVIGATE_TO_MISSION');
+						sendToStateMachine({
+							type: 'NAVIGATE_TO_MISSION',
+							missionId: mission.postId,
+							permalink: mission.permalink,
+						});
+					}
+				});
+			}
 		} else {
 			extensionLogger.log('[findAndSendNextMission] No missions found');
 			sendToStateMachine({ type: 'NO_MISSIONS_FOUND' });
@@ -385,6 +451,8 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			chrome.storage.local.get(['automationConfig', 'automationFilters'], (result) => {
 				const filters = result.automationFilters;
 
+				extensionLogger.log('START_BOT: Sending START_BOT event to state machine');
+
 				// Send START_BOT event to state machine
 				sendToStateMachine({
 					type: 'START_BOT',
@@ -396,6 +464,8 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 					automationConfig: result.automationConfig || {},
 					automationFilters: filters,
 				});
+
+				extensionLogger.log('START_BOT: Calling findAndSendNextMission');
 
 				// Find first mission directly
 				findAndSendNextMission();
@@ -520,12 +590,47 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			break;
 
 		case 'MISSION_COMPLETED':
-			extensionLogger.log('MISSION_COMPLETED, sending to state machine');
-			sendToStateMachine({
-				type: 'MISSION_COMPLETED',
-				missionId: (message as any).missionId,
-			});
-			sendResponse({ success: true });
+			{
+				const completedPostId = (message as any).postId;
+				extensionLogger.log('MISSION_COMPLETED received', { postId: completedPostId });
+
+				// Mark mission as cleared in storage BEFORE sending to state machine
+				// This prevents race condition where findAndSendNextMission finds the same mission
+				if (completedPostId) {
+					markMissionCleared(completedPostId)
+						.then(() => {
+							extensionLogger.log('Mission marked as cleared in storage', {
+								postId: completedPostId,
+							});
+
+							// Send to state machine AFTER marking is complete
+							sendToStateMachine({
+								type: 'MISSION_COMPLETED',
+								missionId: completedPostId,
+							});
+						})
+						.catch((error) => {
+							extensionLogger.error('Failed to mark mission as cleared', {
+								postId: completedPostId,
+								error: String(error),
+							});
+
+							// Still send event even if marking failed
+							sendToStateMachine({
+								type: 'MISSION_COMPLETED',
+								missionId: completedPostId,
+							});
+						});
+				} else {
+					// No postId, just send event
+					sendToStateMachine({
+						type: 'MISSION_COMPLETED',
+						missionId: completedPostId,
+					});
+				}
+
+				sendResponse({ success: true });
+			}
 			break;
 
 		case 'MISSION_FOUND':

@@ -4,7 +4,7 @@
  */
 
 import { devvitGIAELogger as devvitLogger } from '../utils/logger';
-import { saveMission, markMissionCleared, accumulateMissionLoot } from '../lib/storage/missions';
+import { saveMission, accumulateMissionLoot } from '../lib/storage/missions';
 import { MissionRecord } from '../lib/storage/types';
 import { checkMissionClearedInDOM } from '../lib/storage/domUtils';
 import { enemyNames, mapNames } from '../data';
@@ -159,29 +159,6 @@ export class GameInstanceAutomationEngine {
 		}
 	}
 
-	/**
-	 * Mark mission as cleared in database
-	 */
-	private async markMissionAsCleared(postId: string): Promise<void> {
-		try {
-			devvitLogger.log('Attempting to mark mission as cleared', {
-				postId,
-				hasChromeRuntime: !!chrome.runtime,
-				hasChromeRuntimeId: !!chrome.runtime?.id,
-				hasChromeStorage: !!chrome.storage,
-				hasChromeStorageLocal: !!chrome.storage?.local,
-			});
-
-			await markMissionCleared(postId);
-			devvitLogger.log('Mission marked as cleared', { postId });
-		} catch (error) {
-			devvitLogger.error('Failed to mark mission cleared', {
-				error: String(error),
-				errorMessage: error instanceof Error ? error.message : 'Unknown error',
-				errorStack: error instanceof Error ? error.stack : undefined,
-			});
-		}
-	}
 
 	/**
 	 * Navigate directly to the next uncleared mission
@@ -434,7 +411,12 @@ export class GameInstanceAutomationEngine {
 					if (postId) {
 						devvitLogger.log('Mission cleared!', { postId });
 						this.broadcastStatus('Finished mission, waiting');
-						this.markMissionAsCleared(postId);
+
+						// Notify background which will mark as cleared
+						chrome.runtime.sendMessage({
+							type: 'MISSION_COMPLETED',
+							postId,
+						});
 					}
 				}
 			} catch (error) {
@@ -515,8 +497,14 @@ export class GameInstanceAutomationEngine {
 			const postId = this.currentPostId;
 
 			if (postId) {
-				devvitLogger.log('Marking mission as cleared', { postId });
-				this.markMissionAsCleared(postId);
+				devvitLogger.log('Mission cleared detected, notifying background', { postId });
+
+				// Notify background which will mark as cleared
+				chrome.runtime.sendMessage({
+					type: 'MISSION_COMPLETED',
+					postId,
+				});
+
 				// DON'T clear currentPostId here - we need it later when clicking Finish button
 				// It will be cleared in tryClickContinue after we trigger navigation
 			} else {
@@ -644,12 +632,18 @@ export class GameInstanceAutomationEngine {
 		const buttonTexts = buttons.map((b) => b.textContent?.trim().toLowerCase() || '');
 		const buttonClasses = buttons.map((b) => b.className);
 
-		// Check for Inn Instance
-		// TODO: Do something with this state. Most likely we need to mark the mission as cleared and navigate to the next mission.
-		if (
-			document.querySelector('.navbar-tooltip') &&
-			document.querySelector('.navbar-tooltip')?.textContent.trim() === 'Find and play missions'
-		) {
+		// Check for Inn Instance - mission was already completed
+		// Check both navbar tooltip and battle log welcome message
+		const navbarTooltip = document.querySelector('.navbar-tooltip');
+		const hasInnTooltip = navbarTooltip?.textContent?.trim() === 'Find and play missions';
+
+		// Check for "Welcome to the Inn!" text in battle log
+		const battleLogMessages = document.querySelectorAll('.battle-log-message-inner');
+		const hasInnWelcome = Array.from(battleLogMessages).some(
+			(msg) => msg.textContent?.includes('Welcome to the Inn!')
+		);
+
+		if (hasInnTooltip || hasInnWelcome) {
 			return 'inn';
 		}
 
@@ -733,9 +727,41 @@ export class GameInstanceAutomationEngine {
 				return this.tryClickAbility(buttons);
 			case 'battle':
 				return this.tryClickBattle(buttons);
+			case 'inn':
+				return await this.handleInnState();
 			default:
 				return null;
 		}
+	}
+
+	/**
+	 * Handle inn state - mission was already completed
+	 * Notify background which will mark it as cleared and find next mission
+	 */
+	private async handleInnState(): Promise<string | null> {
+		devvitLogger.log('Inn detected - mission was already completed');
+
+		// Get postId from URL or stored value
+		let postId = this.currentPostId;
+		if (!postId) {
+			postId = extractPostIdFromUrl(window.location.href);
+			devvitLogger.log('Extracted postId from URL for inn state', { postId });
+		}
+
+		if (postId) {
+			// Notify background that mission is completed
+			// Background will handle marking as cleared and finding next mission
+			chrome.runtime.sendMessage({
+				type: 'MISSION_COMPLETED',
+				postId,
+			});
+
+			devvitLogger.log('MISSION_COMPLETED event sent to background', { postId });
+		} else {
+			devvitLogger.error('Cannot handle inn state - no postId available');
+		}
+
+		return 'inn-handled';
 	}
 
 	/**
@@ -975,7 +1001,7 @@ export class GameInstanceAutomationEngine {
 		if (finishButton) {
 			this.clickElement(finishButton);
 
-			// Mark mission as cleared when clicking Finish/Dismiss
+			// Get postId for mission completion
 			let postId = this.currentPostId || this.missionMetadata?.postId;
 
 			// Fallback: try to extract postId from URL if still null
@@ -995,22 +1021,11 @@ export class GameInstanceAutomationEngine {
 					postId,
 				});
 
-				// IMPORTANT: Wait for mission to be marked as cleared in storage
-				// before notifying background to find next mission
-				// This prevents race condition where next mission search finds
-				// the same (not-yet-cleared) mission
-				await this.markMissionAsCleared(postId);
-				devvitLogger.log(
-					'Mission marked as cleared in storage. Will emit MISSION_COMPLETED event',
-					{
-						postId,
-					},
-				);
-
 				// Notify background that mission is completed
+				// Background will mark as cleared and handle finding next mission
 				chrome.runtime.sendMessage({
 					type: 'MISSION_COMPLETED',
-					missionId: postId,
+					postId,
 				});
 
 				// Clear the postId now that background will handle navigation

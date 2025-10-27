@@ -1,5 +1,23 @@
 # Reverse engineering notes
 
+## The Inn
+
+We can't play the Inn, we can detect it due to this markup:
+
+```html
+<div class="battle-log-area">
+  <div class="battle-log-message">
+    <div class="battle-log-message-inner">Welcome to the Inn!</div>
+  </div>
+  <div class="battle-log-message">
+    <div class="battle-log-message-inner">
+      A place to rest, recover, manage your inventory, and level up.
+    </div>
+  </div>
+  <div></div>
+</div>
+```
+
 ## Game
 
 After winning a game the play next button will be a good indication of the game being finished.
