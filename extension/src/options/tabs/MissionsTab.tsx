@@ -847,7 +847,7 @@ const MissionsTab: React.FC = () => {
 												<button
 													className="button"
 													onClick={async () => {
-														const { setMissionDisabled } = await import('../../utils/storage');
+														const { setMissionDisabled } = await import('../../lib/storage/missions');
 														await setMissionDisabled(mission.postId, !mission.disabled);
 														setMissions((prev) =>
 															prev.map((m) =>

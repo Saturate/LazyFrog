@@ -99,7 +99,7 @@ export class GameInstanceAutomationEngine {
 			if (!mission) return;
 
 			// Check if mission already exists
-			const { getMission } = await import('../utils/storage');
+			const { getMission } = await import('../lib/storage/missions');
 			const existingMission = await getMission(postId);
 
 			// Generate tags for the mission
@@ -204,7 +204,7 @@ export class GameInstanceAutomationEngine {
 			devvitLogger.log('Using filters', { filters });
 
 			// Dynamically import to avoid circular dependencies
-			const { getNextUnclearedMission } = await import('../utils/storage');
+			const { getNextUnclearedMission } = await import('../lib/storage/missionQueries');
 			const nextMission = await getNextUnclearedMission(filters);
 
 			if (nextMission && nextMission.permalink) {

@@ -41,7 +41,7 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 
 	try {
 		// Check if mission already exists
-		const { getMission } = await import('../../../utils/storage');
+		const { getMission } = await import('../../../lib/storage/missions');
 		const existingMission = await getMission(data.postId);
 
 		const record: MissionRecord = {

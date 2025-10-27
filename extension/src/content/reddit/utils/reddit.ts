@@ -242,7 +242,7 @@ async function saveScannedMission(level: Level): Promise<void> {
 
 	try {
 		// Check if mission already exists in database
-		const { getMission } = await import('../../../utils/storage');
+		const { getMission } = await import('../../../lib/storage/missions');
 		const existingMission = await getMission(level.postId);
 
 		// Check if cleared status changed
@@ -253,7 +253,7 @@ async function saveScannedMission(level: Level): Promise<void> {
 			});
 
 			// Mark as cleared in database
-			const { markMissionCleared } = await import('../../../utils/storage');
+			const { markMissionCleared } = await import('../../../lib/storage/missions');
 			await markMissionCleared(level.postId);
 		}
 

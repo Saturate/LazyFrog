@@ -58,7 +58,7 @@ const SettingsTab: React.FC = () => {
 				'Are you sure you want to clear ALL missions from the database? This cannot be undone.',
 			)
 		) {
-			const { clearAllMissions } = await import('../../utils/storage');
+			const { clearAllMissions } = await import('../../lib/storage/missions');
 			await clearAllMissions();
 			alert('All missions cleared!');
 		}
@@ -83,7 +83,7 @@ const SettingsTab: React.FC = () => {
 				'Mark ALL missions as incomplete? This will reset cleared status on every mission.',
 			)
 		) {
-			const { markAllMissionsIncomplete } = await import('../../utils/storage');
+			const { markAllMissionsIncomplete } = await import('../../lib/storage/missions');
 			await markAllMissionsIncomplete();
 			alert('All missions marked as incomplete.');
 		}

@@ -206,12 +206,15 @@ const PopupApp: React.FC = () => {
 
 	// Toggle difficulty star
 	const toggleStar = (star: number) => {
-		setFilters((prev) => ({
-			...prev,
-			stars: prev.stars.includes(star)
-				? prev.stars.filter((s) => s !== star)
-				: [...prev.stars, star].sort(),
-		}));
+		setFilters((prev) => {
+			if (!prev) return prev;
+			return {
+				...prev,
+				stars: prev.stars.includes(star)
+					? prev.stars.filter((s) => s !== star)
+					: [...prev.stars, star].sort(),
+			};
+		});
 	};
 
 	// Handle stop button
