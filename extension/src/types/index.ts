@@ -43,7 +43,6 @@ export interface LevelFilters {
   minLevel: number;
   maxLevel: number;
   onlyIncomplete: boolean;
-  autoProcess?: boolean;
 }
 
 export interface BotState {

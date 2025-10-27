@@ -36,7 +36,6 @@ export interface AutomationFilters {
 	minLevel: number;
 	maxLevel: number;
 	onlyIncomplete?: boolean;
-	autoProcess?: boolean;
 }
 
 export const DEFAULT_AUTOMATION_FILTERS: AutomationFilters = {
@@ -44,7 +43,6 @@ export const DEFAULT_AUTOMATION_FILTERS: AutomationFilters = {
 	minLevel: 1,
 	maxLevel: 340,
 	onlyIncomplete: true,
-	autoProcess: false,
 };
 
 export const STORAGE_KEYS = {
