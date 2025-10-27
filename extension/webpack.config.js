@@ -89,5 +89,6 @@ module.exports = {
   ],
   optimization: {
     splitChunks: false,
+    minimize: false,
   },
 };
