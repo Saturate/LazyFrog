@@ -1,19 +1,41 @@
 ## 🐸 LazyFrog
 
-LazyFrog is a browser extension that adds an in-page control panel and a convenient popup to help you automate supported Reddit game experiences. It focuses on a smooth, user-friendly flow with clear status, control, and safety features.
+LazyFrog is a browser extension that automates the Sword & Supper Reddit game. It scans missions, stores them locally, and plays them automatically based on your configured filters.
 
 ### Download
 
-Find newest release and more at [lazyfrog.akj.io](https://lazyfrog.akj.io/).
+Find the newest release at [lazyfrog.akj.io](https://lazyfrog.akj.io/).
 
-### Highlights
+### Browser Support
 
-- **One‑click automation**: Start/stop from the page or the toolbar popup.
-- **Live status & controls**: See what the bot is doing and pause/resume anytime.
-- **Missions management**: Enable/disable available automations from the Options page.
-- **Configurable behavior**: Adjust pacing, logging, and other preferences.
-- **Data export**: Export mission/game data to share or analyze.
+- ✅ Chrome
+- ✅ Brave
+- ✅ Edge
+- ✅ Other Chromium-based browsers
+- ❌ Firefox (not currently supported)
+- ❌ Safari (not currently supported)
 
-## Feedback
+### Features
 
-If you run into issues or have suggestions, please open an issue in this repository. We’d love your feedback.
+- **One-click automation**: Start/stop from the page or toolbar popup
+- **Mission scanning**: Automatically detects and stores missions as you browse
+- **Smart filtering**: Configure star difficulty and level range
+- **Auto-play**: Automated gameplay with configurable strategies
+- **Mission database**: Local storage with export capability
+
+### For Developers
+
+See [extension/README.md](extension/README.md) for setup, architecture, and debugging information.
+
+Quick start:
+```bash
+cd extension
+pnpm install
+pnpm build
+```
+
+Then load `extension/dist/` as an unpacked extension in your browser.
+
+### Feedback
+
+Found an issue or have a suggestion? [Open an issue](https://github.com/Saturate/AutoSupper/issues).
