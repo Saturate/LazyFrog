@@ -120,12 +120,8 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 			}
 		}
 
-		redditLogger.log('Parsed mission data from API', {
-			postId,
-			difficulty: data.difficulty,
-			minLevel: data.minLevel,
-			maxLevel: data.maxLevel,
-			foodName: data.foodName,
+		redditLogger.log(`Parsed mission (${data.postId}) data from API`, {
+			data,
 		});
 
 		return data;
