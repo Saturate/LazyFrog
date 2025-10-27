@@ -189,64 +189,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			return true; // Will respond asynchronously
 			break;
 
-		case 'FIND_NEXT_MISSION':
-			// Background wants us to find the next uncompleted mission
-			redditLogger.log('[FIND_NEXT_MISSION] Finding next mission');
-
-			// Read filters from storage
-			chrome.storage.local.get(['automationFilters'], (result) => {
-				const filters = result.automationFilters;
-				redditLogger.log('[FIND_NEXT_MISSION] Using filters from storage', { filters });
-
-				getNextUnclearedMission({
-					stars: filters.stars,
-					minLevel: filters.minLevel,
-					maxLevel: filters.maxLevel,
-				})
-					.then((mission: any) => {
-						redditLogger.log('[FIND_NEXT_MISSION] Search complete', {
-							found: !!mission,
-							missionId: mission?.postId,
-							permalink: mission?.permalink,
-						});
-
-						if (mission && mission.permalink) {
-							// Check if we're already on this page
-							const isCurrentPage =
-								window.location.href === mission.permalink ||
-								window.location.pathname.includes(mission.postId.replace('t3_', ''));
-
-							redditLogger.log('[FIND_NEXT_MISSION] Sending MISSION_FOUND', {
-								missionId: mission.postId,
-								isCurrentPage,
-							});
-
-							safeSendMessage({
-								type: 'MISSION_FOUND',
-								missionId: mission.postId,
-								permalink: mission.permalink,
-								isCurrentPage,
-							});
-						} else {
-							redditLogger.log(
-								'[FIND_NEXT_MISSION] No missions available, sending NO_MISSIONS_FOUND',
-							);
-							safeSendMessage({ type: 'NO_MISSIONS_FOUND' });
-						}
-					})
-					.catch((error) => {
-						redditLogger.error('[FIND_NEXT_MISSION] Error finding mission', {
-							error: String(error),
-						});
-						chrome.runtime.sendMessage({
-							type: 'ERROR_OCCURRED',
-							message: 'Failed to find next mission: ' + String(error),
-						});
-					});
-			});
-			sendResponse({ success: true });
-			break;
-
 		case 'NAVIGATE_TO_URL':
 			// Background wants us to navigate to a URL
 			const navMsg = message as any;

@@ -10,6 +10,7 @@ import { createActor } from 'xstate';
 import { ChromeMessage, LevelFilters } from '../types/index';
 import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
+import { getNextUnclearedMission } from '../lib/storage/missionQueries';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
@@ -172,6 +173,51 @@ async function canNavigateAway(): Promise<boolean> {
 // Track the last retry count to avoid sending duplicate FIND_NEXT_MISSION
 let lastCompletingRetryCount = -1;
 
+/**
+ * Find next mission from database and send appropriate event to state machine
+ */
+async function findAndSendNextMission(): Promise<void> {
+	try {
+		// Get filters from storage
+		const result = await chrome.storage.local.get(['automationFilters']);
+		const filters = result.automationFilters;
+
+		extensionLogger.log('[findAndSendNextMission] Searching for next mission', { filters });
+
+		// Query database for next uncleared mission
+		const mission = await getNextUnclearedMission({
+			stars: filters.stars,
+			minLevel: filters.minLevel,
+			maxLevel: filters.maxLevel,
+		});
+
+		if (mission && mission.postId && mission.permalink) {
+			extensionLogger.log('[findAndSendNextMission] Found mission', {
+				missionId: mission.postId,
+				permalink: mission.permalink,
+			});
+
+			// Send NEXT_MISSION_FOUND to state machine
+			sendToStateMachine({
+				type: 'NEXT_MISSION_FOUND',
+				missionId: mission.postId,
+				permalink: mission.permalink,
+			});
+		} else {
+			extensionLogger.log('[findAndSendNextMission] No missions found');
+			sendToStateMachine({ type: 'NO_MISSIONS_FOUND' });
+		}
+	} catch (error) {
+		extensionLogger.error('[findAndSendNextMission] Error finding mission', {
+			error: String(error),
+		});
+		sendToStateMachine({
+			type: 'ERROR_OCCURRED',
+			message: 'Failed to find next mission: ' + String(error),
+		});
+	}
+}
+
 function handleStateTransition(stateObj: any, context: any): void {
 	const presentationState = getPresentationStateName(stateObj);
 	extensionLogger.log('[StateTransition] Entered state', { state: presentationState });
@@ -207,20 +253,16 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			// Add a small delay if this is a retry
 			if (retryCount > 0) {
-				extensionLogger.log('[StateTransition] Retrying FIND_NEXT_MISSION', {
+				extensionLogger.log('[StateTransition] Retrying find next mission', {
 					retryCount,
 					delayMs: retryCount * 2000,
 				});
 				// Exponential backoff: 2s, 4s, 6s
 				setTimeout(() => {
-					broadcastToReddit({
-						type: 'FIND_NEXT_MISSION',
-					});
+					findAndSendNextMission();
 				}, retryCount * 2000);
 			} else {
-				broadcastToReddit({
-					type: 'FIND_NEXT_MISSION',
-				});
+				findAndSendNextMission();
 			}
 			return;
 		}
@@ -355,10 +397,8 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 					automationFilters: filters,
 				});
 
-				// Tell reddit-content to find first mission
-				broadcastToReddit({
-					type: 'FIND_NEXT_MISSION',
-				});
+				// Find first mission directly
+				findAndSendNextMission();
 			});
 
 			sendResponse({ success: true });
