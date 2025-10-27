@@ -121,7 +121,7 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 		}
 
 		redditLogger.log(`Parsed mission (${data.postId}) data from API`, {
-			data,
+			...data,
 		});
 
 		return data;
