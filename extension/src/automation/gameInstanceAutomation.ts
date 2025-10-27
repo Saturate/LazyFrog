@@ -658,14 +658,19 @@ export class GameInstanceAutomationEngine {
 			return 'skip';
 		}
 
-		// Check for finish/dismiss button (mission complete) - check classes first, then text
+		// Check for mission end button (play next) - mission complete
 		// This should come before 'continue' check to prioritize mission completion
-		if (
-			buttonClasses.some((c) => c.includes('dismiss-button')) ||
-			buttonTexts.some(
-				(t) => t === 'finish' || t.includes('finish') || t === 'dismiss' || t.includes('dismiss'),
-			)
-		) {
+		// Look for .end-mission-button or button_playnext.png
+		const missionEndFooter = document.querySelector('.mission-end-footer');
+		if (missionEndFooter) {
+			const endButton = missionEndFooter.querySelector('.end-mission-button');
+			if (endButton) {
+				return 'finish';
+			}
+		}
+		// Fallback: check for button_playnext.png image
+		const playNextButton = document.querySelector('img[src*="button_playnext.png"]');
+		if (playNextButton) {
 			return 'finish';
 		}
 
@@ -947,20 +952,25 @@ export class GameInstanceAutomationEngine {
 	 * Try to click "Continue" or "Finish" button
 	 */
 	private async tryClickContinue(buttons: HTMLElement[]): Promise<string | null> {
-		// Check for "Finish" button or "dismiss-button" class first (mission complete)
-		const finishButton = buttons.find((b) => {
-			// Check for dismiss-button class
-			if (b.classList.contains('dismiss-button')) return true;
+		// Check for mission end button (play next) - mission complete
+		// Look for .end-mission-button with button_playnext.png
+		const missionEndFooter = document.querySelector('.mission-end-footer');
+		let finishButton: HTMLElement | undefined;
 
-			// Check text content
-			const text = b.textContent?.trim().toLowerCase() || '';
-			return (
-				text === 'finish' ||
-				text.includes('finish') ||
-				text === 'dismiss' ||
-				text.includes('dismiss')
-			);
-		});
+		if (missionEndFooter) {
+			const endButton = missionEndFooter.querySelector('.end-mission-button');
+			if (endButton instanceof HTMLElement) {
+				finishButton = endButton;
+			}
+		}
+
+		// Fallback: look for button_playnext.png in any button
+		if (!finishButton) {
+			finishButton = buttons.find((b) => {
+				const img = b.querySelector('img[src*="button_playnext.png"]');
+				return img !== null;
+			});
+		}
 
 		if (finishButton) {
 			this.clickElement(finishButton);
