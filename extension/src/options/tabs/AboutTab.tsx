@@ -157,10 +157,6 @@ const AboutTab: React.FC = () => {
 				</p>
 
 				<p style={{ color: '#a1a1aa', fontSize: '14px', lineHeight: '1.6' }}>
-					Reddit: <strong style={{ color: '#22c55e' }}>u/AKJ90</strong>
-				</p>
-
-				<p style={{ color: '#a1a1aa', fontSize: '14px', lineHeight: '1.6' }}>
 					<Github size={16} style={{ opacity: 0.9 }} /> GitHub:{' '}
 					<a
 						href="https://github.com/Saturate"
