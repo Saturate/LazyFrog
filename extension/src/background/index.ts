@@ -26,7 +26,9 @@ function initializeStateMachine() {
 		try {
 			botActor.stop();
 		} catch (error) {
-			extensionLogger.warn('[StateMachine] Error stopping existing actor', { error: String(error) });
+			extensionLogger.warn('[StateMachine] Error stopping existing actor', {
+				error: String(error),
+			});
 		}
 		botActor = null;
 	}
@@ -144,29 +146,25 @@ async function canNavigateAway(): Promise<boolean> {
 			}
 
 			// Ask content script if game dialog is open
-			chrome.tabs.sendMessage(
-				tabs[0].id,
-				{ type: 'CHECK_GAME_DIALOG_STATUS' },
-				(response) => {
-					if (chrome.runtime.lastError) {
-						// Content script not ready or error occurred, assume safe
-						extensionLogger.warn('[canNavigateAway] Error checking dialog status', {
-							error: chrome.runtime.lastError.message,
-						});
-						resolve(true);
-						return;
-					}
-
-					const isDialogOpen = response?.isOpen || false;
-					extensionLogger.log('[canNavigateAway] Dialog status check result', {
-						isDialogOpen,
-						canNavigate: !isDialogOpen,
+			chrome.tabs.sendMessage(tabs[0].id, { type: 'CHECK_GAME_DIALOG_STATUS' }, (response) => {
+				if (chrome.runtime.lastError) {
+					// Content script not ready or error occurred, assume safe
+					extensionLogger.warn('[canNavigateAway] Error checking dialog status', {
+						error: chrome.runtime.lastError.message,
 					});
+					resolve(true);
+					return;
+				}
 
-					// Can navigate only if dialog is NOT open
-					resolve(!isDialogOpen);
-				},
-			);
+				const isDialogOpen = response?.isOpen || false;
+				extensionLogger.log('[canNavigateAway] Dialog status check result', {
+					isDialogOpen,
+					canNavigate: !isDialogOpen,
+				});
+
+				// Can navigate only if dialog is NOT open
+				resolve(!isDialogOpen);
+			});
 		});
 	});
 }
@@ -219,7 +217,7 @@ function handleStateTransition(stateObj: any, context: any): void {
 					chrome.storage.local.get(['automationFilters'], (result) => {
 						broadcastToReddit({
 							type: 'FIND_NEXT_MISSION',
-							filters: result.automationFilters
+							filters: result.automationFilters,
 						});
 					});
 				}, retryCount * 2000);
@@ -228,7 +226,7 @@ function handleStateTransition(stateObj: any, context: any): void {
 				chrome.storage.local.get(['automationFilters'], (result) => {
 					broadcastToReddit({
 						type: 'FIND_NEXT_MISSION',
-						filters: result.automationFilters
+						filters: result.automationFilters,
 					});
 				});
 			}
@@ -242,7 +240,9 @@ function handleStateTransition(stateObj: any, context: any): void {
 			extensionLogger.log('[StateTransition] Checking if game dialog is closed');
 			canNavigateAway().then((canNavigate) => {
 				if (canNavigate) {
-					extensionLogger.log('[StateTransition] Dialog is closed, sending GAME_DIALOG_CLOSED event');
+					extensionLogger.log(
+						'[StateTransition] Dialog is closed, sending GAME_DIALOG_CLOSED event',
+					);
 					sendToStateMachine({ type: 'GAME_DIALOG_CLOSED' });
 				} else {
 					extensionLogger.log('[StateTransition] Dialog still open, will retry check in 2s');
@@ -250,7 +250,11 @@ function handleStateTransition(stateObj: any, context: any): void {
 					setTimeout(() => {
 						// Re-check by triggering state transition again
 						const snapshot = getStateMachineSnapshot();
-						if (snapshot && snapshot.matches && snapshot.matches('gameMission.waitingForDialogClose')) {
+						if (
+							snapshot &&
+							snapshot.matches &&
+							snapshot.matches('gameMission.waitingForDialogClose')
+						) {
 							extensionLogger.log('[StateTransition] Re-checking dialog status');
 							handleStateTransition(snapshot, snapshot.context);
 						}
@@ -326,9 +330,10 @@ function broadcastToAllFrames(message: any): void {
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
-	extensionLogger.log('Received message', { type: message.type });
-	extensionLogger.log('From', {
+	extensionLogger.log('Received message', {
+		type: message.type,
 		source: sender.tab ? `tab ${sender.tab.id}` : 'extension',
+		frameId: sender.frameId,
 	});
 
 	switch (message.type) {
@@ -547,11 +552,13 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 		case 'MISSIONS_UPDATED':
 			// Missions were updated, notify all popup instances
-			chrome.runtime.sendMessage({
-				type: 'MISSIONS_CHANGED',
-			}).catch(() => {
-				// No listeners (popup not open) - ignore
-			});
+			chrome.runtime
+				.sendMessage({
+					type: 'MISSIONS_CHANGED',
+				})
+				.catch(() => {
+					// No listeners (popup not open) - ignore
+				});
 			sendResponse({ success: true });
 			break;
 
