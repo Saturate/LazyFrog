@@ -380,7 +380,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			sendToStateMachine({ type: 'STOP_BOT' });
 
 			// Clear storage
-			chrome.storage.local.remove(['activeBotSession', 'automationFilters']);
+			chrome.storage.local.remove(['activeBotSession']);
 
 			// Stop automation in all frames
 			broadcastToAllFrames({ type: 'STOP_MISSION_AUTOMATION' });
