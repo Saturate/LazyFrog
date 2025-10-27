@@ -189,7 +189,8 @@ function handleStateTransition(stateObj: any, context: any): void {
 			return;
 		}
 		if (stateObj.matches('gameMission.gameReady')) {
-			broadcastToAllFrames({ type: 'START_MISSION_AUTOMATION', config: context.automationConfig });
+			// Send start automation signal to game iframe (will read config from storage)
+			broadcastToAllFrames({ type: 'START_MISSION_AUTOMATION' });
 			return;
 		}
 		if (stateObj.matches('gameMission.completing')) {
@@ -348,7 +349,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				// Send START_BOT event to state machine
 				sendToStateMachine({
 					type: 'START_BOT',
-					config: result.automationConfig || {},
 				});
 
 				// Keep old activeBotSession flag for backwards compat
@@ -434,7 +434,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 						tabs[0].id,
 						{
 							type: 'START_MISSION_AUTOMATION',
-							config: message.config,
 						},
 						{ frameId: undefined }, // undefined = all frames
 						(response) => {

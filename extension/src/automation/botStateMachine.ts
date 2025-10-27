@@ -19,12 +19,11 @@ export interface BotContext {
 	errorMessage: string | null;
 	retryCount: number;
 	findMissionRetryCount: number;
-	automationConfig: any;
 	completionReason: 'stopped' | 'no_missions' | 'error' | null;
 }
 
 export type BotEvent =
-	| { type: 'START_BOT'; config: any }
+	| { type: 'START_BOT' }
 	| { type: 'STOP_BOT' }
 	| { type: 'MISSION_PAGE_LOADED'; missionId: string; permalink: string }
 	| { type: 'GAME_LOADER_DETECTED' }
@@ -49,16 +48,6 @@ export const botMachine = setup({
 		events: {} as BotEvent,
 	},
 	actions: {
-		// Set automation config
-		setConfig: assign({
-			automationConfig: ({ event }) => {
-				if (event.type === 'START_BOT') {
-					return event.config;
-				}
-				return {};
-			},
-		}),
-
 		// Set current mission from event
 		setMission: assign({
 			currentMissionId: ({ event }) => {
@@ -188,7 +177,6 @@ export const botMachine = setup({
 		errorMessage: null,
 		retryCount: 0,
 		findMissionRetryCount: 0,
-		automationConfig: {},
 		completionReason: null,
 	},
 	states: {
@@ -201,7 +189,6 @@ export const botMachine = setup({
 			on: {
 				START_BOT: {
 					target: 'starting',
-					actions: ['setConfig'],
 				},
 			},
 		},

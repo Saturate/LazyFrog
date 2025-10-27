@@ -165,10 +165,13 @@ function initializeAutomation(): void {
 		// Process any pending START_MISSION_AUTOMATION message
 		if (pendingStartMessage) {
 			devvitLogger.log('Processing queued START_MISSION_AUTOMATION message');
-			if (pendingStartMessage.config) {
-				updateAutomationConfig(pendingStartMessage.config);
-			}
-			toggleAutomation(true);
+			// Read config from storage and update before starting
+			chrome.storage.local.get(['automationConfig'], (result) => {
+				if (result.automationConfig) {
+					updateAutomationConfig(result.automationConfig);
+				}
+				toggleAutomation(true);
+			});
 			pendingStartMessage = null;
 		}
 	});
@@ -235,11 +238,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 				pendingStartMessage = message;
 				sendResponse({ success: true, queued: true });
 			} else {
-				if (message.config) {
-					updateAutomationConfig(message.config);
-				}
-				toggleAutomation(true);
-				sendResponse({ success: true });
+				// Read config from storage and update before starting
+				chrome.storage.local.get(['automationConfig'], (result) => {
+					if (result.automationConfig) {
+						updateAutomationConfig(result.automationConfig);
+					}
+					toggleAutomation(true);
+					sendResponse({ success: true });
+				});
+				return true; // Will respond asynchronously
 			}
 			break;
 

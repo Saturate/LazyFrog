@@ -327,7 +327,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				redditLogger.log('Game iframe found, sending START_MISSION_AUTOMATION');
 				chrome.runtime.sendMessage({
 					type: 'START_MISSION_AUTOMATION',
-					config: playMsg.config,
 				});
 				sendResponse({ success: true });
 			} else if (!isPostDetail) {

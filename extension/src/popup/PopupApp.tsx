@@ -266,12 +266,8 @@ const PopupApp: React.FC = () => {
 	};
 
 	const handleAutoPlay = () => {
-		chrome.storage.local.get(['automationConfig'], (result) => {
-			const config = result.automationConfig || {};
-			chrome.runtime.sendMessage({
-				type: 'START_MISSION_AUTOMATION',
-				config: { ...config, enabled: true },
-			});
+		chrome.runtime.sendMessage({
+			type: 'START_MISSION_AUTOMATION',
 		});
 	};
 
