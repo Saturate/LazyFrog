@@ -213,21 +213,13 @@ function handleStateTransition(stateObj: any, context: any): void {
 				});
 				// Exponential backoff: 2s, 4s, 6s
 				setTimeout(() => {
-					// Get filters from storage
-					chrome.storage.local.get(['automationFilters'], (result) => {
-						broadcastToReddit({
-							type: 'FIND_NEXT_MISSION',
-							filters: result.automationFilters,
-						});
+					broadcastToReddit({
+						type: 'FIND_NEXT_MISSION',
 					});
 				}, retryCount * 2000);
 			} else {
-				// Get filters from storage
-				chrome.storage.local.get(['automationFilters'], (result) => {
-					broadcastToReddit({
-						type: 'FIND_NEXT_MISSION',
-						filters: result.automationFilters,
-					});
+				broadcastToReddit({
+					type: 'FIND_NEXT_MISSION',
 				});
 			}
 			return;
@@ -366,7 +358,6 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				// Tell reddit-content to find first mission
 				broadcastToReddit({
 					type: 'FIND_NEXT_MISSION',
-					filters: filters,
 				});
 			});
 

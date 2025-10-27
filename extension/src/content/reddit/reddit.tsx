@@ -191,55 +191,59 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 		case 'FIND_NEXT_MISSION':
 			// Background wants us to find the next uncompleted mission
-			redditLogger.log('[FIND_NEXT_MISSION] Finding next mission', {
-				filters: message.filters,
-			});
-			const findMsg = message as any;
-			getNextUnclearedMission({
-				stars: findMsg.filters.stars,
-				minLevel: findMsg.filters.minLevel,
-				maxLevel: findMsg.filters.maxLevel,
-			})
-				.then((mission: any) => {
-					redditLogger.log('[FIND_NEXT_MISSION] Search complete', {
-						found: !!mission,
-						missionId: mission?.postId,
-						permalink: mission?.permalink,
-					});
+			redditLogger.log('[FIND_NEXT_MISSION] Finding next mission');
 
-					if (mission && mission.permalink) {
-						// Check if we're already on this page
-						const isCurrentPage =
-							window.location.href === mission.permalink ||
-							window.location.pathname.includes(mission.postId.replace('t3_', ''));
+			// Read filters from storage
+			chrome.storage.local.get(['automationFilters'], (result) => {
+				const filters = result.automationFilters;
+				redditLogger.log('[FIND_NEXT_MISSION] Using filters from storage', { filters });
 
-						redditLogger.log('[FIND_NEXT_MISSION] Sending MISSION_FOUND', {
-							missionId: mission.postId,
-							isCurrentPage,
-						});
-
-						safeSendMessage({
-							type: 'MISSION_FOUND',
-							missionId: mission.postId,
-							permalink: mission.permalink,
-							isCurrentPage,
-						});
-					} else {
-						redditLogger.log(
-							'[FIND_NEXT_MISSION] No missions available, sending NO_MISSIONS_FOUND',
-						);
-						safeSendMessage({ type: 'NO_MISSIONS_FOUND' });
-					}
+				getNextUnclearedMission({
+					stars: filters.stars,
+					minLevel: filters.minLevel,
+					maxLevel: filters.maxLevel,
 				})
-				.catch((error) => {
-					redditLogger.error('[FIND_NEXT_MISSION] Error finding mission', {
-						error: String(error),
+					.then((mission: any) => {
+						redditLogger.log('[FIND_NEXT_MISSION] Search complete', {
+							found: !!mission,
+							missionId: mission?.postId,
+							permalink: mission?.permalink,
+						});
+
+						if (mission && mission.permalink) {
+							// Check if we're already on this page
+							const isCurrentPage =
+								window.location.href === mission.permalink ||
+								window.location.pathname.includes(mission.postId.replace('t3_', ''));
+
+							redditLogger.log('[FIND_NEXT_MISSION] Sending MISSION_FOUND', {
+								missionId: mission.postId,
+								isCurrentPage,
+							});
+
+							safeSendMessage({
+								type: 'MISSION_FOUND',
+								missionId: mission.postId,
+								permalink: mission.permalink,
+								isCurrentPage,
+							});
+						} else {
+							redditLogger.log(
+								'[FIND_NEXT_MISSION] No missions available, sending NO_MISSIONS_FOUND',
+							);
+							safeSendMessage({ type: 'NO_MISSIONS_FOUND' });
+						}
+					})
+					.catch((error) => {
+						redditLogger.error('[FIND_NEXT_MISSION] Error finding mission', {
+							error: String(error),
+						});
+						chrome.runtime.sendMessage({
+							type: 'ERROR_OCCURRED',
+							message: 'Failed to find next mission: ' + String(error),
+						});
 					});
-					chrome.runtime.sendMessage({
-						type: 'ERROR_OCCURRED',
-						message: 'Failed to find next mission: ' + String(error),
-					});
-				});
+			});
 			sendResponse({ success: true });
 			break;
 
