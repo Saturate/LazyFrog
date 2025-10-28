@@ -1,6 +1,6 @@
 {
 	"name": "lazyfrog",
-	"version": "0.11.1",
+	"version": "0.11.2",
 	"description": "Sword & Supper game automation extension with TypeScript and React",
 	"scripts": {
 		"build": "webpack --mode production",
