@@ -7,6 +7,8 @@
  * - Legacy Reddit URLs
  */
 
+import { normalizePostId } from '../../../utils/url';
+
 /**
  * Extract postId from URL as fallback when initialData is missing
  *
@@ -86,7 +88,7 @@ export function extractPostIdFromUrl(url: string): string | null {
 		// Legacy fallback for Reddit URLs (probably won't work in Devvit iframe)
 		const redditMatch = url.match(/\/comments\/([a-zA-Z0-9]+)/);
 		if (redditMatch && redditMatch[1]) {
-			return `t3_${redditMatch[1]}`;
+			return normalizePostId(redditMatch[1]);
 		}
 	} catch (error) {
 		console.warn('[extractPostIdFromUrl] Failed to extract postId from URL', {

@@ -69,7 +69,7 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 			minLevel: data.minLevel,
 			maxLevel: data.maxLevel,
 			foodName: data.foodName || data.title || 'Unknown Mission',
-			permalink: (await import('../../../utils/url')).normalizeRedditPermalink(`t3_${data.postId}`),
+			permalink: (await import('../../../utils/url')).normalizeRedditPermalink(data.postId),
 			cleared: existingMission?.cleared || false,
 			clearedAt: existingMission?.clearedAt,
 		};
