@@ -447,6 +447,24 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 		frameId: sender.frameId,
 	});
 
+	// Handle async operations properly
+	(async () => {
+		try {
+			await handleMessage(message, sender, sendResponse);
+		} catch (error) {
+			extensionLogger.error('Error handling message', {
+				type: message.type,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			sendResponse({ success: false, error: String(error) });
+		}
+	})();
+
+	// Return true to indicate we'll send response asynchronously
+	return true;
+});
+
+async function handleMessage(message: ChromeMessage, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
 	switch (message.type) {
 		// Messages from popup - route to state machine
 		case 'START_BOT':
@@ -608,30 +626,29 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				});
 
 				if (deletedPostId) {
-					setMissionDisabled(deletedPostId, true)
-						.then(() => {
-							extensionLogger.log('Mission disabled in storage', {
-								postId: deletedPostId,
-							});
-
-							// Send to state machine AFTER disabling is complete
-							sendToStateMachine({
-								type: 'MISSION_DELETED',
-								missionId: deletedPostId,
-							});
-						})
-						.catch((error) => {
-							extensionLogger.error('Failed to disable mission', {
-								postId: deletedPostId,
-								error: String(error),
-							});
-
-							// Still send event even if disabling failed
-							sendToStateMachine({
-								type: 'MISSION_DELETED',
-								missionId: deletedPostId,
-							});
+					try {
+						await setMissionDisabled(deletedPostId, true);
+						extensionLogger.log('Mission disabled in storage', {
+							postId: deletedPostId,
 						});
+
+						// Send to state machine AFTER disabling is complete
+						sendToStateMachine({
+							type: 'MISSION_DELETED',
+							missionId: deletedPostId,
+						});
+					} catch (error) {
+						extensionLogger.error('Failed to disable mission', {
+							postId: deletedPostId,
+							error: String(error),
+						});
+
+						// Still send event even if disabling failed
+						sendToStateMachine({
+							type: 'MISSION_DELETED',
+							missionId: deletedPostId,
+						});
+					}
 				} else {
 					// No postId, just send event
 					sendToStateMachine({
@@ -765,9 +782,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			extensionLogger.warn('Unknown message type', { type: message.type });
 			sendResponse({ error: 'Unknown message type: ' + message.type });
 	}
-
-	return true; // Keep message channel open for async response
-});
+}
 
 // Cleanup function for when service worker suspends or extension unloads
 function cleanup() {
