@@ -15,13 +15,13 @@ import { fetchLevelFromRedditAPI } from '../../../utils/redditAPI';
 async function saveMissionFromAPI(data: MissionData): Promise<void> {
 	// Validate that we have all required data before saving
 	if (!data.difficulty || data.difficulty === 0) {
-		redditLogger.log('⚠️ Skipping mission: no difficulty data', { postId: data.postId });
+		redditLogger.warn('Skipping mission: no difficulty data', { postId: data.postId });
 		return;
 	}
 
 	// Try to get levels from protobuf, fallback to Reddit JSON API if missing
 	if (data.minLevel === undefined || data.maxLevel === undefined) {
-		redditLogger.log('⚠️ Missing level data from protobuf, trying Reddit API fallback', {
+		redditLogger.warn('Missing level data from protobuf, trying Reddit API fallback', {
 			postId: data.postId,
 			difficulty: data.difficulty,
 		});
@@ -30,13 +30,22 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 		if (levelData && levelData.minLevel !== undefined && levelData.maxLevel !== undefined) {
 			data.minLevel = levelData.minLevel;
 			data.maxLevel = levelData.maxLevel;
-			redditLogger.log('✅ Retrieved levels from Reddit API', {
+			// Also use title and author from Reddit API if available
+			if (levelData.title) {
+				data.title = levelData.title;
+			}
+			if (levelData.author) {
+				data.authorName = levelData.author;
+			}
+			redditLogger.log('Retrieved data from Reddit API', {
 				postId: data.postId,
 				minLevel: data.minLevel,
 				maxLevel: data.maxLevel,
+				title: data.title,
+				author: data.authorName,
 			});
 		} else {
-			redditLogger.log('❌ Could not retrieve levels from Reddit API, skipping mission', {
+			redditLogger.warn('Could not retrieve levels from Reddit API, skipping mission', {
 				postId: data.postId,
 			});
 			return;
@@ -45,7 +54,7 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 
 	// Sanity check: maxLevel should be >= minLevel
 	if (data.maxLevel < data.minLevel) {
-		redditLogger.error('⚠️ Skipping mission: invalid level range', {
+		redditLogger.warn('Skipping mission: invalid level range', {
 			postId: data.postId,
 			minLevel: data.minLevel,
 			maxLevel: data.maxLevel,
@@ -76,14 +85,14 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 
 		await saveMission(record);
 
-		redditLogger.log(`✅ Saved mission from API: ${data.postId}`, {
+		redditLogger.log(`Saved mission from API: ${data.postId}`, {
 			name: data.foodName || data.title,
 			difficulty: data.difficulty,
 			levels: `${data.minLevel}-${data.maxLevel}`,
 			fullData: data,
 		});
 	} catch (error) {
-		redditLogger.error('❌ Failed to save mission from API', {
+		redditLogger.error('Failed to save mission from API', {
 			error: error instanceof Error ? error.message : String(error),
 			errorStack: error instanceof Error ? error.stack : undefined,
 			postId: data.postId,
@@ -97,24 +106,24 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
  */
 function injectPageScript(): void {
 	const scriptUrl = chrome.runtime.getURL('fetchInterceptor.js');
-	redditLogger.log('🔧 Attempting to inject fetch interceptor', { scriptUrl });
+	redditLogger.log('Attempting to inject fetch interceptor', { scriptUrl });
 
 	const script = document.createElement('script');
 	script.src = scriptUrl;
 	script.onload = () => {
-		redditLogger.log('✅ Fetch interceptor script loaded successfully');
+		redditLogger.log('Fetch interceptor script loaded successfully');
 		script.remove();
 	};
 	script.onerror = (error) => {
-		redditLogger.error('❌ Failed to load fetch interceptor script', { error: String(error) });
+		redditLogger.error('Failed to load fetch interceptor script', { error: String(error) });
 	};
 
 	const target = document.head || document.documentElement;
 	if (target) {
 		target.appendChild(script);
-		redditLogger.log('📝 Script tag appended to DOM', { targetTag: target.tagName });
+		redditLogger.log('Script tag appended to DOM', { targetTag: target.tagName });
 	} else {
-		redditLogger.error('❌ No document.head or documentElement available for injection');
+		redditLogger.error('No document.head or documentElement available for injection');
 	}
 }
 

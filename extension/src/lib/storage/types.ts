@@ -21,6 +21,15 @@ export interface MissionRecord {
 	disabled?: boolean;
 }
 
+export interface RedditAPICache {
+	postId: string;
+	minLevel?: number;
+	maxLevel?: number;
+	title?: string;
+	author?: string;
+	timestamp: number;
+}
+
 export interface UserOptions {
 	abilityTierList?: string[];
 	blessingStatPriority?: string[];
@@ -48,4 +57,5 @@ export const STORAGE_KEYS = {
 	USER_OPTIONS: 'userOptions',
 	AUTOMATION_FILTERS: 'automationFilters',
 	AUTOMATION_CONFIG: 'automationConfig',
+	REDDIT_API_CACHE: 'redditApiCache',
 } as const;

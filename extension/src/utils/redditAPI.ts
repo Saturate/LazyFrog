@@ -1,13 +1,36 @@
 import { redditLogger } from './logger';
+import { STORAGE_KEYS, RedditAPICache } from '../lib/storage/types';
 
 /**
  * Fetch Reddit post JSON and extract level from flair
  * Fallback when protobuf parsing fails to extract minLevel/maxLevel
+ * Caches results to avoid redundant API calls
  */
-export async function fetchLevelFromRedditAPI(postId: string): Promise<{ minLevel?: number; maxLevel?: number } | null> {
+export async function fetchLevelFromRedditAPI(
+	postId: string,
+): Promise<{ minLevel?: number; maxLevel?: number; title?: string; author?: string } | null> {
 	try {
 		// Remove t3_ prefix if present
 		const cleanPostId = postId.replace('t3_', '');
+
+		// Check cache first
+		const cache = await new Promise<Record<string, RedditAPICache>>((resolve) => {
+			chrome.storage.local.get([STORAGE_KEYS.REDDIT_API_CACHE], (result) => {
+				resolve(result[STORAGE_KEYS.REDDIT_API_CACHE] || {});
+			});
+		});
+
+		const cached = cache[cleanPostId];
+		if (cached) {
+			redditLogger.log(`[fetchLevelFromRedditAPI] Using cached data for ${cleanPostId}`, cached);
+			return {
+				minLevel: cached.minLevel,
+				maxLevel: cached.maxLevel,
+				title: cached.title,
+				author: cached.author,
+			};
+		}
+
 		const url = `https://www.reddit.com/r/SwordAndSupperGame/comments/${cleanPostId}/.json`;
 
 		redditLogger.log(`[fetchLevelFromRedditAPI] Fetching ${url}`);
@@ -27,6 +50,9 @@ export async function fetchLevelFromRedditAPI(postId: string): Promise<{ minLeve
 		}
 
 		const linkFlairText = post.link_flair_text;
+		const title = post.title;
+		const author = post.author;
+
 		if (!linkFlairText) {
 			redditLogger.log('[fetchLevelFromRedditAPI] No link_flair_text found');
 			return null;
@@ -43,9 +69,30 @@ export async function fetchLevelFromRedditAPI(postId: string): Promise<{ minLeve
 				linkFlairText,
 				minLevel,
 				maxLevel,
+				title,
+				author,
 			});
 
-			return { minLevel, maxLevel };
+			// Save to cache
+			const cacheEntry: RedditAPICache = {
+				postId: cleanPostId,
+				minLevel,
+				maxLevel,
+				title,
+				author,
+				timestamp: Date.now(),
+			};
+
+			const updatedCache = { ...cache, [cleanPostId]: cacheEntry };
+			await new Promise<void>((resolve) => {
+				chrome.storage.local.set({ [STORAGE_KEYS.REDDIT_API_CACHE]: updatedCache }, () => {
+					resolve();
+				});
+			});
+
+			redditLogger.log(`[fetchLevelFromRedditAPI] Cached data for ${cleanPostId}`);
+
+			return { minLevel, maxLevel, title, author };
 		}
 
 		redditLogger.log('[fetchLevelFromRedditAPI] Could not parse levels from flair', { linkFlairText });
