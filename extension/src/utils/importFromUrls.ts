@@ -81,7 +81,7 @@ export async function importFromUrls(options: ImportFromUrlsOptions): Promise<Im
 			}
 
 			// Check if mission already exists
-			const existing = await getMission(postId);
+			const existing = await getMission('t3_' + postId);
 			if (existing) {
 				result.skipped++;
 				continue;
@@ -89,7 +89,7 @@ export async function importFromUrls(options: ImportFromUrlsOptions): Promise<Im
 
 			// Create mission record
 			const mission: MissionRecord = {
-				postId,
+				postId: 't3_' + postId,
 				username: 'unknown',
 				timestamp: Date.now(),
 				metadata: null,
