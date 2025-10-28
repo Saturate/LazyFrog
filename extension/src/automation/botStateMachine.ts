@@ -104,7 +104,7 @@ export const botMachine = setup({
 
 		// Log why we're going idle (before reset clears it)
 		logIdleReason: ({ context, event }) => {
-			logger.log('[BotStateMachine] Entering idle state', {
+			logger.log('Entering idle state', {
 				event: event.type,
 				completionReason: context.completionReason,
 				errorMessage: context.errorMessage,
@@ -143,7 +143,7 @@ export const botMachine = setup({
 				} else if (event.type === 'ERROR_OCCURRED') {
 					reason = 'error' as const;
 				}
-				console.log('[BotStateMachine] Setting completion reason', {
+				logger.log('Setting completion reason', {
 					event: event.type,
 					reason,
 				});
@@ -153,7 +153,7 @@ export const botMachine = setup({
 
 		// Log error state entry
 		logError: ({ context, event }) => {
-			logger.error('[BotStateMachine] Entered error state', {
+			logger.error('Entered error state', {
 				event: event.type,
 				errorMessage: context.errorMessage,
 				retryCount: context.retryCount,
@@ -163,7 +163,7 @@ export const botMachine = setup({
 
 		// Log state transitions
 		logTransition: ({ context, event }) => {
-			logger.log(`[BotStateMachine] Transition: ${event.type}`, {
+			logger.log(`Transition: ${event.type}`, {
 				event: event,
 				context,
 			});
@@ -238,6 +238,7 @@ export const botMachine = setup({
 				MISSION_PAGE_LOADED: {
 					target: 'gameMission.waitingForGame',
 				},
+				MISSION_DELETED: { target: 'starting', actions: ['logTransition'] },
 				ERROR_OCCURRED: {
 					description: 'Error occurred while navigating to a mission page',
 					target: 'error',
