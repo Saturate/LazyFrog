@@ -127,9 +127,16 @@ export async function getNextUnclearedMission(filters?: {
 	stars?: number[];
 	minLevel?: number;
 	maxLevel?: number;
+	excludePostIds?: string[];
 }): Promise<MissionRecord | null> {
 	const unclearedMissions = await getFilteredUnclearedMissions(filters);
-	return unclearedMissions[0] || null;
+
+	// Filter out excluded missions
+	const filteredMissions = filters?.excludePostIds
+		? unclearedMissions.filter(m => !filters.excludePostIds!.includes(m.postId))
+		: unclearedMissions;
+
+	return filteredMissions[0] || null;
 }
 
 /**

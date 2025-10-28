@@ -186,13 +186,21 @@ async function findAndSendNextMission(): Promise<void> {
 		const result = await chrome.storage.local.get(['automationFilters']);
 		const filters = result.automationFilters;
 
-		extensionLogger.log('[findAndSendNextMission] Searching for next mission', { filters });
+		// Get current mission ID from state machine context to exclude it
+		const snapshot = getStateMachineSnapshot();
+		const currentMissionId = snapshot?.context?.currentMissionId;
 
-		// Query database for next uncleared mission
+		extensionLogger.log('[findAndSendNextMission] Searching for next mission', {
+			filters,
+			excludingCurrentMission: currentMissionId
+		});
+
+		// Query database for next uncleared mission, excluding the current one
 		const mission = await getNextUnclearedMission({
 			stars: filters.stars,
 			minLevel: filters.minLevel,
 			maxLevel: filters.maxLevel,
+			excludePostIds: currentMissionId ? [currentMissionId] : undefined,
 		});
 
 		if (mission && mission.postId && mission.permalink) {
@@ -201,11 +209,7 @@ async function findAndSendNextMission(): Promise<void> {
 				permalink: mission.permalink,
 			});
 
-			// Get current state to determine which event to send
-			extensionLogger.log('[findAndSendNextMission] Getting state machine snapshot...');
-			const snapshot = getStateMachineSnapshot();
-			extensionLogger.log('[findAndSendNextMission] Got snapshot', { snapshot });
-
+			// Get current state to determine which event to send (snapshot already retrieved above)
 			extensionLogger.log('[findAndSendNextMission] Getting presentation state name...');
 			const currentState = getPresentationStateName(snapshot);
 			extensionLogger.log('[findAndSendNextMission] Current state', { currentState });
