@@ -4,11 +4,12 @@ import {
   Brain,
   Shield,
   Activity,
-  AlertCircle,
   Heart,
   Github,
   Search,
   Sparkles,
+  Bug,
+  Lightbulb,
 } from "lucide-react";
 import DownloadButton from "@/components/DownloadButton";
 import { getLatestDownload } from "@/lib/getLatestDownload";
@@ -148,47 +149,44 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Known Issues */}
+      {/* Feedback Section */}
       <section className="container mx-auto px-6 py-16">
         <h2 className="text-4xl font-bold text-center text-emerald-800 dark:text-emerald-400 mb-12">
-          Known Issues
+          Feedback & Support
         </h2>
         <div className="max-w-3xl mx-auto">
-          <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-8">
-            <div className="flex items-start gap-4 mb-6">
-              <AlertCircle
-                className="text-amber-600 dark:text-amber-400 flex-shrink-0"
+          <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <Github
+                className="text-blue-600 dark:text-blue-400"
                 size={32}
               />
-              <div>
-                <h3 className="text-2xl font-semibold text-amber-800 dark:text-amber-300 mb-3">
-                  Automation May Stop
-                </h3>
-                <p className="text-amber-700 dark:text-amber-200 mb-4">
-                  Sometimes the automation stops and never completes. This is a
-                  known issue that I&apos;m actively working on fixing. If this
-                  happens, you may need to restart the bot manually.
-                </p>
-              </div>
+              <h3 className="text-2xl font-semibold text-blue-800 dark:text-blue-300">
+                Help Improve LazyFrog
+              </h3>
             </div>
-            <div className="flex items-center gap-3 pt-4 border-t border-amber-200 dark:border-amber-800">
-              <Github
-                className="text-amber-600 dark:text-amber-400"
-                size={24}
-              />
-              <div>
-                <p className="text-amber-700 dark:text-amber-200 mb-2">
-                  Found a bug or have a suggestion?
-                </p>
-                <a
-                  href="https://github.com/Saturate/LazyFrog/issues"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold hover:underline"
-                >
-                  Report an issue on GitHub →
-                </a>
-              </div>
+            <p className="text-blue-700 dark:text-blue-200 mb-6">
+              Your feedback is valuable! Whether you&apos;ve found a bug or have an idea for a new feature, let me know on GitHub.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <a
+                href="https://github.com/Saturate/LazyFrog/issues/new?labels=bug&template=bug_report.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md"
+              >
+                <Bug size={20} />
+                Report a Bug
+              </a>
+              <a
+                href="https://github.com/Saturate/LazyFrog/issues/new?labels=enhancement&template=feature_request.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md"
+              >
+                <Lightbulb size={20} />
+                Request Feature
+              </a>
             </div>
           </div>
         </div>
