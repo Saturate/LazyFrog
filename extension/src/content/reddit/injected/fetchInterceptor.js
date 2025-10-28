@@ -21,7 +21,7 @@
 
     // Check if this is a RenderPostContent request
     if (url.includes('CustomPost/RenderPostContent')) {
-      console.log('[LazyFrog] Intercepted RenderPostContent:', url);
+      //console.log('[LazyFrog] Intercepted RenderPostContent:', url);
 
       // Extract postId from headers (can be in different formats)
       let headers = config?.headers || {};
@@ -36,7 +36,7 @@
       }
 
       const postId = headers['devvit-post'];
-      console.log('[LazyFrog] Headers:', headers, postId);
+      //console.log('[LazyFrog] Headers:', headers, postId);
 
       // Call original fetch
       const response = await originalFetch.apply(this, args);
@@ -54,7 +54,7 @@
               arrayBuffer: buffer
             }
           }));
-          console.log('[LazyFrog] ✅ Passed raw mission data to content script:', postId);
+          //console.log('[LazyFrog] Passed raw mission data to content script:', postId);
         }).catch((err) => {
           console.error('[LazyFrog] Failed to get response buffer:', err);
         });
