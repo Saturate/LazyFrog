@@ -192,7 +192,7 @@ async function findAndSendNextMission(): Promise<void> {
 
 		extensionLogger.log('[findAndSendNextMission] Searching for next mission', {
 			filters,
-			excludingCurrentMission: currentMissionId
+			excludingCurrentMission: currentMissionId,
 		});
 
 		// Query database for next uncleared mission, excluding the current one
@@ -216,7 +216,9 @@ async function findAndSendNextMission(): Promise<void> {
 
 			if (currentState === 'completing') {
 				// From completing state, always send NEXT_MISSION_FOUND
-				extensionLogger.log('[findAndSendNextMission] In completing state, sending NEXT_MISSION_FOUND');
+				extensionLogger.log(
+					'[findAndSendNextMission] In completing state, sending NEXT_MISSION_FOUND',
+				);
 				sendToStateMachine({
 					type: 'NEXT_MISSION_FOUND',
 					missionId: mission.postId,
@@ -229,7 +231,9 @@ async function findAndSendNextMission(): Promise<void> {
 
 				const timeoutId = setTimeout(() => {
 					if (!eventSent) {
-						extensionLogger.warn('[findAndSendNextMission] Tab query timeout, defaulting to NAVIGATE_TO_MISSION');
+						extensionLogger.warn(
+							'[findAndSendNextMission] Tab query timeout, defaulting to NAVIGATE_TO_MISSION',
+						);
 						eventSent = true;
 						sendToStateMachine({
 							type: 'NAVIGATE_TO_MISSION',
@@ -256,7 +260,9 @@ async function findAndSendNextMission(): Promise<void> {
 
 					if (isOnMissionPage) {
 						// Already on the mission page (first mission on startup)
-						extensionLogger.log('[findAndSendNextMission] Already on mission page, sending MISSION_PAGE_LOADED');
+						extensionLogger.log(
+							'[findAndSendNextMission] Already on mission page, sending MISSION_PAGE_LOADED',
+						);
 						sendToStateMachine({
 							type: 'MISSION_PAGE_LOADED',
 							missionId: mission.postId,
@@ -264,7 +270,9 @@ async function findAndSendNextMission(): Promise<void> {
 						});
 					} else {
 						// Need to navigate to mission page
-						extensionLogger.log('[findAndSendNextMission] Need to navigate, sending NAVIGATE_TO_MISSION');
+						extensionLogger.log(
+							'[findAndSendNextMission] Need to navigate, sending NAVIGATE_TO_MISSION',
+						);
 						sendToStateMachine({
 							type: 'NAVIGATE_TO_MISSION',
 							missionId: mission.postId,
@@ -323,7 +331,7 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			// Add a small delay to ensure chrome.storage.local write has propagated
 			// This prevents race condition where getAllMissions doesn't see the just-cleared mission
-			const delayMs = retryCount > 0 ? 2000 * (2 ** (retryCount - 1)) : 500; // 500ms on first attempt, exponential backoff on retries
+			const delayMs = retryCount > 0 ? 2000 * 2 ** (retryCount - 1) : 500; // 500ms on first attempt, exponential backoff on retries
 
 			extensionLogger.log('[StateTransition] Finding next mission', {
 				retryCount,
