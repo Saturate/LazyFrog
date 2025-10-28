@@ -159,7 +159,6 @@ export class GameInstanceAutomationEngine {
 		}
 	}
 
-
 	/**
 	 * Navigate directly to the next uncleared mission
 	 * This avoids going back to the listing page
@@ -639,8 +638,8 @@ export class GameInstanceAutomationEngine {
 
 		// Check for "Welcome to the Inn!" text in battle log
 		const battleLogMessages = document.querySelectorAll('.battle-log-message-inner');
-		const hasInnWelcome = Array.from(battleLogMessages).some(
-			(msg) => msg.textContent?.includes('Welcome to the Inn!')
+		const hasInnWelcome = Array.from(battleLogMessages).some((msg) =>
+			msg.textContent?.includes('Welcome to the Inn!'),
 		);
 
 		if (hasInnTooltip || hasInnWelcome) {
@@ -1038,6 +1037,8 @@ export class GameInstanceAutomationEngine {
 					url: window.location.href,
 				});
 			}
+
+			this.stop();
 
 			return 'Finish (Mission Complete!)';
 		}
