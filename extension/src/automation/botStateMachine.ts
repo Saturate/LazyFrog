@@ -7,7 +7,8 @@
  */
 
 import { setup, assign, fromPromise } from 'xstate';
-import { LevelFilters } from '../types/index';
+import { createLogger } from '../utils/logger';
+const logger = createLogger('StateMachine');
 
 // ============================================================================
 // Types
@@ -102,7 +103,7 @@ export const botMachine = setup({
 
 		// Log why we're going idle (before reset clears it)
 		logIdleReason: ({ context, event }) => {
-			console.log('[BotStateMachine] Entering idle state', {
+			logger.log('[BotStateMachine] Entering idle state', {
 				event: event.type,
 				completionReason: context.completionReason,
 				errorMessage: context.errorMessage,
@@ -151,7 +152,7 @@ export const botMachine = setup({
 
 		// Log error state entry
 		logError: ({ context, event }) => {
-			console.error('[BotStateMachine] Entered error state', {
+			logger.error('[BotStateMachine] Entered error state', {
 				event: event.type,
 				errorMessage: context.errorMessage,
 				retryCount: context.retryCount,
@@ -161,7 +162,7 @@ export const botMachine = setup({
 
 		// Log state transitions
 		logTransition: ({ context, event }) => {
-			console.log(`[BotStateMachine] Transition: ${event.type}`, {
+			logger.log(`[BotStateMachine] Transition: ${event.type}`, {
 				event: event,
 				context,
 			});

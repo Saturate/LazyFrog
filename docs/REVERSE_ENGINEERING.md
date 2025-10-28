@@ -18,6 +18,34 @@ We can't play the Inn, we can detect it due to this markup:
 </div>
 ```
 
+## Deleted post
+
+```html
+<div slot="post-removed-banner">
+  <span
+    class="flex flex-row col-start-1 col-end-4 items-center text-16 m-md xs:mx-0 px-md py-xs min-h-[56px] box-border rounded-1 border-sm border-neutral-border-weak border-solid text-secondary-weak "
+  >
+    <svg
+      rpl=""
+      class="flex flex-none text-20 text-alert-negative"
+      fill="currentColor"
+      height="20"
+      icon-name="delete"
+      viewBox="0 0 20 20"
+      width="20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M15.2 15.7c0 .83-.67 1.5-1.5 1.5H6.3c-.83 0-1.5-.67-1.5-1.5V7.6H3v8.1C3 17.52 4.48 19 6.3 19h7.4c1.82 0 3.3-1.48 3.3-3.3V7.6h-1.8v8.1zM17.5 5.8c.5 0 .9-.4.9-.9S18 4 17.5 4h-3.63c-.15-1.68-1.55-3-3.27-3H9.4C7.68 1 6.28 2.32 6.13 4H2.5c-.5 0-.9.4-.9.9s.4.9.9.9h15zM7.93 4c.14-.68.75-1.2 1.47-1.2h1.2c.72 0 1.33.52 1.47 1.2H7.93z"
+      ></path>
+    </svg>
+    <span class="flex flex-auto flex-col justify-center text-14 pl-sm">
+      Sorry, this post was deleted by the person who originally posted it.
+    </span>
+  </span>
+</div>
+```
+
 ## Quests
 
 ```html

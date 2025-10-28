@@ -4,7 +4,7 @@
  */
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
-export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT' | 'DEVVIT-GIAE';
+export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT' | 'DEVVIT-GIAE' | string;
 
 interface LogEntry {
 	timestamp: string;
