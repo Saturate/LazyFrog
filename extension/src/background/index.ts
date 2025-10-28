@@ -11,7 +11,7 @@ import { ChromeMessage, LevelFilters } from '../types/index';
 import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
-import { markMissionCleared } from '../lib/storage/missions';
+import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
@@ -592,10 +592,56 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			sendResponse({ success: true });
 			break;
 
+		case 'MISSION_DELETED':
+			{
+				const deletedPostId = (message as any).missionId;
+				extensionLogger.log('MISSION_DELETED received', {
+					postId: deletedPostId,
+				});
+
+				if (deletedPostId) {
+					setMissionDisabled(deletedPostId, true)
+						.then(() => {
+							extensionLogger.log('Mission disabled in storage', {
+								postId: deletedPostId,
+							});
+
+							// Send to state machine AFTER disabling is complete
+							sendToStateMachine({
+								type: 'MISSION_DELETED',
+								missionId: deletedPostId,
+							});
+						})
+						.catch((error) => {
+							extensionLogger.error('Failed to disable mission', {
+								postId: deletedPostId,
+								error: String(error),
+							});
+
+							// Still send event even if disabling failed
+							sendToStateMachine({
+								type: 'MISSION_DELETED',
+								missionId: deletedPostId,
+							});
+						});
+				} else {
+					// No postId, just send event
+					sendToStateMachine({
+						type: 'MISSION_DELETED',
+						missionId: deletedPostId,
+					});
+				}
+
+				sendResponse({ success: true });
+			}
+			break;
+
 		case 'MISSION_COMPLETED':
 			{
 				const completedPostId = (message as any).postId;
-				extensionLogger.log('MISSION_COMPLETED received', { postId: completedPostId });
+				extensionLogger.log('MISSION_COMPLETED received', {
+					postId: completedPostId,
+				});
 
 				// Mark mission as cleared in storage BEFORE sending to state machine
 				// This prevents race condition where findAndSendNextMission finds the same mission

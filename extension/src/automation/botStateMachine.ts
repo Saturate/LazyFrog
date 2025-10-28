@@ -33,6 +33,7 @@ export type BotEvent =
 	| { type: 'GAME_IFRAME_DETECTED' }
 	| { type: 'AUTOMATION_STARTED' }
 	| { type: 'MISSION_COMPLETED'; missionId: string }
+	| { type: 'MISSION_DELETED'; missionId: string }
 	| { type: 'NEXT_MISSION_FOUND'; missionId: string; permalink: string }
 	| { type: 'NO_MISSIONS_FOUND' }
 	| { type: 'ERROR_OCCURRED'; message: string }
@@ -255,6 +256,7 @@ export const botMachine = setup({
 					entry: ['logTransition'],
 					on: {
 						GAME_LOADER_DETECTED: { target: 'openingGame', actions: ['logTransition'] },
+						MISSION_DELETED: { target: 'completing', actions: ['logTransition'] },
 						ERROR_OCCURRED: {
 							target: '#bot.error',
 							actions: ['setError', 'setCompletionReason'],

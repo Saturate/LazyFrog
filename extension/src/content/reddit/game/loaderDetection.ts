@@ -5,9 +5,49 @@
 
 import { redditLogger } from '../../../utils/logger';
 import { safeSendMessage } from '../utils/messaging';
+import { extractPostIdFromUrl } from '../../devvit/utils/extractPostIdFromUrl';
+
+/**
+ * Check if the current post is deleted
+ */
+function isPostDeleted(): boolean {
+  const deletedBanner = document.querySelector('[slot="post-removed-banner"]');
+  return !!deletedBanner;
+}
+
+/**
+ * Handle deleted post detection
+ */
+function handleDeletedPost(): void {
+  const postId = extractPostIdFromUrl(window.location.href);
+  if (!postId) {
+    redditLogger.warn('[loaderDetection] Cannot extract postId from deleted post');
+    return;
+  }
+
+  redditLogger.warn('[loaderDetection] Deleted post detected, sending to background', {
+    postId,
+    url: window.location.href,
+  });
+
+  // Send MISSION_DELETED event
+  // Background script will handle disabling the mission
+  safeSendMessage({
+    type: 'MISSION_DELETED',
+    missionId: postId,
+  });
+}
 
 // MutationObserver for detecting game loader appearance
 const observer = new MutationObserver((mutations) => {
+  // Check if post is deleted first
+  if (isPostDeleted()) {
+    redditLogger.warn('[MutationObserver] Deleted post detected, handling...');
+    handleDeletedPost();
+    observer.disconnect();
+    return;
+  }
+
   // Check if game loader has appeared
   const loader = document.querySelector("shreddit-devvit-ui-loader");
 
@@ -27,6 +67,13 @@ const observer = new MutationObserver((mutations) => {
  * Check for existing game loader and report to background
  */
 export function checkForExistingLoader(currentBotState: string): boolean {
+  // Check if post is deleted first
+  if (isPostDeleted()) {
+    redditLogger.warn('[checkForExistingLoader] Deleted post detected, handling...');
+    handleDeletedPost();
+    return false;
+  }
+
   const existingLoader = document.querySelector("shreddit-devvit-ui-loader");
   if (existingLoader) {
     redditLogger.log("[checkForExistingLoader] Game loader found in DOM", {
