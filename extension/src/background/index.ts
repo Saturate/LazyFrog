@@ -323,7 +323,7 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			// Add a small delay to ensure chrome.storage.local write has propagated
 			// This prevents race condition where getAllMissions doesn't see the just-cleared mission
-			const delayMs = retryCount > 0 ? retryCount * 2000 : 500; // 500ms on first attempt, exponential backoff on retries
+			const delayMs = retryCount > 0 ? 2000 * (2 ** (retryCount - 1)) : 500; // 500ms on first attempt, exponential backoff on retries
 
 			extensionLogger.log('[StateTransition] Finding next mission', {
 				retryCount,
