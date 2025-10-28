@@ -11,7 +11,7 @@ import { ChromeMessage, LevelFilters } from '../types/index';
 import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
-import { markMissionCleared } from '../lib/storage/missions';
+import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
@@ -192,7 +192,7 @@ async function findAndSendNextMission(): Promise<void> {
 
 		extensionLogger.log('[findAndSendNextMission] Searching for next mission', {
 			filters,
-			excludingCurrentMission: currentMissionId
+			excludingCurrentMission: currentMissionId,
 		});
 
 		// Query database for next uncleared mission, excluding the current one
@@ -216,7 +216,9 @@ async function findAndSendNextMission(): Promise<void> {
 
 			if (currentState === 'completing') {
 				// From completing state, always send NEXT_MISSION_FOUND
-				extensionLogger.log('[findAndSendNextMission] In completing state, sending NEXT_MISSION_FOUND');
+				extensionLogger.log(
+					'[findAndSendNextMission] In completing state, sending NEXT_MISSION_FOUND',
+				);
 				sendToStateMachine({
 					type: 'NEXT_MISSION_FOUND',
 					missionId: mission.postId,
@@ -229,7 +231,9 @@ async function findAndSendNextMission(): Promise<void> {
 
 				const timeoutId = setTimeout(() => {
 					if (!eventSent) {
-						extensionLogger.warn('[findAndSendNextMission] Tab query timeout, defaulting to NAVIGATE_TO_MISSION');
+						extensionLogger.warn(
+							'[findAndSendNextMission] Tab query timeout, defaulting to NAVIGATE_TO_MISSION',
+						);
 						eventSent = true;
 						sendToStateMachine({
 							type: 'NAVIGATE_TO_MISSION',
@@ -256,7 +260,9 @@ async function findAndSendNextMission(): Promise<void> {
 
 					if (isOnMissionPage) {
 						// Already on the mission page (first mission on startup)
-						extensionLogger.log('[findAndSendNextMission] Already on mission page, sending MISSION_PAGE_LOADED');
+						extensionLogger.log(
+							'[findAndSendNextMission] Already on mission page, sending MISSION_PAGE_LOADED',
+						);
 						sendToStateMachine({
 							type: 'MISSION_PAGE_LOADED',
 							missionId: mission.postId,
@@ -264,7 +270,9 @@ async function findAndSendNextMission(): Promise<void> {
 						});
 					} else {
 						// Need to navigate to mission page
-						extensionLogger.log('[findAndSendNextMission] Need to navigate, sending NAVIGATE_TO_MISSION');
+						extensionLogger.log(
+							'[findAndSendNextMission] Need to navigate, sending NAVIGATE_TO_MISSION',
+						);
 						sendToStateMachine({
 							type: 'NAVIGATE_TO_MISSION',
 							missionId: mission.postId,
@@ -323,7 +331,7 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			// Add a small delay to ensure chrome.storage.local write has propagated
 			// This prevents race condition where getAllMissions doesn't see the just-cleared mission
-			const delayMs = retryCount > 0 ? 2000 * (2 ** (retryCount - 1)) : 500; // 500ms on first attempt, exponential backoff on retries
+			const delayMs = retryCount > 0 ? 2000 * 2 ** (retryCount - 1) : 500; // 500ms on first attempt, exponential backoff on retries
 
 			extensionLogger.log('[StateTransition] Finding next mission', {
 				retryCount,
@@ -439,6 +447,24 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 		frameId: sender.frameId,
 	});
 
+	// Handle async operations properly
+	(async () => {
+		try {
+			await handleMessage(message, sender, sendResponse);
+		} catch (error) {
+			extensionLogger.error('Error handling message', {
+				type: message.type,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			sendResponse({ success: false, error: String(error) });
+		}
+	})();
+
+	// Return true to indicate we'll send response asynchronously
+	return true;
+});
+
+async function handleMessage(message: ChromeMessage, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
 	switch (message.type) {
 		// Messages from popup - route to state machine
 		case 'START_BOT':
@@ -592,10 +618,55 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			sendResponse({ success: true });
 			break;
 
+		case 'MISSION_DELETED':
+			{
+				const deletedPostId = (message as any).missionId;
+				extensionLogger.log('MISSION_DELETED received', {
+					postId: deletedPostId,
+				});
+
+				if (deletedPostId) {
+					try {
+						await setMissionDisabled(deletedPostId, true);
+						extensionLogger.log('Mission disabled in storage', {
+							postId: deletedPostId,
+						});
+
+						// Send to state machine AFTER disabling is complete
+						sendToStateMachine({
+							type: 'MISSION_DELETED',
+							missionId: deletedPostId,
+						});
+					} catch (error) {
+						extensionLogger.error('Failed to disable mission', {
+							postId: deletedPostId,
+							error: String(error),
+						});
+
+						// Still send event even if disabling failed
+						sendToStateMachine({
+							type: 'MISSION_DELETED',
+							missionId: deletedPostId,
+						});
+					}
+				} else {
+					// No postId, just send event
+					sendToStateMachine({
+						type: 'MISSION_DELETED',
+						missionId: deletedPostId,
+					});
+				}
+
+				sendResponse({ success: true });
+			}
+			break;
+
 		case 'MISSION_COMPLETED':
 			{
 				const completedPostId = (message as any).postId;
-				extensionLogger.log('MISSION_COMPLETED received', { postId: completedPostId });
+				extensionLogger.log('MISSION_COMPLETED received', {
+					postId: completedPostId,
+				});
 
 				// Mark mission as cleared in storage BEFORE sending to state machine
 				// This prevents race condition where findAndSendNextMission finds the same mission
@@ -711,9 +782,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			extensionLogger.warn('Unknown message type', { type: message.type });
 			sendResponse({ error: 'Unknown message type: ' + message.type });
 	}
-
-	return true; // Keep message channel open for async response
-});
+}
 
 // Cleanup function for when service worker suspends or extension unloads
 function cleanup() {
