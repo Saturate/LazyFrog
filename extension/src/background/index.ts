@@ -20,7 +20,7 @@ import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions'
 // Create the state machine actor - will be initialized after checking storage
 let botActor: any = null;
 
-// Initialize state machine with persistence
+// Initialize state machine
 function initializeStateMachine() {
 	// Clean up existing actor if it exists
 	if (botActor) {
@@ -34,9 +34,6 @@ function initializeStateMachine() {
 		}
 		botActor = null;
 	}
-
-	// Clear any old snapshot data (was causing issues with XState v5)
-	chrome.storage.local.remove(['botMachineState']);
 
 	// Create a fresh actor
 	botActor = createActor(botMachine);
@@ -615,6 +612,25 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 		case 'AUTOMATION_READY':
 			extensionLogger.log('AUTOMATION_READY, sending AUTOMATION_STARTED to state machine');
 			sendToStateMachine({ type: 'AUTOMATION_STARTED' });
+
+			// EVENT-DRIVEN SOLUTION: Re-broadcast START_MISSION_AUTOMATION if bot is running
+			// This solves the race condition where iframe loads after broadcast was sent
+			{
+				const currentState = botActor?.getSnapshot();
+				if (currentState?.matches('gameMission.running')) {
+					extensionLogger.log('Bot is running, re-broadcasting START_MISSION_AUTOMATION to newly ready iframe');
+					chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+						if (tabs[0]?.id) {
+							chrome.tabs.sendMessage(
+								tabs[0].id,
+								{ type: 'START_MISSION_AUTOMATION' },
+								{ frameId: undefined }
+							);
+						}
+					});
+				}
+			}
+
 			sendResponse({ success: true });
 			break;
 
@@ -776,6 +792,21 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 			// Status updates from content scripts - just acknowledge
 			// These are used for popup UI updates, background doesn't need to process them
 			sendResponse({ success: true });
+			break;
+
+		case 'PING':
+			// Keep-alive ping from content script
+			// Respond with current bot state so content script can verify service worker is alive
+			{
+				const snapshot = getStateMachineSnapshot();
+				const state = getPresentationStateName(snapshot);
+				sendResponse({
+					success: true,
+					state,
+					context: snapshot?.context,
+					timestamp: Date.now()
+				});
+			}
 			break;
 
 		default:
