@@ -64,8 +64,9 @@ export async function getFilteredUnclearedMissions(filters?: {
 	const missions = await getAllMissions();
 
 	// Check if all star difficulties are selected OR if no star filter is provided
-	const allStarsSelected = !filters?.stars ||
-		(filters.stars.length === 5 && [1, 2, 3, 4, 5].every(d => filters.stars!.includes(d)));
+	const allStarsSelected =
+		!filters?.stars ||
+		(filters.stars.length === 5 && [1, 2, 3, 4, 5].every((d) => filters.stars!.includes(d)));
 
 	let unclearedMissions = Object.values(missions).filter(
 		(m) =>
@@ -74,7 +75,7 @@ export async function getFilteredUnclearedMissions(filters?: {
 			m.minLevel !== undefined &&
 			m.maxLevel !== undefined &&
 			// If all stars selected or no star filter, include missions with null difficulty
-			(allStarsSelected || ((m.difficulty ?? 0) > 0)),
+			(allStarsSelected || (m.difficulty ?? 0) > 0),
 	); // Only return missions with complete data (level range, and optionally difficulty)
 
 	// Apply filters if provided
@@ -135,25 +136,27 @@ export async function getNextUnclearedMission(filters?: {
 	console.log('[getNextUnclearedMission] Found uncleared missions', {
 		count: unclearedMissions.length,
 		excludePostIds: filters?.excludePostIds,
-		firstFew: unclearedMissions.slice(0, 3).map(m => ({
+		firstFew: unclearedMissions.slice(0, 3).map((m) => ({
 			postId: m.postId,
 			cleared: m.cleared,
-			title: m.missionTitle?.substring(0, 30)
-		}))
+			title: m.missionTitle?.substring(0, 30),
+		})),
 	});
 
 	// Filter out excluded missions
 	const filteredMissions = filters?.excludePostIds
-		? unclearedMissions.filter(m => !filters.excludePostIds!.includes(m.postId))
+		? unclearedMissions.filter((m) => !filters.excludePostIds!.includes(m.postId))
 		: unclearedMissions;
 
 	console.log('[getNextUnclearedMission] After exclusion', {
 		count: filteredMissions.length,
-		nextMission: filteredMissions[0] ? {
-			postId: filteredMissions[0].postId,
-			cleared: filteredMissions[0].cleared,
-			title: filteredMissions[0].missionTitle?.substring(0, 30)
-		} : null
+		nextMission: filteredMissions[0]
+			? {
+					postId: filteredMissions[0].postId,
+					cleared: filteredMissions[0].cleared,
+					title: filteredMissions[0].missionTitle?.substring(0, 30),
+				}
+			: null,
 	});
 
 	return filteredMissions[0] || null;
