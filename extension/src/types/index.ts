@@ -89,7 +89,8 @@ export type MessageType =
 	| 'NO_MISSIONS_FOUND'
 	| 'ERROR_OCCURRED'
 	| 'MISSIONS_UPDATED'
-	| 'MISSIONS_CHANGED';
+	| 'MISSIONS_CHANGED'
+	| 'PING';
 
 export interface ChromeMessage extends Message {
 	type: MessageType;

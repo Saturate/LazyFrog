@@ -26,6 +26,7 @@ import { safeSendMessage } from './utils/messaging';
 import { scannedPostIds, scanForNewMissions, initializeScrollScanning } from './utils/scanning';
 import { initializeDebugFunctions } from './utils/debug';
 import { installMissionDataHandler } from './utils/missionDataHandler';
+import { startPinging, stopPinging } from './utils/keepAlive';
 
 // UI components
 import { getStatusText } from './ui/statusText';
@@ -161,6 +162,15 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			redditLogger.log('[STATE_CHANGED] Updated local state', {
 				state: currentBotState,
 			});
+
+			// Manage ping based on bot state
+			const isRunning = !['idle', 'error'].includes(currentBotState);
+			if (isRunning) {
+				startPinging();
+			} else {
+				stopPinging();
+			}
+
 			renderControlPanel(currentBotState, currentBotContext);
 			sendResponse({ success: true });
 			break;
