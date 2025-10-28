@@ -3,7 +3,7 @@
  * Creates basic mission records without calling Reddit API
  */
 
-import { normalizeRedditPermalink } from './url';
+import { normalizeRedditPermalink, normalizePostId } from './url';
 import { saveMissionsBatch, getMission } from '../lib/storage/missions';
 import { MissionRecord } from '../lib/storage/types';
 
@@ -41,7 +41,7 @@ function extractPostId(url: string): string | null {
 			// Extract postId from /comments/<postId>/
 			const match = urlObj.pathname.match(/\/comments\/([a-z0-9]+)/i);
 			if (match && match[1]) {
-				return match[1];
+				return normalizePostId(match[1]);
 			}
 		}
 
@@ -96,8 +96,8 @@ export async function importFromUrls(options: ImportFromUrlsOptions): Promise<Im
 				difficulty: undefined,
 				minLevel: options.minLevel,
 				maxLevel: options.maxLevel,
-				foodName: `Mission ${postId}`,
-				permalink: normalizeRedditPermalink(postId),
+				foodName: `Mission ${postId.slice(3)}`,
+				permalink: normalizeRedditPermalink(postId.slice(3)),
 				cleared: false,
 			};
 
