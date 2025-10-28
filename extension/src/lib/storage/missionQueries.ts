@@ -131,10 +131,30 @@ export async function getNextUnclearedMission(filters?: {
 }): Promise<MissionRecord | null> {
 	const unclearedMissions = await getFilteredUnclearedMissions(filters);
 
+	// Log for debugging
+	console.log('[getNextUnclearedMission] Found uncleared missions', {
+		count: unclearedMissions.length,
+		excludePostIds: filters?.excludePostIds,
+		firstFew: unclearedMissions.slice(0, 3).map(m => ({
+			postId: m.postId,
+			cleared: m.cleared,
+			title: m.missionTitle?.substring(0, 30)
+		}))
+	});
+
 	// Filter out excluded missions
 	const filteredMissions = filters?.excludePostIds
 		? unclearedMissions.filter(m => !filters.excludePostIds!.includes(m.postId))
 		: unclearedMissions;
+
+	console.log('[getNextUnclearedMission] After exclusion', {
+		count: filteredMissions.length,
+		nextMission: filteredMissions[0] ? {
+			postId: filteredMissions[0].postId,
+			cleared: filteredMissions[0].cleared,
+			title: filteredMissions[0].missionTitle?.substring(0, 30)
+		} : null
+	});
 
 	return filteredMissions[0] || null;
 }

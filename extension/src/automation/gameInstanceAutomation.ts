@@ -98,24 +98,27 @@ export class GameInstanceAutomationEngine {
 			const mission = metadata.mission;
 			if (!mission) return;
 
-			// Check if mission already exists
+			// Normalize postId by stripping t3_ prefix to ensure consistency with imported missions
+			// The Devvit initialData may include the t3_ prefix, but we store missions without it
+			const normalizedPostId = postId.startsWith('t3_') ? postId.slice(3) : postId;
+
+			// Check if mission already exists using normalized postId
 			const { getMission } = await import('../lib/storage/missions');
-			const existingMission = await getMission(postId);
+			const existingMission = await getMission(normalizedPostId);
 
 			// Generate tags for the mission
 			const tags = this.generateMissionTags(metadata);
 
-			// Build permalink URL from postId (e.g., t3_1obdqvw -> /r/SwordAndSupperGame/comments/1obdqvw/)
-			const permalink = postId.startsWith('t3_')
-				? `https://www.reddit.com/r/SwordAndSupperGame/comments/${postId.slice(3)}/`
-				: undefined;
+			// Build permalink URL using normalizeRedditPermalink utility for consistency
+			const { normalizeRedditPermalink } = await import('../utils/url');
+			const permalink = normalizeRedditPermalink(normalizedPostId);
 
 			// Use mission author from metadata if available, otherwise use the provided username
 			// When enriching, preserve the original author from existing mission
 			const missionAuthor = existingMission?.username || metadata.missionAuthorName || username;
 
 			const record: MissionRecord = {
-				postId,
+				postId: normalizedPostId,
 				username: missionAuthor,
 				timestamp: existingMission?.timestamp || Date.now(), // Keep original timestamp if updating
 				metadata,
@@ -135,7 +138,7 @@ export class GameInstanceAutomationEngine {
 			if (existingMission) {
 				// Updating existing mission with enriched metadata
 				devvitLogger.log('Mission metadata enriched', {
-					postId,
+					postId: normalizedPostId,
 					difficulty: record.difficulty,
 					environment: record.environment,
 					encounters: mission.encounters?.length,
@@ -145,7 +148,7 @@ export class GameInstanceAutomationEngine {
 			} else {
 				// New mission discovered from playing (not previously scanned)
 				devvitLogger.log('🆕 NEW MISSION discovered from gameplay', {
-					postId,
+					postId: normalizedPostId,
 					difficulty: record.difficulty,
 					environment: record.environment,
 					encounters: mission.encounters?.length,
@@ -311,11 +314,12 @@ export class GameInstanceAutomationEngine {
 					const postId = event.data.data.message.data?.postId;
 					const username = event.data.data.message.data?.username;
 
-					// Store postId for later use (e.g., marking as cleared)
-					this.currentPostId = postId;
+					// Normalize postId by stripping t3_ prefix to ensure consistency with imported missions
+					// Store normalized postId for later use (e.g., marking as cleared, accumulating loot)
+					this.currentPostId = postId?.startsWith('t3_') ? postId.slice(3) : postId;
 
 					devvitLogger.log('Mission metadata received', {
-						postId,
+						postId: this.currentPostId,
 						difficulty: this.missionMetadata?.mission?.difficulty,
 						environment: this.missionMetadata?.mission?.environment,
 						encounters: this.missionMetadata?.mission?.encounters?.length,
@@ -323,12 +327,12 @@ export class GameInstanceAutomationEngine {
 
 					// Broadcast status
 					const encounterCount = this.missionMetadata?.mission?.encounters?.length || 0;
-					this.broadcastStatus('Starting mission clearing', postId, {
+					this.broadcastStatus('Starting mission clearing', this.currentPostId || undefined, {
 						current: 0,
 						total: encounterCount,
 					});
 
-					// Save mission to database
+					// Save mission to database (saveMissionToDatabase will normalize postId internally)
 					if (this.missionMetadata && postId) {
 						this.saveMissionToDatabase(postId, username, this.missionMetadata);
 					}

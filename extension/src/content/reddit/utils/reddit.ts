@@ -241,26 +241,30 @@ async function saveScannedMission(level: Level): Promise<void> {
 	}
 
 	try {
-		// Check if mission already exists in database
+		// Normalize postId by stripping t3_ prefix to ensure consistency with imported missions
+		// The shreddit-post id attribute includes the t3_ prefix, but we store missions without it
+		const normalizedPostId = level.postId.startsWith('t3_') ? level.postId.slice(3) : level.postId;
+
+		// Check if mission already exists in database using normalized postId
 		const { getMission } = await import('../../../lib/storage/missions');
-		const existingMission = await getMission(level.postId);
+		const existingMission = await getMission(normalizedPostId);
 
 		// Check if cleared status changed
 		if (existingMission && !existingMission.cleared && level.cleared) {
 			redditLogger.log('Mission cleared status detected - updating database', {
-				postId: level.postId,
+				postId: normalizedPostId,
 				title: level.title.substring(0, 50),
 			});
 
 			// Mark as cleared in database
 			const { markMissionCleared } = await import('../../../lib/storage/missions');
-			await markMissionCleared(level.postId);
+			await markMissionCleared(normalizedPostId);
 		}
 
 		const { normalizeRedditPermalink } = await import('../../../utils/url');
 
 		const record: MissionRecord = {
-			postId: level.postId,
+			postId: normalizedPostId,
 			username: existingMission?.username || level.author || 'unknown', // Preserve original author
 			timestamp: existingMission?.timestamp || Date.now(), // Preserve original timestamp
 			metadata: existingMission?.metadata || null, // Preserve metadata if exists
@@ -278,7 +282,7 @@ async function saveScannedMission(level: Level): Promise<void> {
 		await saveMission(record);
 
 		// COMBINED LOG: Parse + Save success
-		redditLogger.log(`Saved mission: ${level.postId}`, {
+		redditLogger.log(`Saved mission: ${normalizedPostId}`, {
 			title: level.title.substring(0, 50),
 			starDifficulty: level.stars,
 			levelRange: level.levelRange,
