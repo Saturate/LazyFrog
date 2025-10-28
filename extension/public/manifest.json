@@ -4,7 +4,7 @@
 	"version": "0.8.3",
 	"description": "Automation bot for the Sword & Supper Reddit game. Catalogs missions and plays them!",
 
-	"permissions": ["storage", "activeTab", "scripting"],
+	"permissions": ["storage", "activeTab", "scripting", "tabs", "unlimitedStorage"],
 
 	"host_permissions": ["https://www.reddit.com/*", "https://*.devvit.net/*"],
 
