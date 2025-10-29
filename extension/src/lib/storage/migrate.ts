@@ -123,17 +123,18 @@ export async function migrateToSeparateProgress(): Promise<{
 
 				// Convert old object-based format to new array-based format
 				for (const [postId, entry] of Object.entries(existingUserProgress)) {
-					if (entry.cleared) {
+					const progressEntry = entry as any;
+					if (progressEntry.cleared) {
 						convertedUserProgress.cleared.push(postId);
 					}
-					if (entry.disabled) {
+					if (progressEntry.disabled) {
 						convertedUserProgress.disabled.push(postId);
 					}
-					if (entry.clearedAt !== undefined) {
-						convertedUserProgress.clearedAt[postId] = entry.clearedAt;
+					if (progressEntry.clearedAt !== undefined) {
+						convertedUserProgress.clearedAt[postId] = progressEntry.clearedAt;
 					}
-					if (entry.totalLoot !== undefined && entry.totalLoot.length > 0) {
-						convertedUserProgress.loot[postId] = entry.totalLoot;
+					if (progressEntry.totalLoot !== undefined && progressEntry.totalLoot.length > 0) {
+						convertedUserProgress.loot[postId] = progressEntry.totalLoot;
 					}
 				}
 
