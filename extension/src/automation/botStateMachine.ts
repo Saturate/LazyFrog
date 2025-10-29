@@ -8,6 +8,7 @@
 
 import { setup, assign, fromPromise } from 'xstate';
 import { createLogger } from '../utils/logger';
+import { STATE_TIMEOUT } from '../constants/timing';
 const logger = createLogger('StateMachine');
 
 // ============================================================================
@@ -201,10 +202,10 @@ export const botMachine = setup({
 		starting: {
 			entry: ['logTransition'],
 			after: {
-				10000: {
+				[STATE_TIMEOUT]: {
 					target: 'error',
 					actions: assign({
-						errorMessage: 'Timeout in starting state - no mission found within 10 seconds',
+						errorMessage: `Timeout in starting state - no mission found within ${STATE_TIMEOUT / 1000} seconds`,
 						completionReason: 'error',
 					}),
 				},

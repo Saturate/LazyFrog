@@ -28,6 +28,7 @@ import { initializeDebugFunctions } from './utils/debug';
 import { installMissionDataHandler } from './utils/missionDataHandler';
 import { startPinging, stopPinging } from './utils/keepAlive';
 import { navigateToUrl, onUrlChange } from '../../utils/navigation';
+import { DOM_UPDATE_DELAY, GAME_LOADER_CHECK_INTERVAL, GAME_LOADER_MAX_WAIT } from '../../constants/timing';
 
 // UI components
 import { getStatusText } from './ui/statusText';
@@ -550,10 +551,10 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 						});
 						clearInterval(checkInterval);
 					}
-				}, 500);
+				}, GAME_LOADER_CHECK_INTERVAL);
 
-				// Stop checking after 10 seconds
-				setTimeout(() => clearInterval(checkInterval), 10000);
+				// Stop checking after max wait time
+				setTimeout(() => clearInterval(checkInterval), GAME_LOADER_MAX_WAIT);
 			} else {
 				redditLogger.warn('Could not find clickable game container in shadow DOM');
 				redditLogger.log('Loader structure', {
@@ -655,7 +656,7 @@ onUrlChange((newUrl) => {
 			// Check for game loader after a short delay to let DOM update
 			setTimeout(() => {
 				checkForExistingLoader(currentBotState);
-			}, 500);
+			}, DOM_UPDATE_DELAY);
 		}
 	});
 });

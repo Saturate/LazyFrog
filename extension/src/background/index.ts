@@ -12,6 +12,7 @@ import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
 import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions';
+import { STORAGE_PROPAGATION_DELAY, INITIAL_RETRY_DELAY, RETRY_BACKOFF_BASE } from '../constants/timing';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
@@ -328,7 +329,10 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			// Add a small delay to ensure chrome.storage.local write has propagated
 			// This prevents race condition where getAllMissions doesn't see the just-cleared mission
-			const delayMs = retryCount > 0 ? 2000 * 2 ** (retryCount - 1) : 500; // 500ms on first attempt, exponential backoff on retries
+			const delayMs =
+				retryCount > 0
+					? INITIAL_RETRY_DELAY * RETRY_BACKOFF_BASE ** (retryCount - 1)
+					: STORAGE_PROPAGATION_DELAY;
 
 			extensionLogger.log('[StateTransition] Finding next mission', {
 				retryCount,
