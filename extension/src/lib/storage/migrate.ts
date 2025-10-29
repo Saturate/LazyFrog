@@ -111,10 +111,34 @@ export async function migrateToSeparateProgress(): Promise<{
 			// If it's flat format (has postId in entries), convert to multi-user
 			let existingMultiUserProgress: MultiUserProgressDatabase;
 			if (!isAlreadyMultiUser && Object.keys(existingUserProgress).length > 0) {
-				// This is old flat format - migrate it to current username
-				console.log('[Migration] Detected flat progress format, converting to multi-user format');
+				// This is old flat format - convert to new array-based UserProgressData
+				console.log('[Migration] Detected flat progress format, converting to array-based format');
+
+				const convertedUserProgress: UserProgressData = {
+					cleared: [],
+					disabled: [],
+					clearedAt: {},
+					loot: {},
+				};
+
+				// Convert old object-based format to new array-based format
+				for (const [postId, entry] of Object.entries(existingUserProgress)) {
+					if (entry.cleared) {
+						convertedUserProgress.cleared.push(postId);
+					}
+					if (entry.disabled) {
+						convertedUserProgress.disabled.push(postId);
+					}
+					if (entry.clearedAt !== undefined) {
+						convertedUserProgress.clearedAt[postId] = entry.clearedAt;
+					}
+					if (entry.totalLoot !== undefined && entry.totalLoot.length > 0) {
+						convertedUserProgress.loot[postId] = entry.totalLoot;
+					}
+				}
+
 				existingMultiUserProgress = {
-					[username]: existingUserProgress
+					[username]: convertedUserProgress
 				};
 			} else {
 				existingMultiUserProgress = existingUserProgress;
