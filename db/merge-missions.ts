@@ -1,58 +1,43 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 /**
  * Merge missions from a source file into missions.json
  *
  * Features:
+ * - Validates missions have all required fields
  * - Skips duplicates based on postId
  * - Strips extension-specific fields (cleared, clearedAt, disabled, totalLoot)
  * - Removes scenarioText automatically
  * - Preserves formatting with 2-space indentation
+ * - Rejects missions with missing metadata or invalid data
  *
- * Usage: node merge-missions.js <source-file.json>
+ * Usage: pnpm merge <source-file.json>
+ * Or: tsx merge-missions.ts <source-file.json>
  */
 
-const fs = require('fs');
-const path = require('path');
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import type { MissionsDatabase } from '@lazyfrog/types';
+import {
+  validateMission,
+  stripExtensionFields,
+  formatValidationErrors,
+} from './utils/validation.js';
 
-const MISSIONS_FILE = path.join(__dirname, 'missions.json');
-
-// Extension-specific fields to strip
-const EXTENSION_FIELDS = ['cleared', 'clearedAt', 'disabled', 'totalLoot'];
-
-// Fields to remove from metadata
-const METADATA_STRIP_FIELDS = ['scenarioText'];
-
-function stripExtensionFields(mission) {
-  const cleaned = { ...mission };
-
-  // Remove extension-specific tracking fields
-  for (const field of EXTENSION_FIELDS) {
-    delete cleaned[field];
-  }
-
-  // Remove scenarioText from metadata
-  if (cleaned.metadata) {
-    for (const field of METADATA_STRIP_FIELDS) {
-      delete cleaned.metadata[field];
-    }
-  }
-
-  return cleaned;
-}
+const MISSIONS_FILE = join(import.meta.dirname, 'missions.json');
 
 function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
     console.error('Error: No source file specified');
-    console.error('Usage: node merge-missions.js <source-file.json>');
+    console.error('Usage: tsx merge-missions.ts <source-file.json>');
     process.exit(1);
   }
 
   const sourceFile = args[0];
 
   // Check if source file exists
-  if (!fs.existsSync(sourceFile)) {
+  if (!existsSync(sourceFile)) {
     console.error(`Error: Source file not found: ${sourceFile}`);
     process.exit(1);
   }
@@ -61,23 +46,23 @@ function main() {
   console.log(`Into: ${MISSIONS_FILE}\n`);
 
   // Read source file
-  let sourceData;
+  let sourceData: MissionsDatabase;
   try {
-    const sourceContent = fs.readFileSync(sourceFile, 'utf8');
+    const sourceContent = readFileSync(sourceFile, 'utf8');
     sourceData = JSON.parse(sourceContent);
   } catch (error) {
-    console.error(`Error reading source file: ${error.message}`);
+    console.error(`Error reading source file: ${(error as Error).message}`);
     process.exit(1);
   }
 
   // Read existing missions
-  let existingData = {};
-  if (fs.existsSync(MISSIONS_FILE)) {
+  let existingData: MissionsDatabase = {};
+  if (existsSync(MISSIONS_FILE)) {
     try {
-      const existingContent = fs.readFileSync(MISSIONS_FILE, 'utf8');
+      const existingContent = readFileSync(MISSIONS_FILE, 'utf8');
       existingData = JSON.parse(existingContent);
     } catch (error) {
-      console.error(`Error reading missions.json: ${error.message}`);
+      console.error(`Error reading missions.json: ${(error as Error).message}`);
       process.exit(1);
     }
   } else {
@@ -88,12 +73,25 @@ function main() {
   let addedCount = 0;
   let skippedCount = 0;
   let updatedCount = 0;
+  let rejectedCount = 0;
+  const rejectedMissions: string[] = [];
 
   for (const postId in sourceData) {
-    const sourceMission = sourceData[postId];
+    const sourceMission = sourceData[postId] as any;
 
     // Strip extension fields and clean metadata
     const cleanedMission = stripExtensionFields(sourceMission);
+
+    // Validate mission
+    const errors = validateMission(cleanedMission, postId);
+
+    if (errors.length > 0) {
+      console.log(`✗ Rejected: ${postId} (${cleanedMission.missionTitle || 'Untitled'})`);
+      console.log(formatValidationErrors(errors));
+      rejectedMissions.push(postId);
+      rejectedCount++;
+      continue;
+    }
 
     if (existingData[postId]) {
       // Mission already exists - check if we should update
@@ -119,19 +117,24 @@ function main() {
 
   // Write back to missions.json
   try {
-    fs.writeFileSync(MISSIONS_FILE, JSON.stringify(existingData, null, 2), 'utf8');
+    writeFileSync(MISSIONS_FILE, JSON.stringify(existingData, null, 2), 'utf8');
   } catch (error) {
-    console.error(`Error writing missions.json: ${error.message}`);
+    console.error(`Error writing missions.json: ${(error as Error).message}`);
     process.exit(1);
   }
 
   // Summary
   console.log('\n=== Merge Summary ===');
-  console.log(`Added:   ${addedCount} new missions`);
-  console.log(`Updated: ${updatedCount} existing missions`);
-  console.log(`Skipped: ${skippedCount} duplicates (older or same timestamp)`);
-  console.log(`Total:   ${Object.keys(existingData).length} missions in database`);
+  console.log(`Added:    ${addedCount} new missions`);
+  console.log(`Updated:  ${updatedCount} existing missions`);
+  console.log(`Skipped:  ${skippedCount} duplicates (older or same timestamp)`);
+  console.log(`Rejected: ${rejectedCount} invalid missions`);
+  console.log(`Total:    ${Object.keys(existingData).length} missions in database`);
   console.log(`\n✓ Merge complete: ${MISSIONS_FILE}`);
+
+  if (rejectedMissions.length > 0) {
+    console.log(`\nRejected missions: ${rejectedMissions.join(', ')}`);
+  }
 }
 
 main();

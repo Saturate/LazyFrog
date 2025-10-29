@@ -25,6 +25,7 @@
 	"author": "Allan Kimmer Jensen",
 	"license": "MIT",
 	"dependencies": {
+		"@lazyfrog/types": "workspace:*",
 		"express": "^5.1.0",
 		"lucide-react": "^0.546.0",
 		"react": "^18.2.0",

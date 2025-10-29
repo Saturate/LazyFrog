@@ -1,9 +1,10 @@
 /**
- * Shared Mission Type Definitions
+ * Shared Mission Type Definitions for LazyFrog
  *
- * These types define the structure of mission data used in both:
+ * These types define the structure of mission data used across:
  * - The mission database (db/missions.json)
- * - The browser extension storage
+ * - The browser extension
+ * - The website
  */
 
 // ============================================================================
@@ -185,3 +186,27 @@ export interface MissionFilters {
   cleared?: boolean;
   disabled?: boolean;
 }
+
+// ============================================================================
+// Display Helpers
+// ============================================================================
+
+export const ENVIRONMENT_LABELS: Record<Environment, string> = {
+  haunted_forest: 'Haunted Forest',
+  new_eden: 'New Eden',
+  wild_west: 'Wild West',
+  jungle: 'Jungle',
+  desert: 'Desert',
+  tundra: 'Tundra',
+  underwater: 'Underwater',
+  mountains: 'Mountains',
+};
+
+export const ENCOUNTER_LABELS: Record<EncounterType, string> = {
+  investigate: 'Hut',
+  statsChoice: 'Stat Choice',
+  skillBargain: 'Skill Bargain',
+  abilityChoice: 'Ability Choice',
+  enemy: 'Battle',
+  crossroads: 'Miniboss',
+};

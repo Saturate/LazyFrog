@@ -1,6 +1,8 @@
 packages:
+  - 'packages/*'
   - 'website'
   - 'extension'
+  - 'db'
 
 onlyBuiltDependencies:
   - better-sqlite3

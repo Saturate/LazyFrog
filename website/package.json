@@ -9,9 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@lazyfrog/types": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
+    "apexcharts": "^5.3.5",
     "lucide-react": "^0.548.0",
     "next": "16.0.0",
     "react": "19.2.0",
+    "react-apexcharts": "^1.8.0",
     "react-dom": "19.2.0"
   },
   "devDependencies": {
