@@ -274,36 +274,18 @@ const MissionsTab: React.FC = () => {
 	};
 
 	const handleExport = () => {
-		// Generate markdown for all missions
-		let markdown = `# Sword & Supper Missions Export\n\n`;
-		markdown += `Generated: ${new Date().toLocaleDateString()}\n\n`;
-		markdown += `Total Missions: ${missions.length}\n`;
-		markdown += `Cleared: ${stats.cleared}\n`;
-		markdown += `Uncleared: ${stats.uncleared}\n\n`;
-		markdown += `---\n\n`;
-
-		// Add each mission
+		// Export missions as JSON in the same format as db/missions.json
+		const missionsExport: Record<string, any> = {};
 		missions.forEach((mission) => {
-			const missionMarkdown = generateMissionMarkdown(mission);
-			if (missionMarkdown) {
-				markdown += missionMarkdown + '\n\n';
-			} else {
-				// Fallback for missions without full metadata
-				const isCleared = clearedPostIds.includes(mission.postId);
-				markdown += `### ${mission.foodName || 'Unknown Mission'}\n`;
-				markdown += `**Status:** ${isCleared ? 'Cleared' : 'Pending'}\n`;
-				markdown += `**Difficulty:** ${'⭐'.repeat(mission.difficulty || 0)}\n`;
-				markdown += `**Level:** ${mission.minLevel}-${mission.maxLevel}\n`;
-				markdown += `**Environment:** ${mission.environment || 'Unknown'}\n`;
-				markdown += `**Link:** ${mission.permalink}\n\n`;
-			}
+			missionsExport[mission.postId] = mission;
 		});
 
-		const blob = new Blob([markdown], { type: 'text/markdown' });
+		const json = JSON.stringify(missionsExport, null, 2);
+		const blob = new Blob([json], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `missions-${Date.now()}.md`;
+		a.download = `missions-${Date.now()}.json`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
