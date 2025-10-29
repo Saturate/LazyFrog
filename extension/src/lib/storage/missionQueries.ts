@@ -2,8 +2,9 @@
  * Mission query and filtering functions
  */
 
-import { MissionRecord, AutomationFilters } from './types';
+import { MissionRecord, AutomationFilters, MissionWithProgress } from './types';
 import { getAllMissions } from './missions';
+import { getAllMissionsWithProgress } from './missionHelpers';
 
 /**
  * Get mission count
@@ -54,21 +55,22 @@ export async function searchMissions(criteria: {
  * This is the single source of truth for mission filtering across the app.
  *
  * @param filters - Optional filters for stars, minLevel, maxLevel
- * @returns Array of missions that match filters, sorted newest first
+ * @returns Array of missions with progress that match filters, sorted newest first
  */
 export async function getFilteredUnclearedMissions(filters?: {
 	stars?: number[];
 	minLevel?: number;
 	maxLevel?: number;
-}): Promise<MissionRecord[]> {
-	const missions = await getAllMissions();
+}): Promise<MissionWithProgress[]> {
+	// Get missions with progress merged
+	const missionsWithProgress = await getAllMissionsWithProgress();
 
 	// Check if all star difficulties are selected OR if no star filter is provided
 	const allStarsSelected =
 		!filters?.stars ||
 		(filters.stars.length === 5 && [1, 2, 3, 4, 5].every((d) => filters.stars!.includes(d)));
 
-	let unclearedMissions = Object.values(missions).filter(
+	let unclearedMissions = Object.values(missionsWithProgress).filter(
 		(m) =>
 			!m.cleared &&
 			!m.disabled &&
@@ -129,7 +131,7 @@ export async function getNextUnclearedMission(filters?: {
 	minLevel?: number;
 	maxLevel?: number;
 	excludePostIds?: string[];
-}): Promise<MissionRecord | null> {
+}): Promise<MissionWithProgress | null> {
 	const unclearedMissions = await getFilteredUnclearedMissions(filters);
 
 	// Log for debugging
@@ -172,7 +174,7 @@ export async function getNextMissions(
 		minLevel?: number;
 		maxLevel?: number;
 	},
-): Promise<MissionRecord[]> {
+): Promise<MissionWithProgress[]> {
 	const unclearedMissions = await getFilteredUnclearedMissions(filters);
 	return unclearedMissions.slice(0, count);
 }
@@ -180,9 +182,9 @@ export async function getNextMissions(
 /**
  * Get all uncleared missions
  */
-export async function getUnclearedMissions(): Promise<MissionRecord[]> {
-	const missions = await getAllMissions();
-	return Object.values(missions)
+export async function getUnclearedMissions(): Promise<MissionWithProgress[]> {
+	const missionsWithProgress = await getAllMissionsWithProgress();
+	return Object.values(missionsWithProgress)
 		.filter((m) => !m.cleared && !m.disabled)
 		.sort((a, b) => a.timestamp - b.timestamp); // Oldest first
 }

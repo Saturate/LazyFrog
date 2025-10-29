@@ -1,23 +1,83 @@
 /**
  * Migration script to split mission data from user progress
  * Run once to migrate from old structure to new structure
- * Migrates to per-user progress storage using "default" user
+ * Migrates to per-user progress storage using current Reddit username
  */
 
 import { STORAGE_KEYS } from './types';
 import type { MissionRecord, UserProgressDatabase, MultiUserProgressDatabase } from './types';
 
 /**
+ * Get cached Reddit username without trying to fetch
+ * Used during migration to avoid fetch attempts from background context
+ */
+async function getCachedUsernameForMigration(): Promise<string> {
+	return new Promise((resolve) => {
+		chrome.storage.local.get(['redditUserCache'], (result) => {
+			if (chrome.runtime.lastError || !result.redditUserCache) {
+				resolve('default');
+				return;
+			}
+			const cache = result.redditUserCache;
+			// Use cached username regardless of age - migration is one-time
+			resolve(cache.username || 'default');
+		});
+	});
+}
+
+/**
+ * Request username from any active Reddit tabs
+ * Sends a message to all tabs to fetch and cache the username
+ * Waits a bit for the response before proceeding
+ */
+async function requestUsernameFromRedditTabs(): Promise<void> {
+	return new Promise((resolve) => {
+		// Query for Reddit tabs
+		chrome.tabs.query({ url: '*://*.reddit.com/*' }, (tabs) => {
+			if (chrome.runtime.lastError || !tabs.length) {
+				console.log('[Migration] No Reddit tabs found to fetch username from');
+				resolve();
+				return;
+			}
+
+			console.log('[Migration] Found', tabs.length, 'Reddit tabs, requesting username...');
+
+			// Send message to first Reddit tab to fetch username
+			chrome.tabs.sendMessage(
+				tabs[0].id!,
+				{ type: 'FETCH_REDDIT_USERNAME' },
+				(response) => {
+					if (chrome.runtime.lastError) {
+						console.log('[Migration] Could not communicate with Reddit tab:', chrome.runtime.lastError.message);
+					} else {
+						console.log('[Migration] Username fetch requested from Reddit tab');
+					}
+					// Resolve after a short delay to let the content script cache the username
+					setTimeout(resolve, 500);
+				}
+			);
+		});
+	});
+}
+
+/**
  * Migrate existing missions to separate progress tracking
  *
  * Old structure: missions storage contains both data and progress
  * New structure: missions = data only, userProgress[username] = tracking only
- * All existing progress is migrated to the "default" user
+ * All existing progress is migrated to the cached Reddit username, or "default" if not cached
  */
 export async function migrateToSeparateProgress(): Promise<{
 	migrated: number;
 	skipped: number;
 }> {
+	// Try to get username from any active Reddit tabs first
+	await requestUsernameFromRedditTabs();
+
+	// Get cached Reddit username for migration (don't try to fetch from background context)
+	const username = await getCachedUsernameForMigration();
+	console.log('[Migration] Migrating progress to username:', username);
+
 	return new Promise((resolve, reject) => {
 		// Get existing missions
 		chrome.storage.local.get([STORAGE_KEYS.MISSIONS, STORAGE_KEYS.USER_PROGRESS], (result) => {
@@ -40,8 +100,8 @@ export async function migrateToSeparateProgress(): Promise<{
 				? existingMultiUserProgress
 				: {};
 
-			// Get or create default user's progress
-			const defaultUserProgress: UserProgressDatabase = multiUserProgress.default || {};
+			// Get or create current user's progress
+			const userProgress: UserProgressDatabase = multiUserProgress[username] || {};
 
 			let migrated = 0;
 			let skipped = 0;
@@ -58,8 +118,8 @@ export async function migrateToSeparateProgress(): Promise<{
 					old.totalLoot !== undefined;
 
 				if (hasProgress) {
-					// Create progress record for default user
-					defaultUserProgress[postId] = {
+					// Create progress record for current user
+					userProgress[postId] = {
 						postId,
 						...(old.cleared !== undefined && { cleared: old.cleared }),
 						...(old.clearedAt !== undefined && { clearedAt: old.clearedAt }),
@@ -76,8 +136,8 @@ export async function migrateToSeparateProgress(): Promise<{
 				cleanedMissions[postId] = cleanMission;
 			}
 
-			// Update multi-user progress with default user's data
-			multiUserProgress.default = defaultUserProgress;
+			// Update multi-user progress with current user's data
+			multiUserProgress[username] = userProgress;
 
 			// Save both back to storage
 			chrome.storage.local.set(
@@ -89,7 +149,7 @@ export async function migrateToSeparateProgress(): Promise<{
 					if (chrome.runtime.lastError) {
 						reject(chrome.runtime.lastError);
 					} else {
-						console.log('[Migration] Successfully migrated:', { migrated, skipped });
+						console.log('[Migration] Successfully migrated:', { migrated, skipped, username });
 						resolve({ migrated, skipped });
 					}
 				},

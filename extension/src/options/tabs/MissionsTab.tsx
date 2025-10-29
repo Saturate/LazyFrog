@@ -6,18 +6,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link } from 'lucide-react';
 import { getAllMissions, importMissions } from '../../lib/storage/missions';
-import { MissionRecord } from '../../lib/storage/types';
+import { getAllMissionsWithProgress } from '../../lib/storage/missionHelpers';
+import { MissionWithProgress } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
 import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
 
 interface SortConfig {
-	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'username';
+	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'author';
 	direction: 'asc' | 'desc';
 }
 
 const MissionsTab: React.FC = () => {
-	const [missions, setMissions] = useState<MissionRecord[]>([]);
-	const [filteredMissions, setFilteredMissions] = useState<MissionRecord[]>([]);
+	const [missions, setMissions] = useState<MissionWithProgress[]>([]);
+	const [filteredMissions, setFilteredMissions] = useState<MissionWithProgress[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isImportFromUrlsModalOpen, setIsImportFromUrlsModalOpen] = useState(false);
 
@@ -152,9 +153,10 @@ const MissionsTab: React.FC = () => {
 			filtered = filtered.filter((m) => {
 				return (
 					m.foodName?.toLowerCase().includes(query) ||
-					m.username?.toLowerCase().includes(query) ||
+					m.missionTitle?.toLowerCase().includes(query) ||
 					m.environment?.toLowerCase().includes(query) ||
-					m.postId?.toLowerCase().includes(query)
+					m.postId?.toLowerCase().includes(query) ||
+					m.metadata?.missionAuthorName?.toLowerCase().includes(query)
 				);
 			});
 		}
@@ -181,9 +183,9 @@ const MissionsTab: React.FC = () => {
 					aVal = a.foodName || '';
 					bVal = b.foodName || '';
 					break;
-				case 'username':
-					aVal = a.username || '';
-					bVal = b.username || '';
+				case 'author':
+					aVal = a.metadata?.missionAuthorName || '';
+					bVal = b.metadata?.missionAuthorName || '';
 					break;
 				default:
 					aVal = a.timestamp || 0;
@@ -227,7 +229,7 @@ const MissionsTab: React.FC = () => {
 	}, [missions]);
 
 	const loadMissions = async () => {
-		const allMissions = await getAllMissions();
+		const allMissions = await getAllMissionsWithProgress();
 		const missionArray = Object.values(allMissions);
 		setMissions(missionArray);
 	};
@@ -632,6 +634,23 @@ const MissionsTab: React.FC = () => {
 												(sortConfig.direction === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
+											onClick={() => handleSort('author')}
+											style={{
+												padding: '16px',
+												textAlign: 'left',
+												fontSize: '13px',
+												fontWeight: '600',
+												color: '#a1a1aa',
+												cursor: 'pointer',
+												userSelect: 'none',
+												background: sortConfig.field === 'author' ? '#171717' : 'transparent',
+											}}
+										>
+											Author{' '}
+											{sortConfig.field === 'author' &&
+												(sortConfig.direction === 'asc' ? '↑' : '↓')}
+										</th>
+										<th
 											onClick={() => handleSort('difficulty')}
 											style={{
 												padding: '16px',
@@ -699,23 +718,6 @@ const MissionsTab: React.FC = () => {
 											Environment
 										</th>
 										<th
-											onClick={() => handleSort('username')}
-											style={{
-												padding: '16px',
-												textAlign: 'left',
-												fontSize: '13px',
-												fontWeight: '600',
-												color: '#a1a1aa',
-												cursor: 'pointer',
-												userSelect: 'none',
-												background: sortConfig.field === 'username' ? '#171717' : 'transparent',
-											}}
-										>
-											Author{' '}
-											{sortConfig.field === 'username' &&
-												(sortConfig.direction === 'asc' ? '↑' : '↓')}
-										</th>
-										<th
 											style={{
 												padding: '16px',
 												textAlign: 'left',
@@ -770,6 +772,9 @@ const MissionsTab: React.FC = () => {
 												>
 													{mission.foodName || 'Unknown'}
 												</a>
+											</td>
+											<td style={{ padding: '14px 16px', fontSize: '13px', color: '#a1a1aa' }}>
+												{mission.metadata?.missionAuthorName || 'N/A'}
 											</td>
 											<td style={{ padding: '14px 16px', fontSize: '16px', color: '#eab308' }}>
 												{mission.difficulty ? (
@@ -830,9 +835,6 @@ const MissionsTab: React.FC = () => {
 														—
 													</span>
 												)}
-											</td>
-											<td style={{ padding: '14px 16px', fontSize: '13px', color: '#a1a1aa' }}>
-												{mission.username || 'N/A'}
 											</td>
 											<td style={{ padding: '14px 16px' }}>
 												{mission.disabled ? (

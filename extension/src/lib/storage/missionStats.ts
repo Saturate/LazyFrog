@@ -3,6 +3,7 @@
  */
 
 import { getAllMissions } from './missions';
+import { getAllMissionsWithProgress } from './missionHelpers';
 import { getAutomationFilters } from './getAutomationFilters';
 import { getFilteredUnclearedMissions } from './missionQueries';
 
@@ -17,7 +18,8 @@ export async function getMissionStats(): Promise<{
 	todayCleared: number; // Missions cleared today
 }> {
 	const missions = await getAllMissions();
-	const missionArray = Object.values(missions);
+	const missionsWithProgress = await getAllMissionsWithProgress();
+	const missionArray = Object.values(missionsWithProgress);
 
 	// Get current filters from storage (with defaults initialization)
 	const currentFilters = await getAutomationFilters();
@@ -38,7 +40,7 @@ export async function getMissionStats(): Promise<{
 
 	return {
 		queued,
-		total: missionArray.length,
+		total: Object.keys(missions).length,
 		cleared,
 		uncleared,
 		todayCleared,
