@@ -224,6 +224,18 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			}
 			break;
 
+		case 'FETCH_REDDIT_USERNAME':
+			// Migration requesting username from Reddit context
+			redditLogger.log('[FETCH_REDDIT_USERNAME] Fetching username for migration');
+			(async () => {
+				const { getCurrentRedditUser } = await import('../../lib/reddit/userDetection');
+				const username = await getCurrentRedditUser();
+				redditLogger.log('[FETCH_REDDIT_USERNAME] Username fetched:', username);
+				sendResponse({ success: true, username });
+			})();
+			return true; // Will respond asynchronously
+			break;
+
 		// ============================================================================
 		// Legacy / deprecated handlers
 		// ============================================================================

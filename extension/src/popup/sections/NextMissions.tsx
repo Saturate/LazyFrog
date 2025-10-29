@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, List, Star } from 'lucide-react';
-import { MissionRecord } from '../../types';
+import { MissionRecord } from '../../lib/storage/types';
 
 interface NextMissionsProps {
 	nextMissions: MissionRecord[];

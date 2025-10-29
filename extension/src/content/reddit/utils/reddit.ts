@@ -246,33 +246,36 @@ async function saveScannedMission(level: Level): Promise<void> {
 		const existingMission = await getMission(level.postId);
 
 		// Check if cleared status changed
-		if (existingMission && !existingMission.cleared && level.cleared) {
-			redditLogger.log('Mission cleared status detected - updating database', {
-				postId: level.postId,
-				title: level.title.substring(0, 50),
-			});
+		if (level.cleared) {
+			const { isMissionCleared } = await import('../../../lib/storage/userProgress');
+			const isCleared = await isMissionCleared(level.postId);
 
-			// Mark as cleared in database
-			const { markMissionCleared } = await import('../../../lib/storage/missions');
-			await markMissionCleared(level.postId);
+			if (!isCleared) {
+				redditLogger.log('Mission cleared status detected - updating user progress', {
+					postId: level.postId,
+					title: level.title.substring(0, 50),
+				});
+
+				// Mark as cleared in user progress
+				const { markMissionCleared } = await import('../../../lib/storage/missions');
+				await markMissionCleared(level.postId);
+			}
 		}
 
 		const { normalizeRedditPermalink } = await import('../../../utils/url');
 
 		const record: MissionRecord = {
 			postId: level.postId,
-			username: existingMission?.username || level.author || 'unknown', // Preserve original author
 			timestamp: existingMission?.timestamp || Date.now(), // Preserve original timestamp
-			metadata: existingMission?.metadata || null, // Preserve metadata if exists
-			tags: existingMission?.tags,
+			metadata: existingMission?.metadata || null,
+			tags: existingMission?.tags || undefined,
 			difficulty: level.stars,
 			environment: existingMission?.environment,
-			minLevel: level.levelRangeMin || undefined,
-			maxLevel: level.levelRangeMax || undefined,
-			foodName: existingMission?.foodName || level.title,
-			permalink: level.href ? normalizeRedditPermalink(level.href) : undefined,
-			cleared: level.cleared || false,
-			clearedAt: existingMission?.clearedAt, // Preserve clearedAt timestamp
+			minLevel: level.levelRangeMin || 1,
+			maxLevel: level.levelRangeMax || 340,
+			missionTitle: level.title,
+			foodName: existingMission?.foodName,
+			permalink: level.href ? normalizeRedditPermalink(level.href) : '',
 		};
 
 		await saveMission(record);

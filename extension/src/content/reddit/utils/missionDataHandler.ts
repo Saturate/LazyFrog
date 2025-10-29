@@ -69,18 +69,15 @@ async function saveMissionFromAPI(data: MissionData): Promise<void> {
 
 		const record: MissionRecord = {
 			postId: data.postId,
-			username: existingMission?.username || data.authorName || 'unknown',
 			timestamp: existingMission?.timestamp || Date.now(),
-			metadata: existingMission?.metadata || null,
-			tags: existingMission?.tags,
-			difficulty: data.difficulty,
-			environment: data.environment,
 			minLevel: data.minLevel,
 			maxLevel: data.maxLevel,
-			foodName: data.foodName || data.title || 'Unknown Mission',
+			missionTitle: data.foodName || data.title || `Mission ${data.postId}`,
+			metadata: existingMission?.metadata,
+			difficulty: data.difficulty,
+			environment: data.environment as any,
+			foodName: data.foodName,
 			permalink: (await import('../../../utils/url')).normalizeRedditPermalink(data.postId),
-			cleared: existingMission?.cleared || false,
-			clearedAt: existingMission?.clearedAt,
 		};
 
 		await saveMission(record);

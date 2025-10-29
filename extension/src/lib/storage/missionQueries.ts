@@ -2,8 +2,9 @@
  * Mission query and filtering functions
  */
 
-import { MissionRecord, AutomationFilters } from './types';
+import { MissionRecord } from './types';
 import { getAllMissions } from './missions';
+import { getAllUserProgress } from './userProgress';
 
 /**
  * Get mission count
@@ -61,7 +62,8 @@ export async function getFilteredUnclearedMissions(filters?: {
 	minLevel?: number;
 	maxLevel?: number;
 }): Promise<MissionRecord[]> {
-	const missions = await getAllMissions();
+	// Get missions and progress separately
+	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
 
 	// Check if all star difficulties are selected OR if no star filter is provided
 	const allStarsSelected =
@@ -70,8 +72,8 @@ export async function getFilteredUnclearedMissions(filters?: {
 
 	let unclearedMissions = Object.values(missions).filter(
 		(m) =>
-			!m.cleared &&
-			!m.disabled &&
+			!progress.cleared.includes(m.postId) &&
+			!progress.disabled.includes(m.postId) &&
 			m.minLevel !== undefined &&
 			m.maxLevel !== undefined &&
 			// If all stars selected or no star filter, include missions with null difficulty
@@ -138,7 +140,6 @@ export async function getNextUnclearedMission(filters?: {
 		excludePostIds: filters?.excludePostIds,
 		firstFew: unclearedMissions.slice(0, 3).map((m) => ({
 			postId: m.postId,
-			cleared: m.cleared,
 			title: m.missionTitle?.substring(0, 30),
 		})),
 	});
@@ -153,7 +154,6 @@ export async function getNextUnclearedMission(filters?: {
 		nextMission: filteredMissions[0]
 			? {
 					postId: filteredMissions[0].postId,
-					cleared: filteredMissions[0].cleared,
 					title: filteredMissions[0].missionTitle?.substring(0, 30),
 				}
 			: null,
@@ -181,8 +181,8 @@ export async function getNextMissions(
  * Get all uncleared missions
  */
 export async function getUnclearedMissions(): Promise<MissionRecord[]> {
-	const missions = await getAllMissions();
+	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
 	return Object.values(missions)
-		.filter((m) => !m.cleared && !m.disabled)
+		.filter((m) => !progress.cleared.includes(m.postId) && !progress.disabled.includes(m.postId))
 		.sort((a, b) => a.timestamp - b.timestamp); // Oldest first
 }

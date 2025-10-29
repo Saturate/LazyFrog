@@ -237,7 +237,7 @@ function formatAbilityChoice(enc: any): string {
 
 	// Format as bullet list with proper line breaks
 	// Using two spaces + newline for markdown line breaks
-	return `${enchanted}• ${abilities.join('  \n• ')}`;
+	return `${enchanted}• ${abilities.join(' • ')}`;
 }
 
 /**

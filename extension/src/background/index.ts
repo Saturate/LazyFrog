@@ -12,6 +12,8 @@ import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
 import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions';
+import { needsMigration, migrateToSeparateProgress } from '../lib/storage/migrate';
+import { getCurrentRedditUser } from '../lib/reddit/userDetection';
 import { STORAGE_PROPAGATION_DELAY, INITIAL_RETRY_DELAY, RETRY_BACKOFF_BASE } from '../constants/timing';
 
 // ============================================================================
@@ -481,29 +483,52 @@ async function handleMessage(
 				break;
 			}
 
-			// Get automation config and filters from storage
-			chrome.storage.local.get(['automationConfig', 'automationFilters'], (result) => {
-				const filters = result.automationFilters;
+			// Detect current Reddit user first (will be cached for subsequent calls)
+			getCurrentRedditUser()
+				.then((username) => {
+					extensionLogger.log('[UserDetection] Current user:', username);
 
-				extensionLogger.log('START_BOT: Sending START_BOT event to state machine');
+					// Get automation config and filters from storage
+					chrome.storage.local.get(['automationConfig', 'automationFilters'], (result) => {
+						const filters = result.automationFilters;
 
-				// Send START_BOT event to state machine
-				sendToStateMachine({
-					type: 'START_BOT',
+						extensionLogger.log('START_BOT: Sending START_BOT event to state machine');
+
+						// Send START_BOT event to state machine
+						sendToStateMachine({
+							type: 'START_BOT',
+						});
+
+						// Keep old activeBotSession flag for backwards compat
+						chrome.storage.local.set({
+							activeBotSession: true,
+							automationConfig: result.automationConfig || {},
+							automationFilters: filters,
+						});
+
+						extensionLogger.log('START_BOT: Calling findAndSendNextMission');
+
+						// Find first mission directly
+						findAndSendNextMission();
+					});
+				})
+				.catch((error) => {
+					extensionLogger.error('[UserDetection] Failed to detect user on START_BOT:', error);
+					// Continue anyway with "default" user
+					chrome.storage.local.get(['automationConfig', 'automationFilters'], (result) => {
+						const filters = result.automationFilters;
+
+						sendToStateMachine({ type: 'START_BOT' });
+
+						chrome.storage.local.set({
+							activeBotSession: true,
+							automationConfig: result.automationConfig || {},
+							automationFilters: filters,
+						});
+
+						findAndSendNextMission();
+					});
 				});
-
-				// Keep old activeBotSession flag for backwards compat
-				chrome.storage.local.set({
-					activeBotSession: true,
-					automationConfig: result.automationConfig || {},
-					automationFilters: filters,
-				});
-
-				extensionLogger.log('START_BOT: Calling findAndSendNextMission');
-
-				// Find first mission directly
-				findAndSendNextMission();
-			});
 
 			sendResponse({ success: true });
 			break;
@@ -858,5 +883,35 @@ if (chrome.runtime.onSuspend) {
 		cleanup();
 	});
 }
+
+// ============================================================================
+// Storage Migration and User Detection (Check on startup)
+// ============================================================================
+
+async function initializeExtension() {
+	try {
+		// Detect current user first (will be cached)
+		const username = await getCurrentRedditUser();
+		extensionLogger.log('[UserDetection] Extension loaded, current user:', username);
+	} catch (error) {
+		extensionLogger.error('[UserDetection] Failed to detect user on load:', error);
+	}
+
+	try {
+		const needsToMigrate = await needsMigration();
+		if (needsToMigrate) {
+			extensionLogger.log('[Migration] Storage migration needed, starting migration...');
+			const result = await migrateToSeparateProgress();
+			extensionLogger.log('[Migration] Migration completed', result);
+		} else {
+			extensionLogger.log('[Migration] No migration needed');
+		}
+	} catch (error) {
+		extensionLogger.error('[Migration] Migration check failed', { error: String(error) });
+	}
+}
+
+// Run initialization on startup
+initializeExtension();
 
 extensionLogger.log('Sword & Supper Bot background script loaded');

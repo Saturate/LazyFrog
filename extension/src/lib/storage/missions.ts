@@ -3,6 +3,7 @@
  */
 
 import { MissionRecord, STORAGE_KEYS } from './types';
+import * as userProgressOps from './userProgress';
 
 /**
  * Save a mission to storage
@@ -146,175 +147,37 @@ export async function clearAllMissions(): Promise<void> {
 
 /**
  * Mark all missions as incomplete (cleared = false, remove clearedAt)
+ * Now delegates to userProgress to clear all progress data
  */
 export async function markAllMissionsIncomplete(): Promise<void> {
-	return new Promise((resolve, reject) => {
-		// Check if extension context is still valid
-		if (!chrome.runtime?.id) {
-			reject(new Error('Extension context invalidated'));
-			return;
-		}
-
-		chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
-			if (chrome.runtime.lastError) {
-				reject(chrome.runtime.lastError);
-				return;
-			}
-
-			const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
-
-			// No missions stored – nothing to do
-			if (!missions || Object.keys(missions).length === 0) {
-				resolve();
-				return;
-			}
-
-			for (const postId of Object.keys(missions)) {
-				const mission = missions[postId];
-				if (mission) {
-					mission.cleared = false;
-					// Remove timestamp to avoid misleading stats of recently cleared
-					if ('clearedAt' in mission) {
-						delete mission.clearedAt;
-					}
-				}
-			}
-
-			chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
-				if (chrome.runtime.lastError) {
-					reject(chrome.runtime.lastError);
-				} else {
-					resolve();
-				}
-			});
-		});
-	});
+	return userProgressOps.clearAllUserProgress();
 }
 
 /**
  * Mark a mission as cleared
+ * Now delegates to userProgress storage
  */
 export async function markMissionCleared(postId: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		// Check if extension context is still valid
-		if (!chrome.runtime?.id) {
-			reject(new Error('Extension context invalidated'));
-			return;
-		}
-
-		chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
-			// Check for errors on get
-			if (chrome.runtime.lastError) {
-				reject(chrome.runtime.lastError);
-				return;
-			}
-
-			const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
-
-			if (missions[postId]) {
-				missions[postId].cleared = true;
-				missions[postId].clearedAt = Date.now();
-
-				chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
-					if (chrome.runtime.lastError) {
-						reject(chrome.runtime.lastError);
-					} else {
-						resolve();
-					}
-				});
-			} else {
-				reject(new Error(`Mission ${postId} not found`));
-			}
-		});
-	});
+	return userProgressOps.markMissionCleared(postId);
 }
 
 /**
  * Accumulate loot from an encounter to mission's total loot
+ * Now delegates to userProgress storage
  */
 export async function accumulateMissionLoot(
 	postId: string,
 	encounterLoot: Array<{ id: string; quantity: number }>,
 ): Promise<void> {
-	return new Promise((resolve, reject) => {
-		// Check if extension context is still valid
-		if (!chrome.runtime?.id) {
-			reject(new Error('Extension context invalidated'));
-			return;
-		}
-
-		chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
-			// Check for errors on get
-			if (chrome.runtime.lastError) {
-				reject(chrome.runtime.lastError);
-				return;
-			}
-
-			const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
-
-			if (missions[postId]) {
-				// Initialize totalLoot if not present
-				if (!missions[postId].totalLoot) {
-					missions[postId].totalLoot = [];
-				}
-
-				// Accumulate loot by combining quantities for same items
-				encounterLoot.forEach((newItem) => {
-					const existingItem = missions[postId].totalLoot!.find((item) => item.id === newItem.id);
-					if (existingItem) {
-						existingItem.quantity += newItem.quantity;
-					} else {
-						missions[postId].totalLoot!.push({ ...newItem });
-					}
-				});
-
-				chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
-					if (chrome.runtime.lastError) {
-						reject(chrome.runtime.lastError);
-					} else {
-						resolve();
-					}
-				});
-			} else {
-				reject(new Error(`Mission ${postId} not found`));
-			}
-		});
-	});
+	return userProgressOps.accumulateMissionLoot(postId, encounterLoot);
 }
 
 /**
  * Set mission disabled state (skipped by automation when disabled)
+ * Now delegates to userProgress storage
  */
 export async function setMissionDisabled(postId: string, disabled: boolean): Promise<void> {
-	return new Promise((resolve, reject) => {
-		if (!chrome.runtime?.id) {
-			reject(new Error('Extension context invalidated'));
-			return;
-		}
-
-		chrome.storage.local.get([STORAGE_KEYS.MISSIONS], (result) => {
-			if (chrome.runtime.lastError) {
-				reject(chrome.runtime.lastError);
-				return;
-			}
-
-			const missions: Record<string, MissionRecord> = result[STORAGE_KEYS.MISSIONS] || {};
-			if (!missions[postId]) {
-				reject(new Error(`Mission ${postId} not found`));
-				return;
-			}
-
-			missions[postId].disabled = disabled;
-
-			chrome.storage.local.set({ [STORAGE_KEYS.MISSIONS]: missions }, () => {
-				if (chrome.runtime.lastError) {
-					reject(chrome.runtime.lastError);
-				} else {
-					resolve();
-				}
-			});
-		});
-	});
+	return userProgressOps.setMissionDisabled(postId, disabled);
 }
 
 /**

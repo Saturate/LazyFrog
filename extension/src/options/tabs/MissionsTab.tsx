@@ -6,18 +6,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link } from 'lucide-react';
 import { getAllMissions, importMissions } from '../../lib/storage/missions';
+import { getAllUserProgress } from '../../lib/storage/userProgress';
 import { MissionRecord } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
+import { exportMissionsForDB } from '../../utils/exportMissionsForDB';
 import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
 
 interface SortConfig {
-	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'username';
+	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'author';
 	direction: 'asc' | 'desc';
 }
 
 const MissionsTab: React.FC = () => {
 	const [missions, setMissions] = useState<MissionRecord[]>([]);
 	const [filteredMissions, setFilteredMissions] = useState<MissionRecord[]>([]);
+	const [clearedPostIds, setClearedPostIds] = useState<string[]>([]);
+	const [disabledPostIds, setDisabledPostIds] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isImportFromUrlsModalOpen, setIsImportFromUrlsModalOpen] = useState(false);
 
@@ -104,10 +108,10 @@ const MissionsTab: React.FC = () => {
 
 		// Filter by cleared status
 		if (!showCompleted) {
-			filtered = filtered.filter((m) => !m.cleared);
+			filtered = filtered.filter((m) => !clearedPostIds.includes(m.postId));
 		}
 		if (!showUncompleted) {
-			filtered = filtered.filter((m) => m.cleared);
+			filtered = filtered.filter((m) => clearedPostIds.includes(m.postId));
 		}
 
 		// Filter by difficulty
@@ -152,9 +156,10 @@ const MissionsTab: React.FC = () => {
 			filtered = filtered.filter((m) => {
 				return (
 					m.foodName?.toLowerCase().includes(query) ||
-					m.username?.toLowerCase().includes(query) ||
+					m.missionTitle?.toLowerCase().includes(query) ||
 					m.environment?.toLowerCase().includes(query) ||
-					m.postId?.toLowerCase().includes(query)
+					m.postId?.toLowerCase().includes(query) ||
+					m.metadata?.missionAuthorName?.toLowerCase().includes(query)
 				);
 			});
 		}
@@ -181,9 +186,9 @@ const MissionsTab: React.FC = () => {
 					aVal = a.foodName || '';
 					bVal = b.foodName || '';
 					break;
-				case 'username':
-					aVal = a.username || '';
-					bVal = b.username || '';
+				case 'author':
+					aVal = a.metadata?.missionAuthorName || '';
+					bVal = b.metadata?.missionAuthorName || '';
 					break;
 				default:
 					aVal = a.timestamp || 0;
@@ -198,6 +203,7 @@ const MissionsTab: React.FC = () => {
 		setFilteredMissions(filtered);
 	}, [
 		missions,
+		clearedPostIds,
 		showCompleted,
 		showUncompleted,
 		difficultyFilter,
@@ -210,7 +216,7 @@ const MissionsTab: React.FC = () => {
 
 	// Calculate stats when missions change
 	useEffect(() => {
-		const cleared = missions.filter((m) => m.cleared).length;
+		const cleared = clearedPostIds.length;
 		const byDifficulty: Record<number, number> = {};
 
 		missions.forEach((m) => {
@@ -224,12 +230,14 @@ const MissionsTab: React.FC = () => {
 			uncleared: missions.length - cleared,
 			byDifficulty,
 		});
-	}, [missions]);
+	}, [missions, clearedPostIds]);
 
 	const loadMissions = async () => {
-		const allMissions = await getAllMissions();
+		const [allMissions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
 		const missionArray = Object.values(allMissions);
 		setMissions(missionArray);
+		setClearedPostIds(progress.cleared);
+		setDisabledPostIds(progress.disabled);
 	};
 
 	const handleImport = () => {
@@ -266,37 +274,27 @@ const MissionsTab: React.FC = () => {
 	};
 
 	const handleExport = () => {
-		// Generate markdown for all missions
-		let markdown = `# Sword & Supper Missions Export\n\n`;
-		markdown += `Generated: ${new Date().toLocaleDateString()}\n\n`;
-		markdown += `Total Missions: ${missions.length}\n`;
-		markdown += `Cleared: ${stats.cleared}\n`;
-		markdown += `Uncleared: ${stats.uncleared}\n\n`;
-		markdown += `---\n\n`;
-
-		// Add each mission
+		// Export missions as JSON in the same format as db/missions.json
+		const missionsExport: Record<string, any> = {};
 		missions.forEach((mission) => {
-			const missionMarkdown = generateMissionMarkdown(mission);
-			if (missionMarkdown) {
-				markdown += missionMarkdown + '\n\n';
-			} else {
-				// Fallback for missions without full metadata
-				markdown += `### ${mission.foodName || 'Unknown Mission'}\n`;
-				markdown += `**Status:** ${mission.cleared ? 'Cleared' : 'Pending'}\n`;
-				markdown += `**Difficulty:** ${'⭐'.repeat(mission.difficulty || 0)}\n`;
-				markdown += `**Level:** ${mission.minLevel}-${mission.maxLevel}\n`;
-				markdown += `**Environment:** ${mission.environment || 'Unknown'}\n`;
-				markdown += `**Link:** ${mission.permalink}\n\n`;
-			}
+			missionsExport[mission.postId] = mission;
 		});
 
-		const blob = new Blob([markdown], { type: 'text/markdown' });
+		const json = JSON.stringify(missionsExport, null, 2);
+		const blob = new Blob([json], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `missions-${Date.now()}.md`;
+		a.download = `missions-${Date.now()}.json`;
 		a.click();
 		URL.revokeObjectURL(url);
+	};
+
+	const handleExportForDB = () => {
+		const count = exportMissionsForDB(missions);
+		if (count > 0) {
+			alert(`Exported ${count} missions with metadata for database.`);
+		}
 	};
 
 	const handleSort = (field: SortConfig['field']) => {
@@ -394,6 +392,14 @@ const MissionsTab: React.FC = () => {
 					>
 						<Download size={16} />
 						Export
+					</button>
+					<button
+						onClick={handleExportForDB}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						<Download size={16} />
+						Export for DB
 					</button>
 				</div>
 				{/* Hidden file input */}
@@ -632,6 +638,23 @@ const MissionsTab: React.FC = () => {
 												(sortConfig.direction === 'asc' ? '↑' : '↓')}
 										</th>
 										<th
+											onClick={() => handleSort('author')}
+											style={{
+												padding: '16px',
+												textAlign: 'left',
+												fontSize: '13px',
+												fontWeight: '600',
+												color: '#a1a1aa',
+												cursor: 'pointer',
+												userSelect: 'none',
+												background: sortConfig.field === 'author' ? '#171717' : 'transparent',
+											}}
+										>
+											Author{' '}
+											{sortConfig.field === 'author' &&
+												(sortConfig.direction === 'asc' ? '↑' : '↓')}
+										</th>
+										<th
 											onClick={() => handleSort('difficulty')}
 											style={{
 												padding: '16px',
@@ -699,23 +722,6 @@ const MissionsTab: React.FC = () => {
 											Environment
 										</th>
 										<th
-											onClick={() => handleSort('username')}
-											style={{
-												padding: '16px',
-												textAlign: 'left',
-												fontSize: '13px',
-												fontWeight: '600',
-												color: '#a1a1aa',
-												cursor: 'pointer',
-												userSelect: 'none',
-												background: sortConfig.field === 'username' ? '#171717' : 'transparent',
-											}}
-										>
-											Author{' '}
-											{sortConfig.field === 'username' &&
-												(sortConfig.direction === 'asc' ? '↑' : '↓')}
-										</th>
-										<th
 											style={{
 												padding: '16px',
 												textAlign: 'left',
@@ -745,7 +751,7 @@ const MissionsTab: React.FC = () => {
 											key={mission.postId}
 											style={{
 												borderBottom: '1px solid #1a1a1a',
-												opacity: mission.cleared ? 0.6 : 1,
+												opacity: clearedPostIds.includes(mission.postId) ? 0.6 : 1,
 												transition: 'background 0.2s',
 											}}
 											onMouseEnter={(e) => (e.currentTarget.style.background = '#171717')}
@@ -770,6 +776,9 @@ const MissionsTab: React.FC = () => {
 												>
 													{mission.foodName || 'Unknown'}
 												</a>
+											</td>
+											<td style={{ padding: '14px 16px', fontSize: '13px', color: '#a1a1aa' }}>
+												{mission.metadata?.missionAuthorName || 'N/A'}
 											</td>
 											<td style={{ padding: '14px 16px', fontSize: '16px', color: '#eab308' }}>
 												{mission.difficulty ? (
@@ -813,31 +822,14 @@ const MissionsTab: React.FC = () => {
 												)}
 											</td>
 											<td style={{ padding: '14px 16px', textAlign: 'center' }}>
-												{mission.totalLoot && mission.totalLoot.length > 0 ? (
-													<span
-														title={mission.totalLoot
-															.map(
-																(item) =>
-																	`${item.quantity}× ${item.id.replace(/([A-Z])/g, ' $1').trim()}`,
-															)
-															.join(', ')}
-														className="rewards-icon"
-													>
-														🎁
-													</span>
-												) : (
-													<span title="No rewards captured" className="no-rewards">
-														—
-													</span>
-												)}
-											</td>
-											<td style={{ padding: '14px 16px', fontSize: '13px', color: '#a1a1aa' }}>
-												{mission.username || 'N/A'}
+												<span title="Loot data not displayed in list view" className="no-rewards">
+													—
+												</span>
 											</td>
 											<td style={{ padding: '14px 16px' }}>
-												{mission.disabled ? (
+												{disabledPostIds.includes(mission.postId) ? (
 													<span className="status-badge disabled">Disabled</span>
-												) : mission.cleared ? (
+												) : clearedPostIds.includes(mission.postId) ? (
 													<span className="status-badge completed">
 														<Check size={14} />
 														Cleared
@@ -872,17 +864,18 @@ const MissionsTab: React.FC = () => {
 													className="button"
 													onClick={async () => {
 														const { setMissionDisabled } = await import(
-															'../../lib/storage/missions'
+															'../../lib/storage/userProgress'
 														);
-														await setMissionDisabled(mission.postId, !mission.disabled);
-														setMissions((prev) =>
-															prev.map((m) =>
-																m.postId === mission.postId ? { ...m, disabled: !m.disabled } : m,
-															),
-														);
+														const isDisabled = disabledPostIds.includes(mission.postId);
+														await setMissionDisabled(mission.postId, !isDisabled);
+														if (isDisabled) {
+															setDisabledPostIds((prev) => prev.filter((id) => id !== mission.postId));
+														} else {
+															setDisabledPostIds((prev) => [...prev, mission.postId]);
+														}
 													}}
 												>
-													{mission.disabled ? 'Enable' : 'Disable'}
+													{disabledPostIds.includes(mission.postId) ? 'Enable' : 'Disable'}
 												</button>
 											</td>
 										</tr>

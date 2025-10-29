@@ -110,13 +110,8 @@ export class GameInstanceAutomationEngine {
 				? `https://www.reddit.com/r/SwordAndSupperGame/comments/${postId.slice(3)}/`
 				: undefined;
 
-			// Use mission author from metadata if available, otherwise use the provided username
-			// When enriching, preserve the original author from existing mission
-			const missionAuthor = existingMission?.username || metadata.missionAuthorName || username;
-
 			const record: MissionRecord = {
 				postId,
-				username: missionAuthor,
 				timestamp: existingMission?.timestamp || Date.now(), // Keep original timestamp if updating
 				metadata,
 				tags,
@@ -126,8 +121,7 @@ export class GameInstanceAutomationEngine {
 				maxLevel: mission.maxLevel,
 				missionTitle: metadata.missionTitle,
 				foodName: mission.foodName,
-				permalink,
-				cleared: existingMission?.cleared || false, // Preserve cleared status
+				permalink: permalink || '',
 			};
 
 			await saveMission(record);
