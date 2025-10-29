@@ -87,18 +87,15 @@ export async function importFromUrls(options: ImportFromUrlsOptions): Promise<Im
 				continue;
 			}
 
-			// Create mission record
+			// Create mission record with only required fields
+			// Data will be enriched when the mission is actually played
 			const mission: MissionRecord = {
 				postId,
-				username: 'unknown',
 				timestamp: Date.now(),
-				metadata: null,
-				difficulty: undefined,
 				minLevel: options.minLevel,
 				maxLevel: options.maxLevel,
-				foodName: `Mission ${postId.slice(3)}`,
+				missionTitle: `Mission ${postId.slice(3)}`,
 				permalink: normalizeRedditPermalink(postId.slice(3)),
-				cleared: false,
 			};
 
 			missionsToSave.push(mission);
