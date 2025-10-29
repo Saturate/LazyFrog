@@ -9,6 +9,7 @@ import { getAllMissions, importMissions } from '../../lib/storage/missions';
 import { getAllUserProgress } from '../../lib/storage/userProgress';
 import { MissionRecord } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
+import { exportMissionsForDB } from '../../utils/exportMissionsForDB';
 import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
 
 interface SortConfig {
@@ -307,6 +308,13 @@ const MissionsTab: React.FC = () => {
 		URL.revokeObjectURL(url);
 	};
 
+	const handleExportForDB = () => {
+		const count = exportMissionsForDB(missions);
+		if (count > 0) {
+			alert(`Exported ${count} missions with metadata for database.`);
+		}
+	};
+
 	const handleSort = (field: SortConfig['field']) => {
 		setSortConfig((prev) => ({
 			field,
@@ -402,6 +410,14 @@ const MissionsTab: React.FC = () => {
 					>
 						<Download size={16} />
 						Export
+					</button>
+					<button
+						onClick={handleExportForDB}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						<Download size={16} />
+						Export for DB
 					</button>
 				</div>
 				{/* Hidden file input */}
