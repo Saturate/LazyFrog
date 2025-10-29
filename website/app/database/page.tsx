@@ -17,6 +17,7 @@ const INITIAL_FILTERS: DatabaseFilters = {
   maxLevel: 1000,
   environments: [],
   encounterTypes: [],
+  rarities: [],
   hasMiniboss: null,
 };
 

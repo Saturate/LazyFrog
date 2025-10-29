@@ -7,6 +7,7 @@ import {
   Environment,
 } from "@lazyfrog/types";
 import type { ApexOptions } from "apexcharts";
+import { Star } from "lucide-react";
 
 // Dynamically import ReactApexChart to avoid SSR issues
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
@@ -61,6 +62,14 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
     return acc;
   }, {} as Record<number, number>);
 
+  // Level range distribution - group by 20 level brackets
+  const byLevelRange = missions.reduce((acc, mission) => {
+    const bracket = Math.floor(mission.minLevel / 20) * 20;
+    const label = `${bracket + 1}-${bracket + 20}`;
+    acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   const lastUpdated =
     missions.length > 0
       ? new Date(
@@ -79,29 +88,26 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
         ).toFixed(1)
       : "0";
 
-  // Environment colors
-  const environmentColors: Record<Environment, string> = {
-    haunted_forest: "#8b5cf6",
-    new_eden: "#10b981",
-    wild_west: "#f59e0b",
-    jungle: "#22c55e",
-    desert: "#eab308",
-    tundra: "#06b6d4",
-    underwater: "#3b82f6",
-    mountains: "#6366f1",
-  };
+  // Prepare environment chart data from scratch - only include existing data
+  const environmentData = Object.entries(byEnvironment)
+    .filter(([_, count]) => count > 0)
+    .map(([env, count]) => ({
+      environment: env as Environment,
+      label: ENVIRONMENT_LABELS[env as Environment] || env,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
 
-  // Prepare environment chart data
-  const environmentEntries = Object.entries(byEnvironment).sort(
-    (a, b) => b[1] - a[1]
-  );
-  const environmentSeries = environmentEntries.map(([_, count]) => count);
-  const environmentLabels = environmentEntries.map(
-    ([env]) => ENVIRONMENT_LABELS[env as Environment]
-  );
-  const environmentChartColors = environmentEntries.map(
-    ([env]) => environmentColors[env as Environment]
-  );
+  const environmentColorPalette = [
+    "#10b981", // emerald
+    "#3b82f6", // blue
+    "#8b5cf6", // violet
+    "#f59e0b", // amber
+    "#ec4899", // pink
+    "#06b6d4", // cyan
+    "#84cc16", // lime
+    "#f97316", // orange
+  ];
 
   const environmentOptions: ApexOptions = {
     chart: {
@@ -109,42 +115,27 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
       background: "transparent",
       fontFamily: "inherit",
     },
-    labels: environmentLabels,
-    colors: environmentChartColors,
+    labels: environmentData.map(d => d.label),
+    colors: environmentColorPalette.slice(0, environmentData.length),
     legend: {
       position: "right",
       fontSize: "13px",
       fontWeight: 500,
+      offsetX: -20,
       offsetY: 0,
-      height: 230,
+      itemMargin: {
+        vertical: 3,
+      },
+      labels: {
+        colors: "#9ca3af",
+      },
     },
     plotOptions: {
       pie: {
         donut: {
           size: "70%",
           labels: {
-            show: true,
-            name: {
-              show: true,
-              fontSize: "16px",
-              fontWeight: 600,
-              offsetY: -10,
-            },
-            value: {
-              show: true,
-              fontSize: "28px",
-              fontWeight: "bold",
-              offsetY: 10,
-              formatter: (val) => val.toString(),
-            },
-            total: {
-              show: true,
-              label: "Total Missions",
-              fontSize: "14px",
-              fontWeight: "normal",
-              color: "#6b7280",
-              formatter: () => totalMissions.toLocaleString(),
-            },
+            show: false,
           },
         },
       },
@@ -153,21 +144,12 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
       enabled: false,
     },
     stroke: {
-      width: 2,
-      colors: ["#fff"],
-    },
-    states: {
-      hover: {
-        filter: {
-          type: "lighten",
-          value: 0.15,
-        },
-      },
+      width: 0,
     },
     tooltip: {
       y: {
         formatter: (val) =>
-          `${val} missions (${((val / totalMissions) * 100).toFixed(1)}%)`,
+          `${val} (${((val / totalMissions) * 100).toFixed(1)}%)`,
       },
     },
   };
@@ -178,8 +160,7 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
   );
   const difficultySeries = difficultyEntries.map(([_, count]) => count);
   const difficultyLabels = difficultyEntries.map(([diff]) => {
-    const stars = "⭐".repeat(parseInt(diff));
-    return `${stars}`;
+    return `${diff} Star${parseInt(diff) > 1 ? 's' : ''}`;
   });
   const difficultyColors = [
     "#ef4444",
@@ -201,44 +182,25 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
       position: "right",
       fontSize: "13px",
       fontWeight: 500,
+      offsetX: -20,
       offsetY: 0,
-      height: 200,
+      itemMargin: {
+        vertical: 3,
+      },
       formatter: (seriesName, opts) => {
         const val = opts.w.globals.series[opts.seriesIndex];
-        const stars = seriesName;
-        const starCount = opts.seriesIndex + 1;
-        return `${stars} (${starCount} star${
-          starCount > 1 ? "s" : ""
-        }) - ${val}`;
+        return `${seriesName} - ${val}`;
+      },
+      labels: {
+        colors: "#9ca3af",
       },
     },
     plotOptions: {
       pie: {
         donut: {
-          size: "50%",
+          size: "70%",
           labels: {
-            show: true,
-            name: {
-              show: true,
-              fontSize: "16px",
-              fontWeight: 600,
-              offsetY: -10,
-            },
-            value: {
-              show: true,
-              fontSize: "28px",
-              fontWeight: "bold",
-              offsetY: 10,
-              formatter: (val) => val.toString(),
-            },
-            total: {
-              show: false,
-              label: "Total Missions",
-              fontSize: "14px",
-              fontWeight: "normal",
-              color: "#6b7280",
-              formatter: () => totalMissions.toLocaleString(),
-            },
+            show: false,
           },
         },
       },
@@ -247,21 +209,83 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
       enabled: false,
     },
     stroke: {
-      width: 2,
-      colors: ["#fff"],
-    },
-    states: {
-      hover: {
-        filter: {
-          type: "lighten",
-          value: 0.15,
-        },
-      },
+      width: 0,
     },
     tooltip: {
       y: {
         formatter: (val) =>
-          `${val} missions (${((val / totalMissions) * 100).toFixed(1)}%)`,
+          `${val} (${((val / totalMissions) * 100).toFixed(1)}%)`,
+      },
+    },
+  };
+
+  // Prepare level range chart data
+  const levelRangeData = Object.entries(byLevelRange)
+    .map(([range, count]) => ({
+      range,
+      count,
+      sortKey: parseInt(range.split('-')[0]),
+    }))
+    .sort((a, b) => a.sortKey - b.sortKey);
+
+  const levelRangeColors = [
+    "#22c55e", // green
+    "#84cc16", // lime
+    "#eab308", // yellow
+    "#f59e0b", // amber
+    "#f97316", // orange
+    "#ef4444", // red
+  ];
+
+  const levelRangeOptions: ApexOptions = {
+    chart: {
+      type: "bar",
+      background: "transparent",
+      fontFamily: "inherit",
+      toolbar: {
+        show: false,
+      },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: "70%",
+        borderRadius: 4,
+        distributed: true,
+      },
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    xaxis: {
+      categories: levelRangeData.map(d => d.range),
+      labels: {
+        style: {
+          colors: "#9ca3af",
+          fontSize: "12px",
+        },
+      },
+    },
+    yaxis: {
+      labels: {
+        style: {
+          colors: "#9ca3af",
+          fontSize: "12px",
+        },
+      },
+    },
+    colors: levelRangeColors,
+    legend: {
+      show: false,
+    },
+    grid: {
+      borderColor: "#e5e7eb",
+      strokeDashArray: 4,
+    },
+    tooltip: {
+      y: {
+        formatter: (val) =>
+          `${val} (${((val / totalMissions) * 100).toFixed(1)}%)`,
       },
     },
   };
@@ -306,9 +330,11 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
               <p className="text-amber-100 text-xs font-medium mb-0.5">
                 Average Difficulty
               </p>
-              <p className="text-xl font-bold">
-                {"⭐".repeat(Math.round(parseFloat(avgDifficulty)))}
-              </p>
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: Math.round(parseFloat(avgDifficulty)) }).map((_, i) => (
+                  <Star key={i} className="w-5 h-5 fill-current" />
+                ))}
+              </div>
               <p className="text-amber-100 text-xs mt-0.5">
                 {avgDifficulty} / 5.0
               </p>
@@ -363,7 +389,7 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Environment Distribution */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4">
           <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -372,9 +398,9 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
           </h3>
           <ReactApexChart
             options={environmentOptions}
-            series={environmentSeries}
+            series={environmentData.map(d => d.count)}
             type="donut"
-            height={240}
+            height={200}
           />
         </div>
 
@@ -388,7 +414,21 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
             options={difficultyOptions}
             series={difficultySeries}
             type="donut"
-            height={240}
+            height={200}
+          />
+        </div>
+
+        {/* Level Range Distribution */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4">
+          <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+            <span className="w-1 h-5 bg-blue-500 rounded-full"></span>
+            Level Range Distribution
+          </h3>
+          <ReactApexChart
+            options={levelRangeOptions}
+            series={[{ name: 'Missions', data: levelRangeData.map(d => d.count) }]}
+            type="bar"
+            height={200}
           />
         </div>
       </div>

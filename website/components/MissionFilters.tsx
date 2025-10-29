@@ -1,7 +1,8 @@
-import { Search, X } from 'lucide-react';
+import { Search, X, Star } from 'lucide-react';
 import {
   Environment,
   EncounterType,
+  Rarity,
   ENVIRONMENT_LABELS,
   ENCOUNTER_LABELS,
 } from '@lazyfrog/types';
@@ -13,6 +14,7 @@ export interface DatabaseFilters {
   maxLevel: number;
   environments: Environment[];
   encounterTypes: EncounterType[];
+  rarities: Rarity[];
   hasMiniboss: boolean | null;
 }
 
@@ -66,6 +68,7 @@ export function MissionFilters({ filters, onFiltersChange }: MissionFiltersProps
     filters.maxLevel < 1000 ||
     filters.environments.length > 0 ||
     filters.encounterTypes.length > 0 ||
+    filters.rarities.length > 0 ||
     filters.hasMiniboss !== null;
 
   return (
@@ -110,13 +113,15 @@ export function MissionFilters({ filters, onFiltersChange }: MissionFiltersProps
             <button
               key={star}
               onClick={() => toggleDifficulty(star)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
                 filters.difficulties.includes(star)
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-600'
               }`}
             >
-              {'⭐'.repeat(star)}
+              {Array.from({ length: star }).map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-current" />
+              ))}
             </button>
           ))}
         </div>
@@ -194,6 +199,33 @@ export function MissionFilters({ filters, onFiltersChange }: MissionFiltersProps
               }`}
             >
               {ENCOUNTER_LABELS[type]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Rarity */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          Rarity
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {(['common', 'rare', 'epic', 'legendary', 'mythic'] as Rarity[]).map(rarity => (
+            <button
+              key={rarity}
+              onClick={() => {
+                const newRarities = filters.rarities.includes(rarity)
+                  ? filters.rarities.filter(r => r !== rarity)
+                  : [...filters.rarities, rarity];
+                onFiltersChange({ ...filters, rarities: newRarities });
+              }}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
+                filters.rarities.includes(rarity)
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-600'
+              }`}
+            >
+              {rarity}
             </button>
           ))}
         </div>
