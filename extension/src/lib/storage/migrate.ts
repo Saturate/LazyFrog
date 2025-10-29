@@ -89,12 +89,24 @@ export async function migrateToSeparateProgress(): Promise<{
 			const oldMissions: Record<string, any> = result[STORAGE_KEYS.MISSIONS] || {};
 			const existingUserProgress: any = result[STORAGE_KEYS.USER_PROGRESS] || {};
 
+			// Helper to check if an object matches UserProgressData format (array-based)
+			function isUserProgressData(val: any): boolean {
+				return (
+					val &&
+					typeof val === 'object' &&
+					(
+						Array.isArray(val.cleared) ||
+						Array.isArray(val.disabled) ||
+						(typeof val.clearedAt === 'object' && val.clearedAt !== null) ||
+						(typeof val.loot === 'object' && val.loot !== null)
+					)
+				);
+			}
+
 			// Check if already in multi-user format (nested structure)
-			// Multi-user format: { username: { postId: {...} } }
+			// Multi-user format: { username: UserProgressData }
 			// Old flat format: { postId: {...} } where entries have 'postId' field
-			const isAlreadyMultiUser = Object.values(existingUserProgress).some(
-				(val) => val && typeof val === 'object' && !('postId' in val),
-			);
+			const isAlreadyMultiUser = Object.values(existingUserProgress).some(isUserProgressData);
 
 			// If it's flat format (has postId in entries), convert to multi-user
 			let existingMultiUserProgress: MultiUserProgressDatabase;
