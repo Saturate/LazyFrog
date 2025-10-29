@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { getMissionStats } from '../lib/storage/missionStats';
 import { getNextMissions } from '../lib/storage/missionQueries';
-import { MissionRecord, AutomationFilters } from '../lib/storage/types';
+import { MissionWithProgress, AutomationFilters } from '../lib/storage/types';
 import { getAutomationFilters } from '../lib/storage/getAutomationFilters';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
 import './popup.css';
@@ -70,7 +70,7 @@ const PopupApp: React.FC = () => {
 	// Next missions state
 	const [showNextMissions, setShowNextMissions] = useState(true);
 	const [nextMissionsCount, setNextMissionsCount] = useState(5);
-	const [nextMissions, setNextMissions] = useState<MissionRecord[]>([]);
+	const [nextMissions, setNextMissions] = useState<MissionWithProgress[]>([]);
 	const [showNextMissionsSection, setShowNextMissionsSection] = useState(() => {
 		const saved = localStorage.getItem('popup.showNextMissionsSection');
 		return saved !== null ? JSON.parse(saved) : true;
