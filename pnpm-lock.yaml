@@ -6,6 +6,8 @@ settings:
 
 importers:
 
+  .: {}
+
   db:
     dependencies:
       '@lazyfrog/types':
