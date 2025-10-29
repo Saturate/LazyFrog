@@ -18,12 +18,13 @@ export function exportMissionsForDB(missions: MissionRecord[]): number {
 		return 0;
 	}
 
-	// Create DB format: { postId: MissionMetadata }
+	// Create DB format: { postId: MissionRecord }
+	// Strip extension-specific fields (cleared, clearedAt, disabled, totalLoot)
 	const dbExport: Record<string, any> = {};
 	missionsWithMetadata.forEach((mission) => {
-		if (mission.metadata) {
-			dbExport[mission.postId] = mission.metadata;
-		}
+		// Create a clean copy without extension-specific fields
+		const { cleared, clearedAt, disabled, totalLoot, ...cleanMission } = mission as any;
+		dbExport[mission.postId] = cleanMission;
 	});
 
 	// Export as JSON
