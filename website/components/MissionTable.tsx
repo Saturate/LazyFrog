@@ -84,10 +84,10 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
       if (!missionRarity || !filters.rarities.includes(missionRarity)) return false;
     }
 
-    // Miniboss filter
+    // Miniboss filter (crossroads encounters are miniboss encounters)
     if (filters.hasMiniboss !== null) {
       const hasMiniboss = mission.metadata?.mission?.encounters?.some(
-        e => e.miniboss
+        e => e.type === 'crossroads'
       ) || false;
       if (filters.hasMiniboss !== hasMiniboss) return false;
     }
@@ -166,7 +166,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
         cell: info => {
           const encounters = info.row.original.metadata?.mission?.encounters || [];
           const uniqueTypes = [...new Set(encounters.map(e => e.type))];
-          const hasMiniboss = encounters.some(e => e.miniboss);
+          const hasMiniboss = encounters.some(e => e.type === 'crossroads');
 
           return (
             <div className="group relative">
@@ -428,15 +428,12 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
                           <span className="inline-flex items-center px-2.5 py-1 rounded text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                             {ENCOUNTER_LABELS[encounter.type as EncounterType] || encounter.type}
                           </span>
-                          {encounter.miniboss && (
+                          {encounter.type === 'crossroads' && (
                             <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
                               👑 Miniboss
                             </span>
                           )}
                         </div>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Level {encounter.level}
-                        </span>
                       </div>
                     ))}
                   </div>

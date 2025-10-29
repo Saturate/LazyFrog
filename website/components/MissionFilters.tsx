@@ -57,6 +57,7 @@ export function MissionFilters({ filters, onFiltersChange }: MissionFiltersProps
       maxLevel: 1000,
       environments: [],
       encounterTypes: [],
+      rarities: [],
       hasMiniboss: null,
     });
   };
