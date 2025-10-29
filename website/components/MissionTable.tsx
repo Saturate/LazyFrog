@@ -180,7 +180,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
                       key={type}
                       className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                     >
-                      {ENCOUNTER_LABELS[type as EncounterType]}
+                      {ENCOUNTER_LABELS[type as EncounterType] || type}
                     </span>
                   ))}
                 </div>
@@ -362,7 +362,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
                 </h2>
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                    {ENVIRONMENT_LABELS[selectedMission.environment]}
+                    {ENVIRONMENT_LABELS[selectedMission.environment] || selectedMission.environment || 'Unknown'}
                   </span>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: selectedMission.difficulty }).map((_, i) => (
@@ -426,7 +426,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
                       >
                         <div className="flex items-center gap-3">
                           <span className="inline-flex items-center px-2.5 py-1 rounded text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            {ENCOUNTER_LABELS[encounter.type as EncounterType]}
+                            {ENCOUNTER_LABELS[encounter.type as EncounterType] || encounter.type}
                           </span>
                           {encounter.miniboss && (
                             <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
