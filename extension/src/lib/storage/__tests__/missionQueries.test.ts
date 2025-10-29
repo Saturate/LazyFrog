@@ -299,10 +299,8 @@ describe('Mission Query Functions', () => {
 					missionTitle: 'No Levels',
 					permalink: '/noLevels',
 					difficulty: 2,
-					// Missing minLevel and maxLevel
-					minLevel: undefined,
-					maxLevel: undefined,
-				},
+					// Missing minLevel and maxLevel (optional fields)
+				} as MissionRecord,
 				complete: {
 					postId: 'complete',
 					timestamp: Date.now(),
