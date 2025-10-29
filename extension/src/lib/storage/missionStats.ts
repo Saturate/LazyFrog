@@ -36,17 +36,6 @@ export async function getMissionStats(): Promise<{
 		return clearedAt && clearedAt > oneDayAgo;
 	}).length;
 
-	console.log('[getMissionStats] Stats debug:', {
-		totalMissions: Object.keys(missions).length,
-		cleared,
-		uncleared,
-		todayCleared,
-		sampleCleared: progress.cleared.slice(0, 3).map((postId) => ({
-			postId,
-			clearedAt: progress.clearedAt[postId],
-		})),
-	});
-
 	// Queued missions - use the same logic as mission automation
 	const queuedMissions = await getFilteredUnclearedMissions(currentFilters);
 	const queued = queuedMissions.length;
