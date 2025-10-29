@@ -5,7 +5,7 @@
  */
 
 import { STORAGE_KEYS } from './types';
-import type { MissionRecord, UserProgressDatabase, MultiUserProgressDatabase } from './types';
+import type { MissionRecord, UserProgressData, MultiUserProgressDatabase } from './types';
 
 /**
  * Get cached Reddit username without trying to fetch
@@ -87,21 +87,37 @@ export async function migrateToSeparateProgress(): Promise<{
 			}
 
 			const oldMissions: Record<string, any> = result[STORAGE_KEYS.MISSIONS] || {};
-			const existingMultiUserProgress: MultiUserProgressDatabase =
-				result[STORAGE_KEYS.USER_PROGRESS] || {};
+			const existingUserProgress: any = result[STORAGE_KEYS.USER_PROGRESS] || {};
 
-			// Check if already in multi-user format
-			const isAlreadyMultiUser = Object.values(existingMultiUserProgress).some(
+			// Check if already in multi-user format (nested structure)
+			// Multi-user format: { username: { postId: {...} } }
+			// Old flat format: { postId: {...} } where entries have 'postId' field
+			const isAlreadyMultiUser = Object.values(existingUserProgress).some(
 				(val) => val && typeof val === 'object' && !('postId' in val),
 			);
 
-			const cleanedMissions: Record<string, MissionRecord> = {};
-			const multiUserProgress: MultiUserProgressDatabase = isAlreadyMultiUser
-				? existingMultiUserProgress
-				: {};
+			// If it's flat format (has postId in entries), convert to multi-user
+			let existingMultiUserProgress: MultiUserProgressDatabase;
+			if (!isAlreadyMultiUser && Object.keys(existingUserProgress).length > 0) {
+				// This is old flat format - migrate it to current username
+				console.log('[Migration] Detected flat progress format, converting to multi-user format');
+				existingMultiUserProgress = {
+					[username]: existingUserProgress
+				};
+			} else {
+				existingMultiUserProgress = existingUserProgress;
+			}
 
-			// Get or create current user's progress
-			const userProgress: UserProgressDatabase = multiUserProgress[username] || {};
+			const cleanedMissions: Record<string, MissionRecord> = {};
+			const multiUserProgress: MultiUserProgressDatabase = { ...existingMultiUserProgress };
+
+			// Get or create current user's progress (new array-based format)
+			const userProgress: UserProgressData = multiUserProgress[username] || {
+				cleared: [],
+				disabled: [],
+				clearedAt: {},
+				loot: {},
+			};
 
 			let migrated = 0;
 			let skipped = 0;
@@ -118,14 +134,26 @@ export async function migrateToSeparateProgress(): Promise<{
 					old.totalLoot !== undefined;
 
 				if (hasProgress) {
-					// Create progress record for current user
-					userProgress[postId] = {
-						postId,
-						...(old.cleared !== undefined && { cleared: old.cleared }),
-						...(old.clearedAt !== undefined && { clearedAt: old.clearedAt }),
-						...(old.disabled !== undefined && { disabled: old.disabled }),
-						...(old.totalLoot !== undefined && { totalLoot: old.totalLoot }),
-					};
+					// Add to cleared array if cleared
+					if (old.cleared && !userProgress.cleared.includes(postId)) {
+						userProgress.cleared.push(postId);
+					}
+
+					// Add to disabled array if disabled
+					if (old.disabled && !userProgress.disabled.includes(postId)) {
+						userProgress.disabled.push(postId);
+					}
+
+					// Add clearedAt timestamp
+					if (old.clearedAt !== undefined) {
+						userProgress.clearedAt[postId] = old.clearedAt;
+					}
+
+					// Add loot
+					if (old.totalLoot !== undefined && old.totalLoot.length > 0) {
+						userProgress.loot[postId] = old.totalLoot;
+					}
+
 					migrated++;
 				} else {
 					skipped++;
@@ -170,7 +198,7 @@ export async function needsMigration(): Promise<boolean> {
 			}
 
 			const missions: Record<string, any> = result[STORAGE_KEYS.MISSIONS] || {};
-			const userProgress: UserProgressDatabase = result[STORAGE_KEYS.USER_PROGRESS] || {};
+			const userProgress: MultiUserProgressDatabase = result[STORAGE_KEYS.USER_PROGRESS] || {};
 
 			// If userProgress is empty and missions exist, likely needs migration
 			if (Object.keys(userProgress).length === 0 && Object.keys(missions).length > 0) {

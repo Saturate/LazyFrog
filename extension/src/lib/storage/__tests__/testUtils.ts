@@ -66,6 +66,25 @@ export function createMockChromeStorage() {
 			lastError: null,
 			sendMessage: vi.fn(() => Promise.resolve()),
 		},
+		tabs: {
+			query: vi.fn((query, callback) => {
+				// Return empty tabs array by default (no Reddit tabs open)
+				setTimeout(() => {
+					if (callback) {
+						callback([]);
+					}
+				}, 0);
+				return Promise.resolve([]);
+			}),
+			sendMessage: vi.fn((tabId, message, callback) => {
+				setTimeout(() => {
+					if (callback) {
+						callback();
+					}
+				}, 0);
+				return Promise.resolve();
+			}),
+		},
 	} as any;
 
 	return {

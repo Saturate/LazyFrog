@@ -251,17 +251,13 @@ describe('Mission Query Functions', () => {
 				},
 			};
 
-			// Set up user progress
+			// Set up user progress (new array-based format)
 			const userProgress = {
 				default: {
-					cleared: {
-						postId: 'cleared',
-						cleared: true,
-					},
-					disabled: {
-						postId: 'disabled',
-						disabled: true,
-					},
+					cleared: ['cleared'],
+					disabled: ['disabled'],
+					clearedAt: {},
+					loot: {},
 				},
 			};
 
@@ -303,8 +299,9 @@ describe('Mission Query Functions', () => {
 					missionTitle: 'No Levels',
 					permalink: '/noLevels',
 					difficulty: 2,
-					minLevel: 1,
-					maxLevel: 20,
+					// Missing minLevel and maxLevel
+					minLevel: undefined,
+					maxLevel: undefined,
 				},
 				complete: {
 					postId: 'complete',

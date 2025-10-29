@@ -3,7 +3,7 @@
  */
 
 import { getAllMissions } from './missions';
-import { getAllMissionsWithProgress } from './missionHelpers';
+import { getAllUserProgress } from './userProgress';
 import { getAutomationFilters } from './getAutomationFilters';
 import { getFilteredUnclearedMissions } from './missionQueries';
 
@@ -17,22 +17,35 @@ export async function getMissionStats(): Promise<{
 	uncleared: number; // Uncleared missions
 	todayCleared: number; // Missions cleared today
 }> {
-	const missions = await getAllMissions();
-	const missionsWithProgress = await getAllMissionsWithProgress();
-	const missionArray = Object.values(missionsWithProgress);
+	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
+	const missionArray = Object.values(missions);
 
 	// Get current filters from storage (with defaults initialization)
 	const currentFilters = await getAutomationFilters();
 
 	// Calculate basic stats
-	const cleared = missionArray.filter((m) => m.cleared).length;
-	const uncleared = missionArray.filter((m) => !m.cleared && !m.disabled).length;
+	const cleared = progress.cleared.length;
+	const uncleared = missionArray.filter(
+		(m) => !progress.cleared.includes(m.postId) && !progress.disabled.includes(m.postId),
+	).length;
 
 	// Today's cleared missions (last 24 hours)
 	const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-	const todayCleared = missionArray.filter(
-		(m) => m.cleared && m.clearedAt && m.clearedAt > oneDayAgo,
-	).length;
+	const todayCleared = progress.cleared.filter((postId) => {
+		const clearedAt = progress.clearedAt[postId];
+		return clearedAt && clearedAt > oneDayAgo;
+	}).length;
+
+	console.log('[getMissionStats] Stats debug:', {
+		totalMissions: Object.keys(missions).length,
+		cleared,
+		uncleared,
+		todayCleared,
+		sampleCleared: progress.cleared.slice(0, 3).map((postId) => ({
+			postId,
+			clearedAt: progress.clearedAt[postId],
+		})),
+	});
 
 	// Queued missions - use the same logic as mission automation
 	const queuedMissions = await getFilteredUnclearedMissions(currentFilters);

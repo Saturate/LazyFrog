@@ -14,25 +14,30 @@ interface UserCache {
 /**
  * Get the currently logged-in Reddit username
  * Returns "default" if not logged in or on error
- * Uses cached value if available and fresh
+ * Uses cached value if available (even if expired) in contexts that can't fetch
  */
 export async function getCurrentRedditUser(): Promise<string> {
-	// Check cache first
-	const cached = await getCachedUser();
-	if (cached) {
-		return cached;
+	// Check cache first (including expired cache)
+	const cachedUser = await getCachedUserIncludingExpired();
+	const isCacheFresh = cachedUser ? (Date.now() - cachedUser.timestamp < CACHE_DURATION) : false;
+
+	// If cache is fresh, use it
+	if (isCacheFresh && cachedUser) {
+		return cachedUser.username;
 	}
 
-	// Fetch from Reddit API
+	// Try to fetch from Reddit API (only works in content script context)
 	try {
 		const response = await fetch('https://www.reddit.com/api/me.json', {
 			credentials: 'include',
 		});
 
 		if (!response.ok) {
-			// Not logged in or API error
-			// DON'T cache "default" - just return it
-			// This prevents popup from overwriting the real username cache
+			// Fetch failed - if we have expired cache, use it rather than "default"
+			// This handles popup context where fetch always fails
+			if (cachedUser) {
+				return cachedUser.username;
+			}
 			return 'default';
 		}
 
@@ -43,22 +48,26 @@ export async function getCurrentRedditUser(): Promise<string> {
 			await cacheUser(username);
 			return username;
 		} else {
-			// Invalid response format
-			// DON'T cache "default" - just return it
+			// Invalid response - use expired cache if available
+			if (cachedUser) {
+				return cachedUser.username;
+			}
 			return 'default';
 		}
 	} catch (error) {
-		console.error('[UserDetection] Failed to fetch Reddit user:', error);
-		// On error, use default but DON'T cache it
-		// This allows content scripts with Reddit access to set the real username
+		// Fetch error (e.g., popup context) - use expired cache if available
+		if (cachedUser) {
+			return cachedUser.username;
+		}
 		return 'default';
 	}
 }
 
 /**
- * Get cached username if available and fresh
+ * Get cached user data including expired cache
+ * Returns null only if no cache exists at all
  */
-async function getCachedUser(): Promise<string | null> {
+async function getCachedUserIncludingExpired(): Promise<UserCache | null> {
 	return new Promise((resolve) => {
 		chrome.storage.local.get([STORAGE_KEY], (result) => {
 			if (chrome.runtime.lastError) {
@@ -67,17 +76,7 @@ async function getCachedUser(): Promise<string | null> {
 			}
 
 			const cache: UserCache | undefined = result[STORAGE_KEY];
-			if (!cache) {
-				resolve(null);
-				return;
-			}
-
-			const age = Date.now() - cache.timestamp;
-			if (age < CACHE_DURATION) {
-				resolve(cache.username);
-			} else {
-				resolve(null);
-			}
+			resolve(cache || null);
 		});
 	});
 }

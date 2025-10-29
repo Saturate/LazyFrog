@@ -6,8 +6,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link } from 'lucide-react';
 import { getAllMissions, importMissions } from '../../lib/storage/missions';
-import { getAllMissionsWithProgress } from '../../lib/storage/missionHelpers';
-import { MissionWithProgress } from '../../lib/storage/types';
+import { getAllUserProgress } from '../../lib/storage/userProgress';
+import { MissionRecord } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
 import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
 
@@ -17,8 +17,10 @@ interface SortConfig {
 }
 
 const MissionsTab: React.FC = () => {
-	const [missions, setMissions] = useState<MissionWithProgress[]>([]);
-	const [filteredMissions, setFilteredMissions] = useState<MissionWithProgress[]>([]);
+	const [missions, setMissions] = useState<MissionRecord[]>([]);
+	const [filteredMissions, setFilteredMissions] = useState<MissionRecord[]>([]);
+	const [clearedPostIds, setClearedPostIds] = useState<string[]>([]);
+	const [disabledPostIds, setDisabledPostIds] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isImportFromUrlsModalOpen, setIsImportFromUrlsModalOpen] = useState(false);
 
@@ -105,10 +107,10 @@ const MissionsTab: React.FC = () => {
 
 		// Filter by cleared status
 		if (!showCompleted) {
-			filtered = filtered.filter((m) => !m.cleared);
+			filtered = filtered.filter((m) => !clearedPostIds.includes(m.postId));
 		}
 		if (!showUncompleted) {
-			filtered = filtered.filter((m) => m.cleared);
+			filtered = filtered.filter((m) => clearedPostIds.includes(m.postId));
 		}
 
 		// Filter by difficulty
@@ -200,6 +202,7 @@ const MissionsTab: React.FC = () => {
 		setFilteredMissions(filtered);
 	}, [
 		missions,
+		clearedPostIds,
 		showCompleted,
 		showUncompleted,
 		difficultyFilter,
@@ -212,7 +215,7 @@ const MissionsTab: React.FC = () => {
 
 	// Calculate stats when missions change
 	useEffect(() => {
-		const cleared = missions.filter((m) => m.cleared).length;
+		const cleared = clearedPostIds.length;
 		const byDifficulty: Record<number, number> = {};
 
 		missions.forEach((m) => {
@@ -226,12 +229,14 @@ const MissionsTab: React.FC = () => {
 			uncleared: missions.length - cleared,
 			byDifficulty,
 		});
-	}, [missions]);
+	}, [missions, clearedPostIds]);
 
 	const loadMissions = async () => {
-		const allMissions = await getAllMissionsWithProgress();
+		const [allMissions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
 		const missionArray = Object.values(allMissions);
 		setMissions(missionArray);
+		setClearedPostIds(progress.cleared);
+		setDisabledPostIds(progress.disabled);
 	};
 
 	const handleImport = () => {
@@ -283,8 +288,9 @@ const MissionsTab: React.FC = () => {
 				markdown += missionMarkdown + '\n\n';
 			} else {
 				// Fallback for missions without full metadata
+				const isCleared = clearedPostIds.includes(mission.postId);
 				markdown += `### ${mission.foodName || 'Unknown Mission'}\n`;
-				markdown += `**Status:** ${mission.cleared ? 'Cleared' : 'Pending'}\n`;
+				markdown += `**Status:** ${isCleared ? 'Cleared' : 'Pending'}\n`;
 				markdown += `**Difficulty:** ${'⭐'.repeat(mission.difficulty || 0)}\n`;
 				markdown += `**Level:** ${mission.minLevel}-${mission.maxLevel}\n`;
 				markdown += `**Environment:** ${mission.environment || 'Unknown'}\n`;
@@ -747,7 +753,7 @@ const MissionsTab: React.FC = () => {
 											key={mission.postId}
 											style={{
 												borderBottom: '1px solid #1a1a1a',
-												opacity: mission.cleared ? 0.6 : 1,
+												opacity: clearedPostIds.includes(mission.postId) ? 0.6 : 1,
 												transition: 'background 0.2s',
 											}}
 											onMouseEnter={(e) => (e.currentTarget.style.background = '#171717')}
@@ -818,28 +824,14 @@ const MissionsTab: React.FC = () => {
 												)}
 											</td>
 											<td style={{ padding: '14px 16px', textAlign: 'center' }}>
-												{mission.totalLoot && mission.totalLoot.length > 0 ? (
-													<span
-														title={mission.totalLoot
-															.map(
-																(item) =>
-																	`${item.quantity}× ${item.id.replace(/([A-Z])/g, ' $1').trim()}`,
-															)
-															.join(', ')}
-														className="rewards-icon"
-													>
-														🎁
-													</span>
-												) : (
-													<span title="No rewards captured" className="no-rewards">
-														—
-													</span>
-												)}
+												<span title="Loot data not displayed in list view" className="no-rewards">
+													—
+												</span>
 											</td>
 											<td style={{ padding: '14px 16px' }}>
-												{mission.disabled ? (
+												{disabledPostIds.includes(mission.postId) ? (
 													<span className="status-badge disabled">Disabled</span>
-												) : mission.cleared ? (
+												) : clearedPostIds.includes(mission.postId) ? (
 													<span className="status-badge completed">
 														<Check size={14} />
 														Cleared
@@ -874,17 +866,18 @@ const MissionsTab: React.FC = () => {
 													className="button"
 													onClick={async () => {
 														const { setMissionDisabled } = await import(
-															'../../lib/storage/missions'
+															'../../lib/storage/userProgress'
 														);
-														await setMissionDisabled(mission.postId, !mission.disabled);
-														setMissions((prev) =>
-															prev.map((m) =>
-																m.postId === mission.postId ? { ...m, disabled: !m.disabled } : m,
-															),
-														);
+														const isDisabled = disabledPostIds.includes(mission.postId);
+														await setMissionDisabled(mission.postId, !isDisabled);
+														if (isDisabled) {
+															setDisabledPostIds((prev) => prev.filter((id) => id !== mission.postId));
+														} else {
+															setDisabledPostIds((prev) => [...prev, mission.postId]);
+														}
 													}}
 												>
-													{mission.disabled ? 'Enable' : 'Disable'}
+													{disabledPostIds.includes(mission.postId) ? 'Enable' : 'Disable'}
 												</button>
 											</td>
 										</tr>

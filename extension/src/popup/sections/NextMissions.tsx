@@ -1,9 +1,9 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, List, Star } from 'lucide-react';
-import { MissionWithProgress } from '../../lib/storage/types';
+import { MissionRecord } from '../../lib/storage/types';
 
 interface NextMissionsProps {
-	nextMissions: MissionWithProgress[];
+	nextMissions: MissionRecord[];
 	showSection: boolean;
 	onToggle: () => void;
 }

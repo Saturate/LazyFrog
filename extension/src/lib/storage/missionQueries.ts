@@ -2,9 +2,9 @@
  * Mission query and filtering functions
  */
 
-import { MissionRecord, AutomationFilters, MissionWithProgress } from './types';
+import { MissionRecord } from './types';
 import { getAllMissions } from './missions';
-import { getAllMissionsWithProgress } from './missionHelpers';
+import { getAllUserProgress } from './userProgress';
 
 /**
  * Get mission count
@@ -55,25 +55,25 @@ export async function searchMissions(criteria: {
  * This is the single source of truth for mission filtering across the app.
  *
  * @param filters - Optional filters for stars, minLevel, maxLevel
- * @returns Array of missions with progress that match filters, sorted newest first
+ * @returns Array of missions that match filters, sorted newest first
  */
 export async function getFilteredUnclearedMissions(filters?: {
 	stars?: number[];
 	minLevel?: number;
 	maxLevel?: number;
-}): Promise<MissionWithProgress[]> {
-	// Get missions with progress merged
-	const missionsWithProgress = await getAllMissionsWithProgress();
+}): Promise<MissionRecord[]> {
+	// Get missions and progress separately
+	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
 
 	// Check if all star difficulties are selected OR if no star filter is provided
 	const allStarsSelected =
 		!filters?.stars ||
 		(filters.stars.length === 5 && [1, 2, 3, 4, 5].every((d) => filters.stars!.includes(d)));
 
-	let unclearedMissions = Object.values(missionsWithProgress).filter(
+	let unclearedMissions = Object.values(missions).filter(
 		(m) =>
-			!m.cleared &&
-			!m.disabled &&
+			!progress.cleared.includes(m.postId) &&
+			!progress.disabled.includes(m.postId) &&
 			m.minLevel !== undefined &&
 			m.maxLevel !== undefined &&
 			// If all stars selected or no star filter, include missions with null difficulty
@@ -131,7 +131,7 @@ export async function getNextUnclearedMission(filters?: {
 	minLevel?: number;
 	maxLevel?: number;
 	excludePostIds?: string[];
-}): Promise<MissionWithProgress | null> {
+}): Promise<MissionRecord | null> {
 	const unclearedMissions = await getFilteredUnclearedMissions(filters);
 
 	// Log for debugging
@@ -140,7 +140,6 @@ export async function getNextUnclearedMission(filters?: {
 		excludePostIds: filters?.excludePostIds,
 		firstFew: unclearedMissions.slice(0, 3).map((m) => ({
 			postId: m.postId,
-			cleared: m.cleared,
 			title: m.missionTitle?.substring(0, 30),
 		})),
 	});
@@ -155,7 +154,6 @@ export async function getNextUnclearedMission(filters?: {
 		nextMission: filteredMissions[0]
 			? {
 					postId: filteredMissions[0].postId,
-					cleared: filteredMissions[0].cleared,
 					title: filteredMissions[0].missionTitle?.substring(0, 30),
 				}
 			: null,
@@ -174,7 +172,7 @@ export async function getNextMissions(
 		minLevel?: number;
 		maxLevel?: number;
 	},
-): Promise<MissionWithProgress[]> {
+): Promise<MissionRecord[]> {
 	const unclearedMissions = await getFilteredUnclearedMissions(filters);
 	return unclearedMissions.slice(0, count);
 }
@@ -182,9 +180,9 @@ export async function getNextMissions(
 /**
  * Get all uncleared missions
  */
-export async function getUnclearedMissions(): Promise<MissionWithProgress[]> {
-	const missionsWithProgress = await getAllMissionsWithProgress();
-	return Object.values(missionsWithProgress)
-		.filter((m) => !m.cleared && !m.disabled)
+export async function getUnclearedMissions(): Promise<MissionRecord[]> {
+	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
+	return Object.values(missions)
+		.filter((m) => !progress.cleared.includes(m.postId) && !progress.disabled.includes(m.postId))
 		.sort((a, b) => a.timestamp - b.timestamp); // Oldest first
 }

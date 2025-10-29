@@ -247,10 +247,10 @@ async function saveScannedMission(level: Level): Promise<void> {
 
 		// Check if cleared status changed
 		if (level.cleared) {
-			const { getUserProgress } = await import('../../../lib/storage/userProgress');
-			const userProgress = await getUserProgress(level.postId);
+			const { isMissionCleared } = await import('../../../lib/storage/userProgress');
+			const isCleared = await isMissionCleared(level.postId);
 
-			if (!userProgress?.cleared) {
+			if (!isCleared) {
 				redditLogger.log('Mission cleared status detected - updating user progress', {
 					postId: level.postId,
 					title: level.title.substring(0, 50),

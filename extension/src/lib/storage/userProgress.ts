@@ -4,8 +4,20 @@
  * Progress is scoped per Reddit user, with "default" for non-logged-in users
  */
 
-import { UserMissionProgress, UserProgressDatabase, MultiUserProgressDatabase, STORAGE_KEYS } from './types';
+import { UserProgressData, MultiUserProgressDatabase, STORAGE_KEYS } from './types';
 import { getCurrentRedditUser } from '../reddit/userDetection';
+
+/**
+ * Get empty progress data structure
+ */
+function createEmptyProgressData(): UserProgressData {
+	return {
+		cleared: [],
+		disabled: [],
+		clearedAt: {},
+		loot: {},
+	};
+}
 
 /**
  * Get the entire multi-user progress structure from storage
@@ -38,38 +50,47 @@ async function setMultiUserProgress(data: MultiUserProgressDatabase): Promise<vo
 }
 
 /**
- * Get user progress for a specific mission
+ * Check if a mission is cleared
  */
-export async function getUserProgress(postId: string): Promise<UserMissionProgress | null> {
-	const allProgress = await getAllUserProgress();
-	return allProgress[postId] || null;
+export async function isMissionCleared(postId: string): Promise<boolean> {
+	const progress = await getAllUserProgress();
+	return progress.cleared.includes(postId);
+}
+
+/**
+ * Check if a mission is disabled
+ */
+export async function isMissionDisabled(postId: string): Promise<boolean> {
+	const progress = await getAllUserProgress();
+	return progress.disabled.includes(postId);
 }
 
 /**
  * Get all user progress for the current user
  */
-export async function getAllUserProgress(): Promise<UserProgressDatabase> {
+export async function getAllUserProgress(): Promise<UserProgressData> {
 	const username = await getCurrentRedditUser();
 	const multiUserData = await getMultiUserProgress();
-	return multiUserData[username] || {};
+	return multiUserData[username] || createEmptyProgressData();
 }
 
 /**
- * Update user progress for a mission (for current user)
+ * Mark a mission as cleared
  */
-export async function updateUserProgress(
-	postId: string,
-	progress: Partial<UserMissionProgress>,
-): Promise<void> {
+export async function markMissionCleared(postId: string): Promise<void> {
 	const username = await getCurrentRedditUser();
 	const multiUserData = await getMultiUserProgress();
 
-	// Get or create user's progress database
-	const userProgress = multiUserData[username] || {};
-	const existing = userProgress[postId] || { postId };
+	// Get or create user's progress
+	const userProgress = multiUserData[username] || createEmptyProgressData();
 
-	// Merge progress
-	userProgress[postId] = { ...existing, ...progress };
+	// Add to cleared array if not already there
+	if (!userProgress.cleared.includes(postId)) {
+		userProgress.cleared.push(postId);
+	}
+
+	// Record clear timestamp
+	userProgress.clearedAt[postId] = Date.now();
 
 	// Update multi-user structure
 	multiUserData[username] = userProgress;
@@ -79,20 +100,33 @@ export async function updateUserProgress(
 }
 
 /**
- * Mark a mission as cleared
- */
-export async function markMissionCleared(postId: string): Promise<void> {
-	return updateUserProgress(postId, {
-		cleared: true,
-		clearedAt: Date.now(),
-	});
-}
-
-/**
  * Mark a mission as disabled (e.g., deleted post)
  */
 export async function setMissionDisabled(postId: string, disabled: boolean): Promise<void> {
-	return updateUserProgress(postId, { disabled });
+	const username = await getCurrentRedditUser();
+	const multiUserData = await getMultiUserProgress();
+
+	// Get or create user's progress
+	const userProgress = multiUserData[username] || createEmptyProgressData();
+
+	if (disabled) {
+		// Add to disabled array if not already there
+		if (!userProgress.disabled.includes(postId)) {
+			userProgress.disabled.push(postId);
+		}
+	} else {
+		// Remove from disabled array
+		const index = userProgress.disabled.indexOf(postId);
+		if (index > -1) {
+			userProgress.disabled.splice(index, 1);
+		}
+	}
+
+	// Update multi-user structure
+	multiUserData[username] = userProgress;
+
+	// Save back to storage
+	await setMultiUserProgress(multiUserData);
 }
 
 /**
@@ -102,23 +136,33 @@ export async function accumulateMissionLoot(
 	postId: string,
 	newLoot: Array<{ id: string; quantity: number }>,
 ): Promise<void> {
-	const progress = await getUserProgress(postId);
-	const existingLoot = progress?.totalLoot || [];
+	const username = await getCurrentRedditUser();
+	const multiUserData = await getMultiUserProgress();
 
-	// Merge loot quantities
-	const lootMap = new Map<string, number>();
-	for (const item of existingLoot) {
-		lootMap.set(item.id, item.quantity);
-	}
+	// Get or create user's progress
+	const userProgress = multiUserData[username] || createEmptyProgressData();
+
+	// Get existing loot for this mission
+	const totalLoot = userProgress.loot[postId] || [];
+
+	// Accumulate loot
 	for (const item of newLoot) {
-		const current = lootMap.get(item.id) || 0;
-		lootMap.set(item.id, current + item.quantity);
+		const existingItem = totalLoot.find((l) => l.id === item.id);
+		if (existingItem) {
+			existingItem.quantity += item.quantity;
+		} else {
+			totalLoot.push({ ...item });
+		}
 	}
 
-	// Convert back to array
-	const totalLoot = Array.from(lootMap.entries()).map(([id, quantity]) => ({ id, quantity }));
+	// Update loot
+	userProgress.loot[postId] = totalLoot;
 
-	return updateUserProgress(postId, { totalLoot });
+	// Update multi-user structure
+	multiUserData[username] = userProgress;
+
+	// Save back to storage
+	await setMultiUserProgress(multiUserData);
 }
 
 /**
@@ -129,7 +173,7 @@ export async function clearAllUserProgress(): Promise<void> {
 	const multiUserData = await getMultiUserProgress();
 
 	// Clear current user's progress
-	multiUserData[username] = {};
+	multiUserData[username] = createEmptyProgressData();
 
 	// Save back to storage
 	await setMultiUserProgress(multiUserData);
@@ -172,7 +216,7 @@ export async function exportAllUsersProgress(): Promise<string> {
 /**
  * Get progress for a specific user (useful for switching contexts or admin)
  */
-export async function getUserProgressForUser(username: string): Promise<UserProgressDatabase> {
+export async function getUserProgressForUser(username: string): Promise<UserProgressData> {
 	const multiUserData = await getMultiUserProgress();
-	return multiUserData[username] || {};
+	return multiUserData[username] || createEmptyProgressData();
 }

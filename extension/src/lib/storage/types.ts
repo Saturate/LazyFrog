@@ -137,42 +137,29 @@ export type MissionsDatabase = Record<string, MissionRecord>;
 
 /**
  * User-specific progress tracking for missions
+ * Efficient array-based storage - only stores missions that have progress
  * Stored separately from mission data to allow:
  * - Multiple user profiles
  * - Clean separation of static mission data vs user progress
  * - Easy export/import of user data
  */
-export interface UserMissionProgress {
-	postId: string;
-	cleared?: boolean;
-	clearedAt?: number;
-	disabled?: boolean;
-	totalLoot?: Array<{ id: string; quantity: number }>;
+export interface UserProgressData {
+	/** Array of cleared mission post IDs */
+	cleared: string[];
+	/** Array of disabled mission post IDs */
+	disabled: string[];
+	/** Map of post ID to clear timestamp */
+	clearedAt: Record<string, number>;
+	/** Map of post ID to loot collected */
+	loot: Record<string, Array<{ id: string; quantity: number }>>;
 }
-
-/**
- * Map of postId to user progress (for a single user)
- */
-export type UserProgressDatabase = Record<string, UserMissionProgress>;
 
 /**
  * Multi-user progress structure
- * Map of username to their progress database
+ * Map of username to their progress data
  * Uses "default" for users who are not logged in
  */
-export type MultiUserProgressDatabase = Record<string, UserProgressDatabase>;
-
-/**
- * Combined view of mission with user progress
- * Used for queries and UI display
- */
-export interface MissionWithProgress extends MissionRecord {
-	// User progress fields
-	cleared?: boolean;
-	clearedAt?: number;
-	disabled?: boolean;
-	totalLoot?: Array<{ id: string; quantity: number }>;
-}
+export type MultiUserProgressDatabase = Record<string, UserProgressData>;
 
 export interface RedditAPICache {
 	postId: string;

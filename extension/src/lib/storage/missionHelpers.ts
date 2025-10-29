@@ -1,46 +1,11 @@
 /**
- * Helper functions for working with missions and user progress
+ * Helper functions for filtering missions based on user progress
+ * No more merging - just filtering missions based on progress arrays
  */
 
-import type { MissionRecord, MissionWithProgress, UserProgressDatabase } from './types';
+import type { MissionRecord } from './types';
 import { getAllMissions } from './missions';
 import { getAllUserProgress } from './userProgress';
-
-/**
- * Merge mission data with user progress
- */
-export function mergeMissionWithProgress(
-	mission: MissionRecord,
-	progress?: { cleared?: boolean; clearedAt?: number; disabled?: boolean; totalLoot?: any },
-): MissionWithProgress {
-	return {
-		...mission,
-		...(progress || {}),
-	};
-}
-
-/**
- * Get all missions with their progress data merged
- */
-export async function getAllMissionsWithProgress(): Promise<Record<string, MissionWithProgress>> {
-	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
-
-	const merged: Record<string, MissionWithProgress> = {};
-
-	for (const postId in missions) {
-		merged[postId] = mergeMissionWithProgress(missions[postId], progress[postId]);
-	}
-
-	return merged;
-}
-
-/**
- * Get a single mission with progress
- */
-export async function getMissionWithProgress(postId: string): Promise<MissionWithProgress | null> {
-	const missions = await getAllMissionsWithProgress();
-	return missions[postId] || null;
-}
 
 /**
  * Filter missions by criteria, including progress fields
@@ -54,11 +19,11 @@ export async function filterMissions(
 		cleared?: boolean;
 		disabled?: boolean;
 	},
-): Promise<MissionWithProgress[]> {
-	const allMissions = await getAllMissionsWithProgress();
-	const missions = Object.values(allMissions);
+): Promise<MissionRecord[]> {
+	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
+	const missionArray = Object.values(missions);
 
-	return missions.filter((mission) => {
+	return missionArray.filter((mission) => {
 		// Filter by difficulty (stars)
 		if (filter.stars && mission.difficulty && !filter.stars.includes(mission.difficulty)) {
 			return false;
@@ -78,13 +43,19 @@ export async function filterMissions(
 		}
 
 		// Filter by cleared status
-		if (filter.cleared !== undefined && mission.cleared !== filter.cleared) {
-			return false;
+		if (filter.cleared !== undefined) {
+			const isCleared = progress.cleared.includes(mission.postId);
+			if (isCleared !== filter.cleared) {
+				return false;
+			}
 		}
 
 		// Filter by disabled status
-		if (filter.disabled !== undefined && mission.disabled !== filter.disabled) {
-			return false;
+		if (filter.disabled !== undefined) {
+			const isDisabled = progress.disabled.includes(mission.postId);
+			if (isDisabled !== filter.disabled) {
+				return false;
+			}
 		}
 
 		return true;
