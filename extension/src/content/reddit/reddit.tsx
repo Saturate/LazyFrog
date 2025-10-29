@@ -27,6 +27,8 @@ import { scannedPostIds, scanForNewMissions, initializeScrollScanning } from './
 import { initializeDebugFunctions } from './utils/debug';
 import { installMissionDataHandler } from './utils/missionDataHandler';
 import { startPinging, stopPinging } from './utils/keepAlive';
+import { navigateToUrl, onUrlChange } from '../../utils/navigation';
+import { DOM_UPDATE_DELAY, GAME_LOADER_CHECK_INTERVAL, GAME_LOADER_MAX_WAIT } from '../../constants/timing';
 
 // UI components
 import { getStatusText } from './ui/statusText';
@@ -212,7 +214,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				redditLogger.log('[NAVIGATE_TO_URL] Navigating to', {
 					url: navMsg.url,
 				});
-				window.location.href = navMsg.url;
+				navigateToUrl(navMsg.url);
 				sendResponse({ success: true });
 			} else {
 				redditLogger.error('[NAVIGATE_TO_URL] NO URL PROVIDED!', {
@@ -298,7 +300,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 					const firstMission = filteredLevels[0];
 					redditLogger.log('Opening mission', { title: firstMission.title });
 
-					// Open the mission (will reload the page to mission detail)
+					// Open the mission (SPA navigation to mission detail)
 					if (firstMission.href) {
 						// Store that we need to start automation after page loads
 						chrome.storage.local.set({
@@ -306,7 +308,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 							automationConfig: playMsg.config,
 						});
 
-						window.location.href = firstMission.href;
+						navigateToUrl(firstMission.href);
 						sendResponse({ success: true, action: 'opening_mission' });
 					} else {
 						sendResponse({ error: 'Mission has no URL' });
@@ -426,7 +428,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 								message: `Starting mission: ${mission.tags || mission.postId}`,
 							});
 						} else {
-							// Navigate to the mission page - navigation will reload page
+							// Navigate to the mission page - SPA navigation
 							// When page loads, activeBotSession will be detected and game will auto-open
 							redditLogger.log('[NAVIGATE_TO_MISSION] Navigating to different page');
 
@@ -436,8 +438,8 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 								permalink: normalized,
 							});
 
-							// Actually navigate
-							window.location.href = normalized;
+							// Actually navigate (SPA style)
+							navigateToUrl(normalized);
 
 							sendResponse({
 								success: true,
@@ -549,10 +551,10 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 						});
 						clearInterval(checkInterval);
 					}
-				}, 500);
+				}, GAME_LOADER_CHECK_INTERVAL);
 
-				// Stop checking after 10 seconds
-				setTimeout(() => clearInterval(checkInterval), 10000);
+				// Stop checking after max wait time
+				setTimeout(() => clearInterval(checkInterval), GAME_LOADER_MAX_WAIT);
 			} else {
 				redditLogger.warn('Could not find clickable game container in shadow DOM');
 				redditLogger.log('Loader structure', {
@@ -642,4 +644,19 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 		redditLogger.log('[Storage] Bot machine state changed', { newState });
 		// State machine already updates from subscribe(), no need to do anything here
 	}
+});
+
+// Listen for URL changes (SPA navigation) to handle page transitions
+onUrlChange((newUrl) => {
+	const isCommentsPage = newUrl.includes('/comments/');
+
+	// If bot is active and we navigated to a comments page, check for game loader
+	chrome.storage.local.get(['activeBotSession'], (result) => {
+		if (result.activeBotSession && isCommentsPage) {
+			// Check for game loader after a short delay to let DOM update
+			setTimeout(() => {
+				checkForExistingLoader(currentBotState);
+			}, DOM_UPDATE_DELAY);
+		}
+	});
 });

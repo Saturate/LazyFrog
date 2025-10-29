@@ -12,6 +12,7 @@ import { extensionLogger } from '../utils/logger';
 import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
 import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions';
+import { STORAGE_PROPAGATION_DELAY, INITIAL_RETRY_DELAY, RETRY_BACKOFF_BASE } from '../constants/timing';
 
 // ============================================================================
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
@@ -328,7 +329,10 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 			// Add a small delay to ensure chrome.storage.local write has propagated
 			// This prevents race condition where getAllMissions doesn't see the just-cleared mission
-			const delayMs = retryCount > 0 ? 2000 * 2 ** (retryCount - 1) : 500; // 500ms on first attempt, exponential backoff on retries
+			const delayMs =
+				retryCount > 0
+					? INITIAL_RETRY_DELAY * RETRY_BACKOFF_BASE ** (retryCount - 1)
+					: STORAGE_PROPAGATION_DELAY;
 
 			extensionLogger.log('[StateTransition] Finding next mission', {
 				retryCount,
@@ -461,7 +465,11 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 	return true;
 });
 
-async function handleMessage(message: ChromeMessage, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
+async function handleMessage(
+	message: ChromeMessage,
+	sender: chrome.runtime.MessageSender,
+	sendResponse: (response?: any) => void,
+) {
 	switch (message.type) {
 		// Messages from popup - route to state machine
 		case 'START_BOT':
@@ -618,13 +626,15 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 			{
 				const currentState = botActor?.getSnapshot();
 				if (currentState?.matches('gameMission.running')) {
-					extensionLogger.log('Bot is running, re-broadcasting START_MISSION_AUTOMATION to newly ready iframe');
+					extensionLogger.log(
+						'Bot is running, re-broadcasting START_MISSION_AUTOMATION to newly ready iframe',
+					);
 					chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 						if (tabs[0]?.id) {
 							chrome.tabs.sendMessage(
 								tabs[0].id,
 								{ type: 'START_MISSION_AUTOMATION' },
-								{ frameId: undefined }
+								{ frameId: undefined },
 							);
 						}
 					});
@@ -653,6 +663,10 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 							type: 'MISSION_DELETED',
 							missionId: deletedPostId,
 						});
+
+						// Automatically find next mission after deleted mission
+						// State machine has already transitioned to 'starting' (synchronous)
+						extensionLogger.log('Finding next mission after deleted post');
 					} catch (error) {
 						extensionLogger.error('Failed to disable mission', {
 							postId: deletedPostId,
@@ -664,7 +678,11 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 							type: 'MISSION_DELETED',
 							missionId: deletedPostId,
 						});
+
+						// Try to find next mission anyway
+						extensionLogger.log('Finding next mission after error disabling deleted post');
 					}
+					findAndSendNextMission();
 				} else {
 					// No postId, just send event
 					sendToStateMachine({
@@ -804,7 +822,7 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 					success: true,
 					state,
 					context: snapshot?.context,
-					timestamp: Date.now()
+					timestamp: Date.now(),
 				});
 			}
 			break;
