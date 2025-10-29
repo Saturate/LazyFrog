@@ -5,8 +5,24 @@
  * This file only contains extension-specific types.
  */
 
-// Re-export all shared types
+import type {
+	MissionRecord as BaseMissionRecord,
+	MissionMetadata,
+	Environment,
+} from '@lazyfrog/types';
+
+// Re-export all shared types except MissionRecord
 export * from '@lazyfrog/types';
+
+// Override MissionRecord for extension use - make derived fields optional
+// since they may not be available until the mission is played
+export interface MissionRecord extends Omit<BaseMissionRecord, 'metadata' | 'difficulty' | 'environment' | 'foodName' | 'tags'> {
+	metadata?: MissionMetadata | null; // Optional until mission is played
+	difficulty?: number; // Optional until metadata is captured
+	environment?: Environment; // Optional until metadata is captured
+	foodName?: string; // Optional until metadata is captured
+	tags?: string; // Optional until metadata is captured
+}
 
 // ============================================================================
 // Extension-Specific Types

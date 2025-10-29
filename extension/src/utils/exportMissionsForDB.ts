@@ -10,11 +10,13 @@ import type { MissionRecord } from '../lib/storage/types';
  * @returns Count of exported missions, or 0 if none have metadata
  */
 export function exportMissionsForDB(missions: MissionRecord[]): number {
-	// Filter missions that have metadata
-	const missionsWithMetadata = missions.filter((m) => m.metadata?.mission);
+	// Filter missions that have complete metadata (required for DB)
+	const missionsWithMetadata = missions.filter(
+		(m) => m.metadata?.mission && m.difficulty && m.environment && m.foodName && m.tags
+	);
 
 	if (missionsWithMetadata.length === 0) {
-		alert('No missions with metadata found. Play missions to capture their data first.');
+		alert('No missions with complete metadata found. Play missions to capture their data first.');
 		return 0;
 	}
 
