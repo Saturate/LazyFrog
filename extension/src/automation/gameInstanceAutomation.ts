@@ -160,60 +160,6 @@ export class GameInstanceAutomationEngine {
 	}
 
 	/**
-	 * Navigate directly to the next uncleared mission
-	 * This avoids going back to the listing page
-	 */
-	private async navigateToNextMission(): Promise<void> {
-		try {
-			devvitLogger.log('Getting next uncleared mission...');
-
-			// Get filters from storage
-			const storageData = await chrome.storage.local.get(['automationFilters']);
-			const filters = storageData.automationFilters
-				? {
-						stars: storageData.automationFilters.stars,
-						minLevel: storageData.automationFilters.minLevel,
-						maxLevel: storageData.automationFilters.maxLevel,
-					}
-				: undefined;
-
-			devvitLogger.log('Using filters', { filters });
-
-			// Dynamically import to avoid circular dependencies
-			const { getNextUnclearedMission } = await import('../lib/storage/missionQueries');
-			const nextMission = await getNextUnclearedMission(filters);
-
-			if (nextMission && nextMission.permalink) {
-				const { normalizeRedditPermalink } = await import('../utils/url');
-				const targetUrl = normalizeRedditPermalink(nextMission.permalink);
-				devvitLogger.log('Navigating to next mission', {
-					postId: nextMission.postId,
-					tags: nextMission.tags,
-					permalink: targetUrl,
-				});
-
-				this.broadcastStatus('Navigating to mission %missionId%', nextMission.postId);
-
-				// Keep bot session active so automation continues after navigation
-				chrome.storage.local.set({
-					activeBotSession: true,
-					automationConfig: this.config,
-				});
-
-				// Navigate directly to next mission (avoids listing page reload)
-				window.location.href = targetUrl;
-			} else {
-				devvitLogger.log('No more uncleared missions - automation complete!');
-				this.broadcastStatus('Idle');
-				alert('No more uncleared missions available. Automation stopped.');
-				this.stop();
-			}
-		} catch (error) {
-			devvitLogger.error('Failed to navigate to next mission', { error: String(error) });
-		}
-	}
-
-	/**
 	 * Generate mission tags (same logic as GameControlPanel)
 	 */
 	private generateMissionTags(metadata: any): string {
