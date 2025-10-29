@@ -267,17 +267,14 @@ async function saveScannedMission(level: Level): Promise<void> {
 		const record: MissionRecord = {
 			postId: level.postId,
 			timestamp: existingMission?.timestamp || Date.now(), // Preserve original timestamp
-			metadata: existingMission?.metadata || {
-				missionTitle: level.title,
-				missionAuthorName: level.author || 'unknown',
-			} as any,
-			tags: existingMission?.tags || '',
+			metadata: existingMission?.metadata || null,
+			tags: existingMission?.tags || undefined,
 			difficulty: level.stars,
-			environment: existingMission?.environment || 'haunted_forest',
+			environment: existingMission?.environment,
 			minLevel: level.levelRangeMin || 1,
 			maxLevel: level.levelRangeMax || 340,
 			missionTitle: level.title,
-			foodName: existingMission?.foodName || level.title,
+			foodName: existingMission?.foodName,
 			permalink: level.href ? normalizeRedditPermalink(level.href) : '',
 		};
 
