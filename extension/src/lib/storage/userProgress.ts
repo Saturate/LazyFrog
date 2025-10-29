@@ -189,11 +189,32 @@ export async function exportUserProgress(): Promise<string> {
 }
 
 /**
+ * Validate that the imported data has the required UserProgressData structure
+ */
+function isValidUserProgressData(data: any): data is UserProgressData {
+	return (
+		data &&
+		typeof data === 'object' &&
+		Array.isArray(data.cleared) &&
+		Array.isArray(data.disabled) &&
+		typeof data.clearedAt === 'object' &&
+		typeof data.loot === 'object'
+	);
+}
+
+/**
  * Import user progress from backup (for current user)
  */
 export async function importUserProgress(jsonData: string): Promise<void> {
 	const data = JSON.parse(jsonData);
 	const progress = data.progress || data; // Support both old and new formats
+
+	// Validate the structure
+	if (!isValidUserProgressData(progress)) {
+		throw new Error(
+			'Invalid progress data structure. Expected object with arrays: cleared, disabled, and objects: clearedAt, loot',
+		);
+	}
 
 	const username = await getCurrentRedditUser();
 	const multiUserData = await getMultiUserProgress();
