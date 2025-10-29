@@ -200,6 +200,15 @@ export const botMachine = setup({
 		// ========================================================================
 		starting: {
 			entry: ['logTransition'],
+			after: {
+				10000: {
+					target: 'error',
+					actions: assign({
+						errorMessage: 'Timeout in starting state - no mission found within 10 seconds',
+						completionReason: 'error',
+					}),
+				},
+			},
 			on: {
 				STOP_BOT: {
 					target: 'idle',
