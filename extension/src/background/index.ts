@@ -461,7 +461,11 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 	return true;
 });
 
-async function handleMessage(message: ChromeMessage, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
+async function handleMessage(
+	message: ChromeMessage,
+	sender: chrome.runtime.MessageSender,
+	sendResponse: (response?: any) => void,
+) {
 	switch (message.type) {
 		// Messages from popup - route to state machine
 		case 'START_BOT':
@@ -618,13 +622,15 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 			{
 				const currentState = botActor?.getSnapshot();
 				if (currentState?.matches('gameMission.running')) {
-					extensionLogger.log('Bot is running, re-broadcasting START_MISSION_AUTOMATION to newly ready iframe');
+					extensionLogger.log(
+						'Bot is running, re-broadcasting START_MISSION_AUTOMATION to newly ready iframe',
+					);
 					chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 						if (tabs[0]?.id) {
 							chrome.tabs.sendMessage(
 								tabs[0].id,
 								{ type: 'START_MISSION_AUTOMATION' },
-								{ frameId: undefined }
+								{ frameId: undefined },
 							);
 						}
 					});
@@ -653,6 +659,10 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 							type: 'MISSION_DELETED',
 							missionId: deletedPostId,
 						});
+
+						// Automatically find next mission after deleted mission
+						// State machine has already transitioned to 'starting' (synchronous)
+						extensionLogger.log('Finding next mission after deleted post');
 					} catch (error) {
 						extensionLogger.error('Failed to disable mission', {
 							postId: deletedPostId,
@@ -664,7 +674,11 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 							type: 'MISSION_DELETED',
 							missionId: deletedPostId,
 						});
+
+						// Try to find next mission anyway
+						extensionLogger.log('Finding next mission after error disabling deleted post');
 					}
+					findAndSendNextMission();
 				} else {
 					// No postId, just send event
 					sendToStateMachine({
@@ -804,7 +818,7 @@ async function handleMessage(message: ChromeMessage, sender: chrome.runtime.Mess
 					success: true,
 					state,
 					context: snapshot?.context,
-					timestamp: Date.now()
+					timestamp: Date.now(),
 				});
 			}
 			break;
