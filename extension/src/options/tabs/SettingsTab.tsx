@@ -2,8 +2,8 @@
  * Settings Tab - Debug and advanced settings
  */
 
-import React, { useState, useEffect } from 'react';
-import { Settings, Bug, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, Bug, Trash2, Download, Upload, CheckCircle } from 'lucide-react';
 
 interface DebugSettings {
 	debugMode: boolean;
@@ -14,6 +14,7 @@ interface DebugSettings {
 }
 
 const SettingsTab: React.FC = () => {
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [settings, setSettings] = useState<DebugSettings>({
 		debugMode: false,
 		remoteLogging: true,
@@ -86,6 +87,51 @@ const SettingsTab: React.FC = () => {
 			const { markAllMissionsIncomplete } = await import('../../lib/storage/missions');
 			await markAllMissionsIncomplete();
 			alert('All missions marked as incomplete.');
+		}
+	};
+
+	const handleExportUserProgress = async () => {
+		try {
+			const { exportUserProgress } = await import('../../lib/storage/userProgress');
+			const { getCurrentRedditUser } = await import('../../lib/reddit/userDetection');
+			const username = await getCurrentRedditUser();
+			const jsonData = await exportUserProgress();
+
+			// Create blob and download
+			const blob = new Blob([jsonData], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `lazyfrog-progress-${username}-${Date.now()}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (error) {
+			alert(`Failed to export user progress: ${error}`);
+		}
+	};
+
+	const handleImportUserProgress = () => {
+		fileInputRef.current?.click();
+	};
+
+	const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		try {
+			const text = await file.text();
+			const { importUserProgress } = await import('../../lib/storage/userProgress');
+			await importUserProgress(text);
+			alert('User progress imported successfully!');
+		} catch (error) {
+			alert(`Failed to import user progress: ${error}`);
+		}
+
+		// Reset file input
+		if (fileInputRef.current) {
+			fileInputRef.current.value = '';
 		}
 	};
 
@@ -278,6 +324,67 @@ const SettingsTab: React.FC = () => {
 
 			<div className="card">
 				<h2>
+					<CheckCircle
+						size={20}
+						style={{
+							display: 'inline-block',
+							marginRight: '8px',
+							verticalAlign: 'middle',
+						}}
+					/>
+					Progress Data Management
+				</h2>
+
+				<div style={{ marginBottom: '16px' }}>
+					<p style={{ color: '#a1a1aa', fontSize: '14px', marginBottom: '12px' }}>
+						Export or import your user progress (cleared missions, disabled missions, and loot).
+					</p>
+					<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+						<button
+							className="button"
+							onClick={handleExportUserProgress}
+							style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+						>
+							<Download size={16} />
+							Export User Progress
+						</button>
+						<button
+							className="button"
+							onClick={handleImportUserProgress}
+							style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+						>
+							<Upload size={16} />
+							Import User Progress
+						</button>
+					</div>
+				</div>
+
+				<div>
+					<p style={{ color: '#a1a1aa', fontSize: '14px', marginBottom: '12px' }}>
+						Mark all missions as incomplete. This preserves mission entries but resets their cleared
+						status.
+					</p>
+					<button
+						className="button"
+						onClick={handleMarkAllIncomplete}
+						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+					>
+						Mark All Missions Incomplete
+					</button>
+				</div>
+
+				{/* Hidden file input for user progress import */}
+				<input
+					ref={fileInputRef}
+					type="file"
+					accept=".json,application/json"
+					style={{ display: 'none' }}
+					onChange={handleFileSelected}
+				/>
+			</div>
+
+			<div className="card">
+				<h2>
 					<Trash2
 						size={20}
 						style={{
@@ -286,7 +393,7 @@ const SettingsTab: React.FC = () => {
 							verticalAlign: 'middle',
 						}}
 					/>
-					Data Management
+					Mission Data Management
 				</h2>
 
 				<div style={{ marginBottom: '16px' }}>
@@ -300,20 +407,6 @@ const SettingsTab: React.FC = () => {
 					>
 						<Trash2 size={16} />
 						Clear All Missions
-					</button>
-				</div>
-
-				<div style={{ marginBottom: '16px' }}>
-					<p style={{ color: '#a1a1aa', fontSize: '14px', marginBottom: '12px' }}>
-						Mark all missions as incomplete. This preserves mission entries but resets their cleared
-						status.
-					</p>
-					<button
-						className="button"
-						onClick={handleMarkAllIncomplete}
-						style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-					>
-						Mark All Missions Incomplete
 					</button>
 				</div>
 
