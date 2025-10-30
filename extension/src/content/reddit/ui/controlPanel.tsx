@@ -8,6 +8,7 @@ import BotControlPanel from "../../../components/BotControlPanel";
 import { redditLogger } from "../../../utils/logger";
 import { safeSendMessage } from "../utils/messaging";
 import { getStatusText } from "./statusText";
+import { isOnSwordAndSupperSubreddit } from "../utils/subreddit";
 
 let root: Root | null = null;
 
@@ -19,6 +20,13 @@ export function renderControlPanel(
   currentBotState: string,
   currentBotContext: any
 ): void {
+  // Only show control panel on Sword & Supper subreddits
+  if (!isOnSwordAndSupperSubreddit()) {
+    redditLogger.log("[ControlPanel] Not on Sword & Supper subreddit, skipping render");
+    unmountControlPanel(); // Remove panel if it exists from previous navigation
+    return;
+  }
+
   // Use state received from background
   const isRunning = !["idle", "error"].includes(currentBotState);
   const status = getStatusText(currentBotState, currentBotContext);
@@ -81,6 +89,12 @@ export function initializeControlPanel(
   currentBotState: string,
   currentBotContext: any
 ): void {
-  redditLogger.log("Initializing control panel");
+  // Check subreddit before initializing
+  if (!isOnSwordAndSupperSubreddit()) {
+    redditLogger.log("Not on Sword & Supper subreddit, skipping control panel initialization");
+    return;
+  }
+
+  redditLogger.log("Initializing control panel on Sword & Supper subreddit");
   renderControlPanel(currentBotState, currentBotContext);
 }
