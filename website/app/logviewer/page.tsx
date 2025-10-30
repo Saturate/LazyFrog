@@ -140,8 +140,8 @@ export default function LogViewerPage() {
 					</header>
 
 					{/* Full-screen Log Viewer */}
-					<div className="flex-1 container mx-auto px-6 py-6">
-						<div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-6 h-full">
+					<div className="flex-1 w-full px-6 py-6">
+						<div className="max-w-[1920px] mx-auto bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-6 h-full">
 							<LogViewer logs={logs} height="calc(100vh - 200px)" />
 						</div>
 					</div>

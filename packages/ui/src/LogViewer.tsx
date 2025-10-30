@@ -182,6 +182,7 @@ const LogViewer: React.FC<LogViewerProps> = ({ logs, height = '500px', onClearFi
 										enableClipboard={false}
 										name={false}
 										iconStyle="triangle"
+										collapseStringsAfterLength={100}
 										style={{
 											background: '#171717',
 											padding: '8px',
