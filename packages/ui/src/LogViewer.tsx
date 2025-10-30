@@ -16,7 +16,8 @@ import {
 	ColumnFiltersState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, X, ChevronUp, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import ReactJson from '@microlink/react-json-view';
 
 export interface LogEntry {
 	timestamp: string;
@@ -36,7 +37,29 @@ const LogViewer: React.FC<LogViewerProps> = ({ logs, height = '500px', onClearFi
 	const [sorting, setSorting] = useState<SortingState>([{ id: 'timestamp', desc: true }]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const [globalFilter, setGlobalFilter] = useState('');
+	const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+	const [newestFirst, setNewestFirst] = useState(true);
 	const tableContainerRef = useRef<HTMLDivElement>(null);
+
+	const toggleRow = (rowId: string) => {
+		setExpandedRows((prev) => {
+			const next = new Set(prev);
+			if (next.has(rowId)) {
+				next.delete(rowId);
+			} else {
+				next.add(rowId);
+			}
+			return next;
+		});
+	};
+
+	const toggleSortOrder = () => {
+		setNewestFirst((prev) => {
+			const newValue = !prev;
+			setSorting([{ id: 'timestamp', desc: newValue }]);
+			return newValue;
+		});
+	};
 
 	// Define columns
 	const columns = useMemo<ColumnDef<LogEntry>[]>(
@@ -104,21 +127,77 @@ const LogViewer: React.FC<LogViewerProps> = ({ logs, height = '500px', onClearFi
 			{
 				accessorKey: 'message',
 				header: 'Message',
-				cell: (info) => (
-					<span
-						style={{
-							fontSize: '13px',
-							color: '#e5e5e5',
-							wordBreak: 'break-word',
-						}}
-					>
-						{info.getValue() as string}
-					</span>
-				),
+				cell: (info) => {
+					const row = info.row.original;
+					const hasData = row.data !== undefined && row.data !== null;
+					const isExpanded = expandedRows.has(info.row.id);
+
+					return (
+						<div>
+							<div
+								style={{
+									fontSize: '13px',
+									color: '#e5e5e5',
+									wordBreak: 'break-word',
+									display: 'flex',
+									alignItems: 'flex-start',
+									gap: '8px',
+								}}
+							>
+								<div style={{ width: '16px', flexShrink: 0 }}>
+									{hasData && (
+										<button
+											onClick={() => toggleRow(info.row.id)}
+											style={{
+												background: 'none',
+												border: 'none',
+												cursor: 'pointer',
+												padding: '0',
+												display: 'flex',
+												alignItems: 'center',
+												color: '#a1a1aa',
+												transition: 'transform 0.2s',
+												transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+											}}
+										>
+											<ChevronRight size={16} />
+										</button>
+									)}
+								</div>
+								<span style={{ flex: 1 }}>{info.getValue() as string}</span>
+							</div>
+							{hasData && isExpanded && (
+								<div
+									style={{
+										marginTop: '8px',
+										marginLeft: '24px',
+									}}
+								>
+									<ReactJson
+										src={row.data}
+										theme="monokai"
+										collapsed={false}
+										displayDataTypes={false}
+										displayObjectSize={false}
+										enableClipboard={false}
+										name={false}
+										iconStyle="triangle"
+										style={{
+											background: '#171717',
+											padding: '8px',
+											borderRadius: '4px',
+											fontSize: '12px',
+										}}
+									/>
+								</div>
+							)}
+						</div>
+					);
+				},
 				size: 600,
 			},
 		],
-		[],
+		[expandedRows],
 	);
 
 	const table = useReactTable({
@@ -239,6 +318,27 @@ const LogViewer: React.FC<LogViewerProps> = ({ logs, height = '500px', onClearFi
 					<option value="error">Error</option>
 					<option value="debug">Debug</option>
 				</select>
+
+				{/* Sort Order Toggle */}
+				<button
+					onClick={toggleSortOrder}
+					style={{
+						padding: '8px 12px',
+						background: '#171717',
+						border: '1px solid #1a1a1a',
+						borderRadius: '6px',
+						color: '#e5e5e5',
+						fontSize: '13px',
+						cursor: 'pointer',
+						display: 'flex',
+						alignItems: 'center',
+						gap: '6px',
+					}}
+					title={newestFirst ? 'Newest first' : 'Oldest first'}
+				>
+					{newestFirst ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+					{newestFirst ? 'Newest' : 'Oldest'}
+				</button>
 
 				{/* Results Count */}
 				<span style={{ color: '#71717a', fontSize: '13px', whiteSpace: 'nowrap' }}>
