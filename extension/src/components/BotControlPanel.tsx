@@ -9,6 +9,7 @@ import { VERSION, getTimeSinceBuild, getBuildTimestamp } from '../utils/buildInf
 interface BotControlPanelProps {
 	isRunning: boolean;
 	status: string;
+	shouldShow: boolean;
 	onStart: () => void;
 	onStop: () => void;
 	onOpenSettings: () => void;
@@ -17,6 +18,7 @@ interface BotControlPanelProps {
 const BotControlPanel: React.FC<BotControlPanelProps> = ({
 	isRunning,
 	status,
+	shouldShow,
 	onStart,
 	onStop,
 	onOpenSettings,
@@ -30,13 +32,21 @@ const BotControlPanel: React.FC<BotControlPanelProps> = ({
 	useEffect(() => {
 		chrome.storage.local.get(['botPanelPosition'], (result) => {
 			if (result.botPanelPosition) {
+				console.log('[BotControlPanel] Loading saved position:', result.botPanelPosition);
 				setPosition(result.botPanelPosition);
+			} else {
+				console.log('[BotControlPanel] No saved position found, using default');
 			}
 		});
 	}, []);
 
-	// Save position when it changes
+	// Save position when it changes (debounced to avoid excessive writes)
 	useEffect(() => {
+		// Don't save default position immediately on mount
+		if (position.x === 20 && position.y === 20) {
+			return;
+		}
+		console.log('[BotControlPanel] Saving position:', position);
 		chrome.storage.local.set({ botPanelPosition: position });
 	}, [position]);
 
@@ -92,6 +102,10 @@ const BotControlPanel: React.FC<BotControlPanelProps> = ({
 				cursor: isDragging ? 'grabbing' : 'default',
 				userSelect: 'none',
 				boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+				opacity: shouldShow ? 1 : 0,
+				visibility: shouldShow ? 'visible' : 'hidden',
+				transition: 'opacity 0.3s ease-in-out, visibility 0.3s ease-in-out',
+				pointerEvents: shouldShow ? 'auto' : 'none',
 			}}
 			onMouseDown={handleMouseDown}
 		>

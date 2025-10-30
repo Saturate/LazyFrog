@@ -662,6 +662,11 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 onUrlChange((newUrl) => {
 	const isCommentsPage = newUrl.includes('/comments/');
 
+	redditLogger.log('[URL Change] Navigation detected', { newUrl, isCommentsPage });
+
+	// Re-render control panel to check if we should show/hide it on new page
+	renderControlPanel(currentBotState, currentBotContext);
+
 	// If bot is active and we navigated to a comments page, check for game loader
 	chrome.storage.local.get(['activeBotSession'], (result) => {
 		if (result.activeBotSession && isCommentsPage) {
