@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Database,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 import DownloadButton from "@/components/DownloadButton";
 import { getLatestDownload } from "@/lib/getLatestDownload";
@@ -83,6 +84,12 @@ export default function Home() {
             icon={<Activity size={32} />}
             title="Mission Analytics"
             description="Track your progress, see mission completion rates, and optimize your strategy with detailed logs."
+          />
+          <FeatureCard
+            icon={<FileText size={32} />}
+            title="Log Viewer"
+            description="Export and analyze your extension logs with our interactive log viewer. Search, filter, and debug issues with ease."
+            href="/logviewer"
           />
         </div>
       </section>

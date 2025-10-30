@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@lazyfrog/types": "workspace:*",
+    "@lazyfrog/ui": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.12",
     "lucide-react": "^0.548.0",
     "next": "16.0.0",
     "react": "19.2.0",
