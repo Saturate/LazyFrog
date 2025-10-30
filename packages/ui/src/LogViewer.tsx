@@ -142,17 +142,14 @@ const LogViewer: React.FC<LogViewerProps> = ({ logs, height = '500px', onClearFi
 									display: 'flex',
 									alignItems: 'flex-start',
 									gap: '8px',
+									cursor: hasData ? 'pointer' : 'default',
 								}}
+								onClick={() => hasData && toggleRow(info.row.id)}
 							>
 								<div style={{ width: '16px', flexShrink: 0 }}>
 									{hasData && (
-										<button
-											onClick={() => toggleRow(info.row.id)}
+										<div
 											style={{
-												background: 'none',
-												border: 'none',
-												cursor: 'pointer',
-												padding: '0',
 												display: 'flex',
 												alignItems: 'center',
 												color: '#a1a1aa',
@@ -161,7 +158,7 @@ const LogViewer: React.FC<LogViewerProps> = ({ logs, height = '500px', onClearFi
 											}}
 										>
 											<ChevronRight size={16} />
-										</button>
+										</div>
 									)}
 								</div>
 								<span style={{ flex: 1 }}>{info.getValue() as string}</span>

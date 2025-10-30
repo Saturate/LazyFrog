@@ -20,6 +20,12 @@ import { STORAGE_PROPAGATION_DELAY, INITIAL_RETRY_DELAY, RETRY_BACKOFF_BASE } fr
 // State Machine Setup (Lives in Service Worker - persists across page loads!)
 // ============================================================================
 
+// Log service worker startup
+extensionLogger.info('Starting up', {
+	timestamp: new Date().toISOString(),
+	version: chrome.runtime.getManifest().version,
+});
+
 // Create the state machine actor - will be initialized after checking storage
 let botActor: any = null;
 
@@ -860,15 +866,18 @@ async function handleMessage(
 
 // Cleanup function for when service worker suspends or extension unloads
 function cleanup() {
-	extensionLogger.log('[Cleanup] Cleaning up background resources');
+	extensionLogger.warn('Shutting down', {
+		timestamp: new Date().toISOString(),
+		hadActiveActor: !!botActor,
+	});
 
 	// Stop state machine actor
 	if (botActor) {
 		try {
 			botActor.stop();
-			extensionLogger.log('[Cleanup] Stopped botActor');
+			extensionLogger.log('Stopped botActor');
 		} catch (error) {
-			extensionLogger.warn('[Cleanup] Error stopping botActor', { error: String(error) });
+			extensionLogger.warn('Error stopping botActor', { error: String(error) });
 		}
 		botActor = null;
 	}
@@ -879,7 +888,7 @@ function cleanup() {
 // However, onSuspend is not available in MV3, so this is best-effort cleanup
 if (chrome.runtime.onSuspend) {
 	chrome.runtime.onSuspend.addListener(() => {
-		extensionLogger.log('[ServiceWorker] Suspending, running cleanup');
+		extensionLogger.warn('onSuspend event fired, running cleanup');
 		cleanup();
 	});
 }
