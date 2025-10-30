@@ -348,7 +348,7 @@ export async function getLogStats(): Promise<{
  * [LF][REDDIT][GAME][COMBAT] Enemy defeated
  */
 export const popupLogger = createLogger('POPUP');
-export const extensionLogger = createLogger('EXT');
+export const extensionLogger = createLogger('SW');
 export const redditLogger = createLogger('REDDIT');
 export const devvitLogger = createLogger('DEVVIT');
 export const devvitGIAELogger = createLogger('DEVVIT-GIAE');
