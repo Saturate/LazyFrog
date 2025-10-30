@@ -4,14 +4,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Target, Settings, BarChart3, Info } from 'lucide-react';
+import { Target, Settings, BarChart3, Info, Terminal } from 'lucide-react';
 import AutomationTab from './tabs/AutomationTab';
 import SettingsTab from './tabs/SettingsTab';
+import LoggingTab from './tabs/LoggingTab';
 import MissionsTab from './tabs/MissionsTab';
 import AboutTab from './tabs/AboutTab';
 import './options.css';
 
-type TabType = 'missions' | 'automation' | 'settings' | 'about';
+type TabType = 'missions' | 'automation' | 'logging' | 'settings' | 'about';
 
 const OptionsPage: React.FC = () => {
 	const [activeTab, setActiveTab] = useState<TabType>('missions');
@@ -19,7 +20,7 @@ const OptionsPage: React.FC = () => {
 	// Support URL hash navigation
 	useEffect(() => {
 		const hash = window.location.hash.slice(1) as TabType;
-		if (hash && ['missions', 'automation', 'settings', 'about'].includes(hash)) {
+		if (hash && ['missions', 'automation', 'logging', 'settings', 'about'].includes(hash)) {
 			setActiveTab(hash);
 		}
 	}, []);
@@ -55,6 +56,13 @@ const OptionsPage: React.FC = () => {
 					Automation
 				</button>
 				<button
+					className={`tab-button ${activeTab === 'logging' ? 'active' : ''}`}
+					onClick={() => handleTabChange('logging')}
+				>
+					<Terminal size={16} />
+					Logging
+				</button>
+				<button
 					className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
 					onClick={() => handleTabChange('settings')}
 				>
@@ -74,6 +82,7 @@ const OptionsPage: React.FC = () => {
 			<main className="tab-content">
 				{activeTab === 'missions' && <MissionsTab />}
 				{activeTab === 'automation' && <AutomationTab />}
+				{activeTab === 'logging' && <LoggingTab />}
 				{activeTab === 'settings' && <SettingsTab />}
 				{activeTab === 'about' && <AboutTab />}
 			</main>

@@ -3,12 +3,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Bug, Trash2, Download, Upload, CheckCircle } from 'lucide-react';
+import { Settings, Trash2, Download, Upload, CheckCircle } from 'lucide-react';
 
 interface DebugSettings {
-	debugMode: boolean;
-	remoteLogging: boolean;
-	showStepByStepControls: boolean;
 	showNextMissions: boolean;
 	nextMissionsCount: number;
 }
@@ -16,9 +13,6 @@ interface DebugSettings {
 const SettingsTab: React.FC = () => {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [settings, setSettings] = useState<DebugSettings>({
-		debugMode: false,
-		remoteLogging: true,
-		showStepByStepControls: false,
 		showNextMissions: true,
 		nextMissionsCount: 5,
 	});
@@ -28,9 +22,6 @@ const SettingsTab: React.FC = () => {
 		chrome.storage.local.get(['automationConfig'], (result) => {
 			if (result.automationConfig) {
 				setSettings({
-					debugMode: result.automationConfig.debugMode || false,
-					remoteLogging: result.automationConfig.remoteLogging !== false,
-					showStepByStepControls: result.automationConfig.showStepByStepControls || false,
 					showNextMissions: result.automationConfig.showNextMissions !== false,
 					nextMissionsCount: result.automationConfig.nextMissionsCount || 5,
 				});
@@ -43,9 +34,6 @@ const SettingsTab: React.FC = () => {
 		chrome.storage.local.get(['automationConfig'], (result) => {
 			const fullConfig = {
 				...result.automationConfig,
-				debugMode: settings.debugMode,
-				remoteLogging: settings.remoteLogging,
-				showStepByStepControls: settings.showStepByStepControls,
 				showNextMissions: settings.showNextMissions,
 				nextMissionsCount: settings.nextMissionsCount,
 			};
@@ -139,7 +127,7 @@ const SettingsTab: React.FC = () => {
 		<div>
 			<div className="card">
 				<h2>
-					<Bug
+					<Settings
 						size={20}
 						style={{
 							display: 'inline-block',
@@ -147,44 +135,10 @@ const SettingsTab: React.FC = () => {
 							verticalAlign: 'middle',
 						}}
 					/>
-					Debug Settings
+					Display Settings
 				</h2>
 
-				<div className="form-group" style={{ marginBottom: '20px' }}>
-					<label
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '8px',
-							cursor: 'pointer',
-						}}
-					>
-						<input
-							type="checkbox"
-							checked={settings.showStepByStepControls}
-							onChange={(e) =>
-								setSettings((prev) => ({
-									...prev,
-									showStepByStepControls: e.target.checked,
-								}))
-							}
-							style={{ cursor: 'pointer' }}
-						/>
-						<span>Show Step-by-Step Controls</span>
-					</label>
-					<p
-						style={{
-							color: '#a1a1aa',
-							fontSize: '13px',
-							marginTop: '8px',
-							marginLeft: '28px',
-						}}
-					>
-						Shows step-by-step automation controls in the popup (1. Navigate, 2. Open, 3. Play).
-					</p>
-				</div>
-
-				<div className="form-group" style={{ marginBottom: '20px' }}>
+				<div className="form-group">
 					<label
 						style={{
 							display: 'flex',
@@ -251,74 +205,6 @@ const SettingsTab: React.FC = () => {
 							/>
 						</div>
 					)}
-				</div>
-
-				<div className="form-group" style={{ marginBottom: '20px' }}>
-					<label
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '8px',
-							cursor: 'pointer',
-						}}
-					>
-						<input
-							type="checkbox"
-							checked={settings.debugMode}
-							onChange={(e) =>
-								setSettings((prev) => ({
-									...prev,
-									debugMode: e.target.checked,
-								}))
-							}
-							style={{ cursor: 'pointer' }}
-						/>
-						<span>Enable Debug Mode</span>
-					</label>
-					<p
-						style={{
-							color: '#a1a1aa',
-							fontSize: '13px',
-							marginTop: '8px',
-							marginLeft: '28px',
-						}}
-					>
-						Enables additional debug logging and features throughout the extension.
-					</p>
-				</div>
-
-				<div className="form-group">
-					<label
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '8px',
-							cursor: 'pointer',
-						}}
-					>
-						<input
-							type="checkbox"
-							checked={settings.remoteLogging}
-							onChange={(e) =>
-								setSettings((prev) => ({
-									...prev,
-									remoteLogging: e.target.checked,
-								}))
-							}
-							style={{ cursor: 'pointer' }}
-						/>
-						<span>Enable Remote Logging</span>
-					</label>
-					<p
-						style={{
-							color: '#a1a1aa',
-							fontSize: '13px',
-							marginTop: '8px',
-							marginLeft: '28px',
-						}}
-					>
-						Sends logs to http://localhost:7856/log for debugging and AI integration.
-					</p>
 				</div>
 			</div>
 
