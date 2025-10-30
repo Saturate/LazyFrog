@@ -8,6 +8,7 @@ import { saveMission } from '../../../lib/storage/missions';
 import { MissionRecord } from '../../../lib/storage/types';
 import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
 import { fetchLevelFromRedditAPI } from '../../../utils/redditAPI';
+import { safeSendMessage } from './messaging';
 
 /**
  * Save mission data from API response
@@ -140,8 +141,23 @@ export function installMissionDataHandler(): void {
 		if (postId && arrayBuffer) {
 			// Use our utility to parse the mission data
 			const data = parseMissionData(arrayBuffer, postId);
-			if (data && data.difficulty) {
-				await saveMissionFromAPI(data);
+			if (data) {
+				// Save to database if it has mission data
+				if (data.difficulty) {
+					await saveMissionFromAPI(data);
+				}
+
+				// Check for mission completion
+				if (data.isInnPost === true) {
+					redditLogger.log(
+						'[missionDataHandler] Mission completion detected from PostRenderContent',
+						{
+							postId: data.postId,
+						},
+					);
+
+					await handleMissionCompletionFromData(data.postId);
+				}
 			}
 		}
 	});
@@ -149,3 +165,18 @@ export function installMissionDataHandler(): void {
 	redditLogger.log('Mission data handler installed - listening for raw mission data events');
 }
 
+/**
+ * Handle mission completion from PostRenderContent data
+ */
+async function handleMissionCompletionFromData(postId: string): Promise<void> {
+	redditLogger.log('[missionDataHandler] Handling mission completion', {
+		postId,
+	});
+
+	// Notify background script - it will handle marking as cleared
+	safeSendMessage({
+		type: 'MISSION_COMPLETED',
+		postId,
+		source: 'postrendercontent-data',
+	});
+}
