@@ -1,6 +1,6 @@
 {
 	"name": "lazyfrog",
-	"version": "0.13.1",
+	"version": "0.14.0",
 	"description": "Sword & Supper game automation extension with TypeScript and React",
 	"scripts": {
 		"build": "webpack --mode production",
@@ -26,6 +26,9 @@
 	"license": "MIT",
 	"dependencies": {
 		"@lazyfrog/types": "workspace:*",
+		"@lazyfrog/ui": "workspace:*",
+		"@tanstack/react-table": "^8.21.3",
+		"@tanstack/react-virtual": "^3.13.12",
 		"express": "^5.1.0",
 		"lucide-react": "^0.546.0",
 		"react": "^19.2.0",

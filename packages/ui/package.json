@@ -1,0 +1,33 @@
+{
+  "name": "@lazyfrog/ui",
+  "version": "1.0.0",
+  "description": "Shared UI components for LazyFrog",
+  "type": "module",
+  "exports": {
+    "./LogViewer": "./src/LogViewer.tsx"
+  },
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "lazyfrog",
+    "ui",
+    "react",
+    "components"
+  ],
+  "author": "Allan Kimmer Jensen",
+  "license": "MIT",
+  "peerDependencies": {
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.12",
+    "lucide-react": "^0.546.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@microlink/react-json-view": "^1.27.0"
+  }
+}
