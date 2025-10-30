@@ -1,145 +1,38 @@
 /**
- * Storage types and interfaces
+ * Storage types and interfaces for the extension
  *
- * Note: Base mission types are copied from db/types.ts to avoid
- * importing from outside the TypeScript rootDir
+ * Base mission types are imported from the shared @lazyfrog/types package.
+ * This file only contains extension-specific types.
  */
 
+import type {
+	MissionRecord as BaseMissionRecord,
+	MissionMetadata,
+	Environment,
+} from '@lazyfrog/types';
+
+// Re-export all shared types except MissionRecord
+export * from '@lazyfrog/types';
+
+// Override MissionRecord for extension use - make derived fields optional
+// since they may not be available until the mission is played
+export interface MissionRecord extends Omit<BaseMissionRecord, 'metadata' | 'difficulty' | 'environment' | 'foodName' | 'tags'> {
+	metadata?: MissionMetadata | null; // Optional until mission is played
+	difficulty?: number; // Optional until metadata is captured
+	environment?: Environment; // Optional until metadata is captured
+	foodName?: string; // Optional until metadata is captured
+	tags?: string; // Optional until metadata is captured
+}
+
 // ============================================================================
-// Base Mission Types (from db/types.ts)
+// Extension-Specific Types
 // ============================================================================
-
-export type EncounterType =
-	| 'investigate'
-	| 'statsChoice'
-	| 'skillBargain'
-	| 'abilityChoice'
-	| 'enemy'
-	| 'crossroads';
-
-export type StatType = 'Attack' | 'Defense' | 'Health' | 'Speed' | 'Crit' | 'Dodge';
-export type EffectType = 'multiplier' | 'ability';
-
-export interface Effect {
-	id: string;
-	type: EffectType;
-	stat?: StatType;
-	amount?: number;
-	abilityId?: string;
-}
-
-export interface InvestigateEncounter {
-	type: 'investigate';
-	bonusChance: number;
-	bonusGold: number;
-	failHpPenaltyPct: number;
-	bonusResourceType?: string;
-}
-
-export interface StatsChoiceEncounter {
-	type: 'statsChoice';
-	optionA: Effect;
-	optionB: Effect;
-}
-
-export interface SkillBargainEncounter {
-	type: 'skillBargain';
-	positiveEffect: Effect;
-	negativeEffect: Effect;
-}
-
-export interface AbilityChoiceEncounter {
-	type: 'abilityChoice';
-	isEnchanted: boolean;
-	optionA: Effect;
-	optionB: Effect;
-}
-
-export interface Enemy {
-	id: string;
-	health: number;
-	attack: number;
-	speed: number;
-	crit: number;
-	dodge: number;
-	defense: number;
-	abilities?: string[];
-	loot: Array<{ id: string; quantity: number }>;
-	tier: number;
-}
-
-export interface EnemyEncounter {
-	type: 'enemy';
-	enemies: Enemy[];
-}
-
-export interface CrossroadsEncounter {
-	type: 'crossroads';
-	enemies: Enemy[];
-}
-
-export type Encounter =
-	| InvestigateEncounter
-	| StatsChoiceEncounter
-	| SkillBargainEncounter
-	| AbilityChoiceEncounter
-	| EnemyEncounter
-	| CrossroadsEncounter;
-
-export type Environment =
-	| 'haunted_forest'
-	| 'new_eden'
-	| 'wild_west'
-	| 'jungle'
-	| 'desert'
-	| 'tundra'
-	| 'underwater'
-	| 'mountains';
-
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
-
-export interface Mission {
-	environment: Environment;
-	encounters: Encounter[];
-	minLevel: number;
-	maxLevel: number;
-	difficulty: number;
-	foodImage: string;
-	foodName: string;
-	authorWeaponId: string;
-	chef: string;
-	cart: string;
-	rarity: Rarity;
-}
-
-export interface MissionMetadata {
-	mission: Mission;
-	missionAuthorName: string;
-	missionTitle: string;
-	enemyTauntData: any[];
-}
-
-export interface MissionRecord {
-	postId: string;
-	timestamp: number;
-	missionTitle: string;
-	minLevel: number;
-	maxLevel: number;
-	metadata?: MissionMetadata | null;
-	permalink?: string;
-	difficulty?: number | null;
-	environment?: Environment;
-	foodName?: string;
-	tags?: string;
-}
-
-export type MissionsDatabase = Record<string, MissionRecord>;
 
 /**
- * User-specific progress tracking for missions
- * Efficient array-based storage - only stores missions that have progress
- * Stored separately from mission data to allow:
- * - Multiple user profiles
+ * User progress data structure
+ * Separates user-specific tracking from static mission data
+ *
+ * Benefits:
  * - Clean separation of static mission data vs user progress
  * - Easy export/import of user data
  */

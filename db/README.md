@@ -6,12 +6,16 @@ This directory contains the mission database and related tools for Sword & Suppe
 
 ```
 db/
-├── missions.json      # Main mission database
-├── types.ts           # TypeScript type definitions
-├── clean-missions.js  # Clean missions (remove unnecessary fields)
-├── merge-missions.js  # Merge new missions into database
-└── README.md          # This file
+├── missions.json         # Main mission database
+├── clean-missions.ts     # Clean missions (remove unnecessary fields)
+├── merge-missions.ts     # Merge new missions into database
+├── utils/
+│   └── validation.ts     # Shared validation utilities
+├── package.json          # Package configuration
+└── README.md             # This file
 ```
+
+**Note:** TypeScript type definitions are in the shared `@lazyfrog/types` package at `/packages/types/`.
 
 ## What's in missions.json?
 
@@ -41,29 +45,52 @@ A JSON object mapping Reddit post IDs to mission records:
 - `environment` - Map type (haunted_forest, new_eden, etc.)
 - `tags` - Human-readable summary
 
-For complete type definitions and field descriptions, see **`types.ts`**.
+For complete type definitions and field descriptions, see **`/packages/types/src/index.ts`**.
 
 ## Scripts
 
+All scripts are written in TypeScript and executed with `tsx`. Run them from the project root:
+
 ### Clean Missions
 
-Remove unnecessary fields from missions:
+Remove unnecessary fields and validate missions:
 
 ```bash
-node clean-missions.js
+pnpm --dir db clean
 ```
+
+Or directly with tsx:
+```bash
+tsx db/clean-missions.ts
+```
+
+This script:
+- Validates all required fields
+- Removes extension-specific fields (cleared, clearedAt, disabled, totalLoot)
+- Removes scenarioText from metadata
+- Deletes missions with missing or invalid data
 
 ### Merge Missions
 
 Add new missions from an export file:
 
 ```bash
-node merge-missions.js new-missions.json
+pnpm --dir db merge <source-file.json>
 ```
 
-Automatically cleans and deduplicates missions.
+Or directly with tsx:
+```bash
+tsx db/merge-missions.ts <source-file.json>
+```
+
+This script:
+- Validates missions before merging
+- Strips extension-specific fields
+- Skips duplicates
+- Updates missions if source has newer timestamp
+- Automatically cleans and validates all data
 
 **Example:**
 ```bash
-node merge-missions.js ../exports/2025-01-15.json
+pnpm --dir db merge ../exports/2025-01-15.json
 ```

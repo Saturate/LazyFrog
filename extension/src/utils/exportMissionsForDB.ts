@@ -10,20 +10,23 @@ import type { MissionRecord } from '../lib/storage/types';
  * @returns Count of exported missions, or 0 if none have metadata
  */
 export function exportMissionsForDB(missions: MissionRecord[]): number {
-	// Filter missions that have metadata
-	const missionsWithMetadata = missions.filter((m) => m.metadata?.mission);
+	// Filter missions that have complete metadata (required for DB)
+	const missionsWithMetadata = missions.filter(
+		(m) => m.metadata?.mission && m.difficulty && m.environment && m.foodName && m.tags
+	);
 
 	if (missionsWithMetadata.length === 0) {
-		alert('No missions with metadata found. Play missions to capture their data first.');
+		alert('No missions with complete metadata found. Play missions to capture their data first.');
 		return 0;
 	}
 
-	// Create DB format: { postId: MissionMetadata }
+	// Create DB format: { postId: MissionRecord }
+	// Strip extension-specific fields (cleared, clearedAt, disabled, totalLoot)
 	const dbExport: Record<string, any> = {};
 	missionsWithMetadata.forEach((mission) => {
-		if (mission.metadata) {
-			dbExport[mission.postId] = mission.metadata;
-		}
+		// Create a clean copy without extension-specific fields
+		const { cleared, clearedAt, disabled, totalLoot, ...cleanMission } = mission as any;
+		dbExport[mission.postId] = cleanMission;
 	});
 
 	// Export as JSON

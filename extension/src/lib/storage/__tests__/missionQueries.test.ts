@@ -336,6 +336,7 @@ describe('Mission Query Functions', () => {
 				old: {
 					postId: 'old',
 					timestamp: now - 3000,
+					permalink: 'https://reddit.com/r/test/comments/old',
 					metadata: createMockMetadata(),
 					missionTitle: 'Test Mission',
 					foodName: 'Test Food',
@@ -348,6 +349,7 @@ describe('Mission Query Functions', () => {
 				newest: {
 					postId: 'newest',
 					timestamp: now,
+					permalink: 'https://reddit.com/r/test/comments/newest',
 					metadata: createMockMetadata(),
 					missionTitle: 'Test Mission',
 					foodName: 'Test Food',
@@ -360,6 +362,7 @@ describe('Mission Query Functions', () => {
 				middle: {
 					postId: 'middle',
 					timestamp: now - 1000,
+					permalink: 'https://reddit.com/r/test/comments/middle',
 					metadata: createMockMetadata(),
 					missionTitle: 'Test Mission',
 					foodName: 'Test Food',

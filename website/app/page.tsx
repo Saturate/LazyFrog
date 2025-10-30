@@ -10,6 +10,7 @@ import {
   Sparkles,
   Bug,
   Lightbulb,
+  Database,
 } from "lucide-react";
 import DownloadButton from "@/components/DownloadButton";
 import { getLatestDownload } from "@/lib/getLatestDownload";
@@ -38,6 +39,34 @@ export default function Home() {
           />
         </div>
       </header>
+
+      {/* Database Section */}
+      <section className="container mx-auto px-6 py-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 border-l-4 border-emerald-600">
+            <div className="flex items-start gap-6">
+              <div className="flex-shrink-0 p-4 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                <Database className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-emerald-800 dark:text-emerald-300 mb-3">
+                  Mission Database
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg">
+                  Browse and search through all available LazyFrog missions. Filter by difficulty, environment, encounter types, and more. Perfect for finding the exact missions you need or exploring what&apos;s available.
+                </p>
+                <a
+                  href="/database"
+                  className="inline-flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg"
+                >
+                  <Database size={20} />
+                  Browse Database
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Features Section */}
       <section className="container mx-auto px-6 py-16">
