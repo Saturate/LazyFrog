@@ -1,0 +1,11 @@
+{
+	"name": "@lazyfrog/utils",
+	"version": "1.0.0",
+	"description": "Shared utility functions for LazyFrog",
+	"dependencies": {
+		"@lazyfrog/types": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.0.0"
+	}
+}
