@@ -1,33 +1,45 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { MissionRecord, MissionsDatabase } from '@lazyfrog/types';
-import { MissionFilters, DatabaseFilters } from '@/components/MissionFilters';
-import { MissionTable } from '@/components/MissionTable';
-import { DatabaseDownloadButton } from '@/components/DatabaseDownloadButton';
-import { Database, AlertCircle } from 'lucide-react';
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { MissionRecord, MissionsDatabase } from "@lazyfrog/types";
+import { MissionFilters, DatabaseFilters } from "@/components/MissionFilters";
+import { MissionTable } from "@/components/MissionTable";
+import { DatabaseDownloadButton } from "@/components/DatabaseDownloadButton";
+import { CommunitySection } from "@/components/CommunitySection";
+import { Footer } from "@/components/Footer";
+import { Database, AlertCircle } from "lucide-react";
 
-const MissionStats = dynamic(() => import('@/components/MissionStats').then(mod => ({ default: mod.MissionStats })), {
-  ssr: false,
-  loading: () => (
-    <div className="mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4 animate-pulse">
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4 mb-2"></div>
-            <div className="h-8 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-          </div>
-        ))}
+const MissionStats = dynamic(
+  () =>
+    import("@/components/MissionStats").then((mod) => ({
+      default: mod.MissionStats,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4 animate-pulse"
+            >
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  )
-});
+    ),
+  }
+);
 
-const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/Saturate/LazyFrog/refs/heads/main/db/missions.json';
+const GITHUB_RAW_URL =
+  "https://raw.githubusercontent.com/Saturate/LazyFrog/refs/heads/main/db/missions.json";
 
 const INITIAL_FILTERS: DatabaseFilters = {
-  searchQuery: '',
+  searchQuery: "",
   difficulties: [],
   minLevel: 0,
   maxLevel: 1000,
@@ -45,12 +57,12 @@ export default function DatabasePage() {
 
   useEffect(() => {
     // Load filters from localStorage
-    const savedFilters = localStorage.getItem('databaseFilters');
+    const savedFilters = localStorage.getItem("databaseFilters");
     if (savedFilters) {
       try {
         setFilters(JSON.parse(savedFilters));
       } catch (e) {
-        console.error('Failed to parse saved filters:', e);
+        console.error("Failed to parse saved filters:", e);
       }
     }
 
@@ -62,7 +74,9 @@ export default function DatabasePage() {
 
         const response = await fetch(GITHUB_RAW_URL);
         if (!response.ok) {
-          throw new Error(`Failed to fetch missions: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch missions: ${response.status} ${response.statusText}`
+          );
         }
 
         const data: MissionsDatabase = await response.json();
@@ -71,8 +85,10 @@ export default function DatabasePage() {
         const missionsArray = Object.values(data);
         setMissions(missionsArray);
       } catch (err) {
-        console.error('Error fetching missions:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load missions');
+        console.error("Error fetching missions:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load missions"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -83,7 +99,7 @@ export default function DatabasePage() {
 
   useEffect(() => {
     // Save filters to localStorage whenever they change
-    localStorage.setItem('databaseFilters', JSON.stringify(filters));
+    localStorage.setItem("databaseFilters", JSON.stringify(filters));
   }, [filters]);
 
   return (
@@ -147,18 +163,26 @@ export default function DatabasePage() {
             {isLoading ? (
               <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-12 text-center">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading missions...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">
+                  Loading missions...
+                </p>
               </div>
             ) : missions.length === 0 && !error ? (
               <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-lg p-12 text-center">
                 <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">No missions found</p>
+                <p className="text-gray-600 dark:text-gray-400">
+                  No missions found
+                </p>
               </div>
             ) : (
               <MissionTable missions={missions} filters={filters} />
             )}
           </div>
         </div>
+
+        <CommunitySection />
+
+        <Footer />
       </div>
     </div>
   );
