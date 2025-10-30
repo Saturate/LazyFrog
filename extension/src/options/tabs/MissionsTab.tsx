@@ -4,13 +4,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link } from 'lucide-react';
+import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link, Database } from 'lucide-react';
 import { getAllMissions, importMissions } from '../../lib/storage/missions';
 import { getAllUserProgress } from '../../lib/storage/userProgress';
 import { MissionRecord } from '../../lib/storage/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
 import { exportMissionsForDB } from '../../utils/exportMissionsForDB';
 import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
+import { ImportDatabaseModal } from '../components/ImportDatabaseModal';
 
 interface SortConfig {
 	field: 'timestamp' | 'difficulty' | 'minLevel' | 'foodName' | 'author';
@@ -24,6 +25,7 @@ const MissionsTab: React.FC = () => {
 	const [disabledPostIds, setDisabledPostIds] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isImportFromUrlsModalOpen, setIsImportFromUrlsModalOpen] = useState(false);
+	const [isImportDatabaseModalOpen, setIsImportDatabaseModalOpen] = useState(false);
 
 	// Load filter state from localStorage
 	const [searchQuery, setSearchQuery] = useState(() => {
@@ -400,6 +402,14 @@ const MissionsTab: React.FC = () => {
 					>
 						<Download size={16} />
 						Export for DB
+					</button>
+					<button
+						onClick={() => setIsImportDatabaseModalOpen(true)}
+						className="button"
+						style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#22c55e', color: 'white' }}
+					>
+						<Database size={16} />
+						Import from FrogDB
 					</button>
 				</div>
 				{/* Hidden file input */}
@@ -906,6 +916,13 @@ const MissionsTab: React.FC = () => {
 			<ImportFromUrlsModal
 				isOpen={isImportFromUrlsModalOpen}
 				onClose={() => setIsImportFromUrlsModalOpen(false)}
+				onImportComplete={loadMissions}
+			/>
+
+			{/* Import Database Modal */}
+			<ImportDatabaseModal
+				isOpen={isImportDatabaseModalOpen}
+				onClose={() => setIsImportDatabaseModalOpen(false)}
 				onImportComplete={loadMissions}
 			/>
 		</div>
