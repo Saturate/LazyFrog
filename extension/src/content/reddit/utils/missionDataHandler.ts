@@ -9,12 +9,44 @@ import { MissionRecord } from '../../../lib/storage/types';
 import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
 import { fetchLevelFromRedditAPI } from '../../../utils/redditAPI';
 import { safeSendMessage } from './messaging';
+import { convertMissionDataToRecord, isCompleteMissionData } from '../../../utils/missionDataConverter';
 
 /**
  * Save mission data from API response
  */
 async function saveMissionFromAPI(data: MissionData): Promise<void> {
-	// Validate that we have all required data before saving
+	// First check if we have complete mission data from the protobuf
+	if (isCompleteMissionData(data)) {
+		const record = convertMissionDataToRecord(data);
+		if (record) {
+			try {
+				// Check if mission already exists to preserve timestamp
+				const { getMission } = await import('../../../lib/storage/missions');
+				const existingMission = await getMission(data.postId);
+				if (existingMission?.timestamp) {
+					record.timestamp = existingMission.timestamp;
+				}
+
+				await saveMission(record);
+				redditLogger.log(`Saved complete mission from RenderPostContent: ${data.postId}`, {
+					name: data.foodName,
+					difficulty: data.difficulty,
+					levels: `${data.minLevel}-${data.maxLevel}`,
+					encounters: data.encounters?.length || 0,
+				});
+				return;
+			} catch (error) {
+				redditLogger.error('Failed to save complete mission from RenderPostContent', {
+					error: error instanceof Error ? error.message : String(error),
+					postId: data.postId,
+				});
+				// Fall through to legacy save method
+			}
+		}
+	}
+
+	// Fallback to legacy partial save method if we don't have complete data
+	// Validate that we have at least difficulty before saving
 	if (!data.difficulty || data.difficulty === 0) {
 		redditLogger.warn('Skipping mission: no difficulty data', { postId: data.postId });
 		return;
