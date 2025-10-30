@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { migrateToSeparateProgress, needsMigration } from './migrate';
-import { createMockChromeStorage } from './__tests__/testUtils';
+import { createMockChromeStorage } from './testUtils';
 
 describe('Migration', () => {
 	let mockStorage: Map<string, any>;
@@ -20,7 +20,7 @@ describe('Migration', () => {
 	describe('migrateToSeparateProgress', () => {
 		it('should convert cleared missions to array format', async () => {
 			const oldMissions = {
-				't3_abc123': {
+				t3_abc123: {
 					postId: 't3_abc123',
 					missionTitle: 'Test Mission 1',
 					minLevel: 1,
@@ -29,7 +29,7 @@ describe('Migration', () => {
 					cleared: true,
 					clearedAt: 1234567890,
 				},
-				't3_def456': {
+				t3_def456: {
 					postId: 't3_def456',
 					missionTitle: 'Test Mission 2',
 					minLevel: 5,
@@ -61,7 +61,7 @@ describe('Migration', () => {
 
 		it('should convert disabled missions to array format', async () => {
 			const oldMissions = {
-				't3_disabled1': {
+				t3_disabled1: {
 					postId: 't3_disabled1',
 					missionTitle: 'Disabled Mission',
 					minLevel: 1,
@@ -69,7 +69,7 @@ describe('Migration', () => {
 					timestamp: 1000,
 					disabled: true,
 				},
-				't3_enabled': {
+				t3_enabled: {
 					postId: 't3_enabled',
 					missionTitle: 'Enabled Mission',
 					minLevel: 5,
@@ -96,7 +96,7 @@ describe('Migration', () => {
 
 		it('should migrate loot data to map format', async () => {
 			const oldMissions = {
-				't3_withloot': {
+				t3_withloot: {
 					postId: 't3_withloot',
 					missionTitle: 'Mission with Loot',
 					minLevel: 10,
@@ -107,7 +107,7 @@ describe('Migration', () => {
 						{ id: 'xp', quantity: 500 },
 					],
 				},
-				't3_noloot': {
+				t3_noloot: {
 					postId: 't3_noloot',
 					missionTitle: 'Mission without Loot',
 					minLevel: 1,
@@ -136,7 +136,7 @@ describe('Migration', () => {
 
 		it('should handle missions with multiple progress fields', async () => {
 			const oldMissions = {
-				't3_complete': {
+				t3_complete: {
 					postId: 't3_complete',
 					missionTitle: 'Complete Mission',
 					minLevel: 20,
@@ -175,7 +175,7 @@ describe('Migration', () => {
 
 		it('should handle missions with no progress data', async () => {
 			const oldMissions = {
-				't3_fresh': {
+				t3_fresh: {
 					postId: 't3_fresh',
 					missionTitle: 'Fresh Mission',
 					minLevel: 1,
@@ -223,11 +223,42 @@ describe('Migration', () => {
 
 		it('should handle batch migration with mixed progress states', async () => {
 			const oldMissions = {
-				't3_001': { postId: 't3_001', missionTitle: 'M1', minLevel: 1, maxLevel: 5, timestamp: 1000, cleared: true, clearedAt: 111 },
-				't3_002': { postId: 't3_002', missionTitle: 'M2', minLevel: 2, maxLevel: 6, timestamp: 2000, cleared: false },
-				't3_003': { postId: 't3_003', missionTitle: 'M3', minLevel: 3, maxLevel: 7, timestamp: 3000, disabled: true },
-				't3_004': { postId: 't3_004', missionTitle: 'M4', minLevel: 4, maxLevel: 8, timestamp: 4000, cleared: true, clearedAt: 444, totalLoot: [{ id: 'coin', quantity: 10 }] },
-				't3_005': { postId: 't3_005', missionTitle: 'M5', minLevel: 5, maxLevel: 9, timestamp: 5000 },
+				t3_001: {
+					postId: 't3_001',
+					missionTitle: 'M1',
+					minLevel: 1,
+					maxLevel: 5,
+					timestamp: 1000,
+					cleared: true,
+					clearedAt: 111,
+				},
+				t3_002: {
+					postId: 't3_002',
+					missionTitle: 'M2',
+					minLevel: 2,
+					maxLevel: 6,
+					timestamp: 2000,
+					cleared: false,
+				},
+				t3_003: {
+					postId: 't3_003',
+					missionTitle: 'M3',
+					minLevel: 3,
+					maxLevel: 7,
+					timestamp: 3000,
+					disabled: true,
+				},
+				t3_004: {
+					postId: 't3_004',
+					missionTitle: 'M4',
+					minLevel: 4,
+					maxLevel: 8,
+					timestamp: 4000,
+					cleared: true,
+					clearedAt: 444,
+					totalLoot: [{ id: 'coin', quantity: 10 }],
+				},
+				t3_005: { postId: 't3_005', missionTitle: 'M5', minLevel: 5, maxLevel: 9, timestamp: 5000 },
 			};
 
 			mockStorage.set('missions', oldMissions);
@@ -260,7 +291,14 @@ describe('Migration', () => {
 	describe('needsMigration', () => {
 		it('should return true when missions have progress fields', async () => {
 			const oldMissions = {
-				't3_001': { postId: 't3_001', missionTitle: 'M1', minLevel: 1, maxLevel: 5, timestamp: 1000, cleared: true },
+				t3_001: {
+					postId: 't3_001',
+					missionTitle: 'M1',
+					minLevel: 1,
+					maxLevel: 5,
+					timestamp: 1000,
+					cleared: true,
+				},
 			};
 
 			mockStorage.set('missions', oldMissions);
@@ -272,7 +310,7 @@ describe('Migration', () => {
 
 		it('should return false when no migration needed', async () => {
 			const missions = {
-				't3_001': { postId: 't3_001', missionTitle: 'M1', minLevel: 1, maxLevel: 5, timestamp: 1000 },
+				t3_001: { postId: 't3_001', missionTitle: 'M1', minLevel: 1, maxLevel: 5, timestamp: 1000 },
 			};
 
 			const userProgress = {

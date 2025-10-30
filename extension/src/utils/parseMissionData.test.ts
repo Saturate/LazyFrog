@@ -1,8 +1,8 @@
-import { parseMissionData, MissionData } from '../parseMissionData';
+import { parseMissionData, MissionData } from './parseMissionData';
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock the logger to avoid console output during tests
-vi.mock('../logger', () => ({
+vi.mock('./logger', () => ({
 	redditLogger: {
 		log: vi.fn(),
 		error: vi.fn(),
