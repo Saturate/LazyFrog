@@ -12,16 +12,22 @@
 // ============================================================================
 
 export type EncounterType =
-  | 'investigate'
-  | 'statsChoice'
-  | 'skillBargain'
-  | 'abilityChoice'
-  | 'enemy'
-  | 'crossroads';
+  | "investigate"
+  | "statsChoice"
+  | "skillBargain"
+  | "abilityChoice"
+  | "enemy"
+  | "crossroadsFight";
 
-export type StatType = 'Attack' | 'Defense' | 'Health' | 'Speed' | 'Crit' | 'Dodge';
+export type StatType =
+  | "Attack"
+  | "Defense"
+  | "Health"
+  | "Speed"
+  | "Crit"
+  | "Dodge";
 
-export type EffectType = 'multiplier' | 'ability';
+export type EffectType = "multiplier" | "ability";
 
 export interface Effect {
   id: string;
@@ -32,7 +38,7 @@ export interface Effect {
 }
 
 export interface InvestigateEncounter {
-  type: 'investigate';
+  type: "investigate";
   bonusChance: number;
   bonusGold: number;
   failHpPenaltyPct: number;
@@ -40,19 +46,19 @@ export interface InvestigateEncounter {
 }
 
 export interface StatsChoiceEncounter {
-  type: 'statsChoice';
+  type: "statsChoice";
   optionA: Effect;
   optionB: Effect;
 }
 
 export interface SkillBargainEncounter {
-  type: 'skillBargain';
+  type: "skillBargain";
   positiveEffect: Effect;
   negativeEffect: Effect;
 }
 
 export interface AbilityChoiceEncounter {
-  type: 'abilityChoice';
+  type: "abilityChoice";
   isEnchanted: boolean;
   optionA: Effect;
   optionB: Effect;
@@ -72,12 +78,12 @@ export interface Enemy {
 }
 
 export interface EnemyEncounter {
-  type: 'enemy';
+  type: "enemy";
   enemies: Enemy[];
 }
 
 export interface CrossroadsEncounter {
-  type: 'crossroads';
+  type: "crossroads";
   enemies: Enemy[];
 }
 
@@ -90,16 +96,16 @@ export type Encounter =
   | CrossroadsEncounter;
 
 export type Environment =
-  | 'haunted_forest'
-  | 'new_eden'
-  | 'wild_west'
-  | 'jungle'
-  | 'desert'
-  | 'tundra'
-  | 'underwater'
-  | 'mountains';
+  | "haunted_forest"
+  | "new_eden"
+  | "wild_west"
+  | "jungle"
+  | "desert"
+  | "tundra"
+  | "underwater"
+  | "mountains";
 
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+export type Rarity = "common" | "rare" | "epic" | "legendary" | "mythic";
 
 export interface Mission {
   environment: Environment;
@@ -192,21 +198,21 @@ export interface MissionFilters {
 // ============================================================================
 
 export const ENVIRONMENT_LABELS: Record<Environment, string> = {
-  haunted_forest: 'Haunted Forest',
-  new_eden: 'New Eden',
-  wild_west: 'Wild West',
-  jungle: 'Jungle',
-  desert: 'Desert',
-  tundra: 'Tundra',
-  underwater: 'Underwater',
-  mountains: 'Mountains',
+  haunted_forest: "Haunted Forest",
+  new_eden: "New Eden",
+  wild_west: "Wild West",
+  jungle: "Jungle",
+  desert: "Desert",
+  tundra: "Tundra",
+  underwater: "Underwater",
+  mountains: "Mountains",
 };
 
 export const ENCOUNTER_LABELS: Record<EncounterType, string> = {
-  investigate: 'Hut',
-  statsChoice: 'Stat Choice',
-  skillBargain: 'Skill Bargain',
-  abilityChoice: 'Ability Choice',
-  enemy: 'Battle',
-  crossroads: 'Miniboss',
+  investigate: "Hut",
+  statsChoice: "Stat Choice",
+  skillBargain: "Skill Bargain",
+  abilityChoice: "Ability Choice",
+  enemy: "Battle",
+  crossroadsFight: "Crossroads (Miniboss)",
 };
