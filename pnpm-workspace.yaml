@@ -1,12 +1,14 @@
 packages:
-  - 'packages/*'
-  - 'website'
-  - 'db-website'
-  - 'extension'
-  - 'db'
+  - packages/*
+  - website
+  - db-website
+  - extension
+  - db
 
 onlyBuiltDependencies:
   - better-sqlite3
   - esbuild
+  - sharp
   - spawn-sync
   - sqlite3
+  - unrs-resolver
