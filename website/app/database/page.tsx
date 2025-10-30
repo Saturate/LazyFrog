@@ -1,12 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MissionRecord, MissionsDatabase } from '@lazyfrog/types';
-import { MissionStats } from '@/components/MissionStats';
 import { MissionFilters, DatabaseFilters } from '@/components/MissionFilters';
 import { MissionTable } from '@/components/MissionTable';
 import { DatabaseDownloadButton } from '@/components/DatabaseDownloadButton';
 import { Database, AlertCircle } from 'lucide-react';
+
+const MissionStats = dynamic(() => import('@/components/MissionStats').then(mod => ({ default: mod.MissionStats })), {
+  ssr: false,
+  loading: () => (
+    <div className="mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4 animate-pulse">
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4 mb-2"></div>
+            <div className="h-8 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+});
 
 const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/Saturate/LazyFrog/refs/heads/main/db/missions.json';
 
