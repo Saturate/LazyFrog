@@ -92,6 +92,19 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 			if (filters.hasMiniboss !== hasMiniboss) return false;
 		}
 
+		// Boss Rush filter (missions with type === "bossRush")
+		if (filters.hasBossRush !== null) {
+			const hasBossRush = (mission.metadata?.mission?.type as string) === 'bossRush';
+			if (filters.hasBossRush !== hasBossRush) return false;
+		}
+
+		// Boss Loot filter (missions with boss encounters)
+		if (filters.hasBossLoot !== null) {
+			const hasBossLoot =
+				mission.metadata?.mission?.encounters?.some((e) => (e.type as string) === 'boss') || false;
+			if (filters.hasBossLoot !== hasBossLoot) return false;
+		}
+
 		return true;
 	};
 
@@ -167,11 +180,14 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 					const encounters = info.row.original.metadata?.mission?.encounters || [];
 					const uniqueTypes = [...new Set(encounters.map((e) => e.type))];
 					const hasMiniboss = encounters.some((e) => (e.type as string) === 'crossroadsFight');
+					const hasBossRush = (info.row.original.metadata?.mission?.type as string) === 'bossRush';
+					const hasBossLoot = encounters.some((e) => (e.type as string) === 'boss');
 
 					return (
 						<div className="group relative">
 							<button className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline">
-								{uniqueTypes.length} {hasMiniboss && '👑'}
+								{uniqueTypes.length} {hasMiniboss && '👑'} {hasBossRush && '🔥'}{' '}
+								{hasBossLoot && '💎'}
 							</button>
 							<div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg p-3 min-w-[200px]">
 								<div className="flex flex-wrap gap-1">
@@ -187,6 +203,16 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 								{hasMiniboss && (
 									<div className="mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
 										Contains Miniboss
+									</div>
+								)}
+								{hasBossRush && (
+									<div className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">
+										Boss Rush Mission
+									</div>
+								)}
+								{hasBossLoot && (
+									<div className="mt-2 text-xs text-purple-600 dark:text-purple-400 font-medium">
+										Contains Boss Loot
 									</div>
 								)}
 							</div>

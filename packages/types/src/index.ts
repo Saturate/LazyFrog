@@ -119,6 +119,7 @@ export interface Mission {
   chef: string;
   cart: string;
   rarity: Rarity;
+  type?: string; // Mission type (e.g., "bossRush")
 }
 
 export interface MissionMetadata {
