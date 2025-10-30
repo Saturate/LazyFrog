@@ -23,8 +23,14 @@ interface LoggerConfig {
 
 class Logger {
 	private config: LoggerConfig;
+	private parentContext?: string;
 
-	constructor(context: LogContext, config?: Partial<Omit<LoggerConfig, 'context'>>) {
+	constructor(
+		context: LogContext,
+		config?: Partial<Omit<LoggerConfig, 'context'>>,
+		parentContext?: string,
+	) {
+		this.parentContext = parentContext;
 		this.config = {
 			context,
 			remoteLogging: config?.remoteLogging ?? true,
@@ -78,7 +84,10 @@ class Logger {
 	 * Format message with prefix
 	 */
 	private formatMessage(message: string): string {
-		return `[${this.config.context}] ${message}`;
+		const fullContext = this.parentContext
+			? `${this.parentContext}][${this.config.context}`
+			: this.config.context;
+		return `[LF][${fullContext}] ${message}`;
 	}
 
 	/**
@@ -102,9 +111,18 @@ class Logger {
 	private logInternal(level: LogLevel, ...args: any[]): void {
 		// Create formatted message for remote logging
 		const message = args
-			.map((arg) =>
-				typeof arg === 'string' ? arg : typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
-			)
+			.map((arg) => {
+				if (typeof arg === 'string') return arg;
+				if (typeof arg === 'object') {
+					try {
+						return JSON.stringify(arg);
+					} catch (error) {
+						// Handle circular references gracefully
+						return '[Circular Reference]';
+					}
+				}
+				return String(arg);
+			})
 			.join(' ');
 
 		const entry: LogEntry = {
@@ -118,8 +136,11 @@ class Logger {
 		// Log to console using appropriate method with native object inspection
 		if (this.config.consoleLogging) {
 			const consoleMethod = console[level] || console.log;
-			// Add context prefix but preserve native console behavior
-			consoleMethod(`[${this.config.context}]`, ...args);
+			// Add LazyFrog and context prefix but preserve native console behavior
+			const fullContext = this.parentContext
+				? `${this.parentContext}][${this.config.context}`
+				: this.config.context;
+			consoleMethod(`[LF][${fullContext}]`, ...args);
 		}
 
 		// Send to remote server (non-blocking)
@@ -169,6 +190,24 @@ class Logger {
 	setConsoleLogging(enabled: boolean): void {
 		this.config.consoleLogging = enabled;
 	}
+
+	/**
+	 * Create a nested logger with additional context
+	 */
+	createNestedLogger(nestedContext: string): Logger {
+		const fullContext = this.parentContext
+			? `${this.parentContext}][${this.config.context}`
+			: this.config.context;
+		return new Logger(
+			nestedContext as LogContext,
+			{
+				remoteLogging: this.config.remoteLogging,
+				remoteUrl: this.config.remoteUrl,
+				consoleLogging: this.config.consoleLogging,
+			},
+			fullContext,
+		);
+	}
 }
 
 /**
@@ -177,12 +216,21 @@ class Logger {
 export function createLogger(
 	context: LogContext,
 	config?: Partial<Omit<LoggerConfig, 'context'>>,
+	parentContext?: string,
 ): Logger {
-	return new Logger(context, config);
+	return new Logger(context, config, parentContext);
 }
 
 /**
  * Pre-configured loggers for each context
+ *
+ * Example usage for nested contexts:
+ * const gameLogger = redditLogger.createNestedLogger('GAME');
+ * const combatLogger = gameLogger.createNestedLogger('COMBAT');
+ *
+ * This will produce logs like:
+ * [LF][REDDIT][GAME] Starting mission
+ * [LF][REDDIT][GAME][COMBAT] Enemy defeated
  */
 export const popupLogger = createLogger('POPUP');
 export const extensionLogger = createLogger('EXT');
