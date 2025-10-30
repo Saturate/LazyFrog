@@ -130,7 +130,7 @@ function initializeAutomation(): void {
 		// Check if we already captured initialData before the automation engine was ready
 		const capturedData = (window as any).__capturedInitialData;
 		if (capturedData) {
-			devvitLogger.log('[Devvit] Processing previously captured initialData', {
+			devvitLogger.log('Processing previously captured initialData', {
 				postId: capturedData.postId,
 				username: capturedData.username,
 			});
@@ -149,7 +149,7 @@ function initializeAutomation(): void {
 				gameAutomation.currentPostId = postId;
 				gameAutomation.missionMetadata = missionMetadata;
 
-				devvitLogger.log('[Devvit] Set currentPostId from captured initialData', { postId });
+				devvitLogger.log('Set currentPostId from captured initialData', { postId });
 			}
 
 			// Clear the captured data
