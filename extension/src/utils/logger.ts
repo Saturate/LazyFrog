@@ -21,7 +21,7 @@ interface LoggerConfig {
 	consoleLogging: boolean;
 }
 
-class Logger {
+export class Logger {
 	private config: LoggerConfig;
 	private parentContext?: string;
 

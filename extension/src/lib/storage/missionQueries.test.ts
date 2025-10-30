@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { getFilteredUnclearedMissions } from './missionQueries';
-import type { MissionRecord, MissionMetadata } from '../types';
+import type { MissionRecord, MissionMetadata } from './types';
 import { createMockChromeStorage } from './testUtils';
 
 // Helper to create mock metadata
