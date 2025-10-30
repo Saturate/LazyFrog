@@ -1,8 +1,8 @@
 import { ImageResponse } from "next/og";
-import missions from "@/../../db/missions.json";
+import missions from "@lazyfrog/db";
 
 // Image metadata
-export const alt = "LazyFrog Mission Database";
+export const alt = "FrogDB - Sword & Supper Mission Database";
 export const size = {
   width: 1200,
   height: 630,
@@ -36,19 +36,31 @@ export default async function Image() {
           padding: "80px",
         }}
       >
-        <div style={{ fontSize: 120, marginBottom: 30 }}>📊</div>
+        <div style={{ fontSize: 120, marginBottom: 30 }}>🐸</div>
         <div
           style={{
             fontSize: 80,
             fontWeight: "bold",
             color: "#6ee7b7",
+            marginBottom: 10,
+            textAlign: "center",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          FrogDB
+        </div>
+        <div
+          style={{
+            fontSize: 36,
+            color: "#a7f3d0",
             marginBottom: 30,
             textAlign: "center",
             display: "flex",
             justifyContent: "center",
           }}
         >
-          Mission Database
+          Sword & Supper Mission Database
         </div>
         <div
           style={{
@@ -61,12 +73,12 @@ export default async function Image() {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <div style={{ fontSize: 56, fontWeight: "bold", color: "#6ee7b7" }}>{missionCount}</div>
-            <div style={{ fontSize: 28, color: "#a7f3d0" }}>Missions</div>
+            <div style={{ fontSize: 56, fontWeight: "bold", color: "#6ee7b7", display: "flex" }}>{missionCount}</div>
+            <div style={{ fontSize: 28, color: "#a7f3d0", display: "flex" }}>Missions</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <div style={{ fontSize: 40, fontWeight: "bold", color: "#6ee7b7" }}>{lastUpdated}</div>
-            <div style={{ fontSize: 28, color: "#a7f3d0" }}>Last Updated</div>
+            <div style={{ fontSize: 40, fontWeight: "bold", color: "#6ee7b7", display: "flex" }}>{lastUpdated}</div>
+            <div style={{ fontSize: 28, color: "#a7f3d0", display: "flex" }}>Last Updated</div>
           </div>
         </div>
       </div>

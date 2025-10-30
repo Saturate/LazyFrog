@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "Mission database management scripts",
   "type": "module",
+  "main": "./missions.json",
+  "exports": {
+    ".": "./missions.json"
+  },
   "scripts": {
     "clean": "tsx clean-missions.ts",
     "merge": "tsx merge-missions.ts"
