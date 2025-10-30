@@ -122,27 +122,8 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 		}
 
 		// Extract isInnPost (mission completion status)
-		const innIndex = text.indexOf('isInnPost');
-		if (innIndex >= 0) {
-			// Look for boolean value after isInnPost field
-			// Try different offsets to find the boolean value
-			const offsets = [8, 9, 10, 11, 12];
-			for (const offset of offsets) {
-				if (innIndex + offset + 1 <= arrayBuffer.byteLength) {
-					try {
-						const dataView = new DataView(arrayBuffer, innIndex + offset, 1);
-						const innValue = dataView.getUint8(0);
-						// Boolean values in protobuf are typically 0 (false) or 1 (true)
-						if (innValue === 0 || innValue === 1) {
-							data.isInnPost = innValue === 1;
-							break;
-						}
-					} catch (e) {
-						// Continue trying other offsets
-					}
-				}
-			}
-		}
+		// Simplified: if we see the string 'isInnPost', it's an inn
+		data.isInnPost = text.includes('isInnPost');
 
 		redditLogger.log(`Parsed mission (${data.postId}) data from API`, {
 			...data,

@@ -1,5 +1,6 @@
+import { describe, it, expect, vi } from 'vitest';
 import { parseMissionData, MissionData } from './parseMissionData';
-import { describe, expect, it, vi } from 'vitest';
+import { exampleResponses } from './parseMissionData.examples';
 
 // Mock the logger to avoid console output during tests
 vi.mock('./logger', () => ({
@@ -10,9 +11,6 @@ vi.mock('./logger', () => ({
 }));
 
 describe('parseMissionData', () => {
-	// Real response data from the API call
-	const realResponseData = `AAAAI7QK5yoKDQoHX19jYWNoZRICKgAKTAoUYW5vbnltb3VzLnVzZVN0YXRlLTASNCoyCgsKBXZhbHVlEgIIAAoWCgpsb2FkX3N0YXRlEggaBmxvYWRlZAoLCgVlcnJvchICCAAKTAoUYW5vbnltb3VzLnVzZVN0YXRlLTESNCoyCgsKBXZhbHVlEgIgAAoWCgpsb2FkX3N0YXRlEggaBmxvYWRlZAoLCgVlcnJvchICCAAKUwoUYW5vbnltb3VzLnVzZVN0YXRlLTISOyo5ChIKBXZhbHVlEgkRAAAAAAAAAAAKFgoKbG9hZF9zdGF0ZRIIGgZsb2FkZWQKCwoFZXJyb3ISAggACtQQChRhbm9ueW1vdXMudXNlQXN5bmMtMxK7ECq4EAr6DwoEZGF0YRLxDzLuDwrPAirMAgoZCgNza3USEhoQZ2VtX2N1cnJlbmN5XzE4MAoSCgVwcmljZRIJEQAAAAAAAElACiAKDmFjY291bnRpbmdUeXBlEg4aDFVOUkVDT0dOSVpFRAoaCgtkaXNwbGF5TmFtZRIKGglHZW0gUG91Y2gKPQoLZGVzY3JpcHRpb24SLhosMTgwIEdlbXMgZm9yIHVzZSBpbiB0aGUgU3dvcmQgJiBTdXBwZXIgc2hvcC4KaQoIbWV0YWRhdGESXSpbCi8KCHNob3BpY29uEiMaIWFzc2V0cy91aS9zaG9wL0l0ZW1JY29uX0dlbTAzLnBuZwoPCgZhbW91bnQSBRoDMTgwChcKDml0ZW1EZWZpbml0aW9uEgUaA0dlbQozCgZpbWFnZXMSKSonCiUKBGljb24SHRobcHJvZHVjdHMvSXRlbUljb25fR2VtMDMucG5nCtICKs8CChoKA3NrdRITGhFnZW1fY3VycmVuY3lfMjc1MAoSCgVwcmljZRIJEQAAAAAAQH9ACiAKDmFjY291bnRpbmdUeXBlEg4aDFVOUkVDT0dOSVpFRAoaCgtkaXNwbGF5TmFtZRIKGglHZW0gVmF1bHQKPgoLZGVzY3JpcHRpb24SLxotMjc1MCBHZW1zIGZvciB1c2UgaW4gdGhlIFN3b3JkICYgU3VwcGVyIHNob3AuCmoKCG1ldGFkYXRhEl4qXAoQCgZhbW91bnQSBhoEMjc1MAoXCg5pdGVtRGVmaW5pdGlvbhIFGgNHZW0KLwoIc2hvcGljb24SIxohYXNzZXRzL3VpL3Nob3AvSXRlbUljb25fR2VtMDYucG5nCjMKBmltYWdlcxIpKicKJQoEaWNvbhIdGhtwcm9kdWN0cy9JdGVtSWNvbl9HZW0wNi5wbmcKzgIqywIKGAoDc2t1EhEaD2dlbV9jdXJyZW5jeV8xNQoSCgVwcmljZRIJEQAAAAAAABRACiAKDmFjY291bnRpbmdUeXBlEg4aDFVOUkVDT0dOSVpFRAocCgtkaXNwbGF5TmFtZRIOGgtHZW0gSGFuZGZ1bAo8CgtkZXNjcmlwdGlvbhItGisxNSBHZW1zIGZvciB1c2UgaW4gdGhlIFN3b3JkICYgU3VwcGVyIHNob3AuCmgKCG1ldGFkYXRhElwqWgoOCgZhbW91bnQSBhoCMTUKFwoOaXRlbURlZmluaXRpb24SBRoDR2VtCi8KCHNob3BpY29uEiMaIWFzc2V0cy91aS9zaG9wL0l0ZW1JY29uX0dlbTAxLnBuZwozCgZpbWFnZXMSKSonCiUKBGljb24SHRobcHJvZHVjdHMvSXRlbUljb25fR2VtMDEucG5nCtICKs8CChoKA3NrdRITGhFnZW1fY3VycmVuY3lfMTEwMAoSCgVwcmljZRIJEQAAAAAAQG9ACiAKDmFjY291bnRpbmdUeXBlEg4aDFVOUkVDT0dOSVpFRAoaCgtkaXNwbGF5TmFtZRIKGglHZW0gQ2hlc3QKPgoLZGVzY3JpcHRpb24SLxotMTEwMCBHZW1zIGZvciB1c2UgaW4gdGhlIFN3b3JkICYgU3VwcGVyIHNob3AuCmoKCG1ldGFkYXRhEl4qXAoQCgZhbW91bnQSBhoEMTEwMAoXCg5pdGVtRGVmaW5pdGlvbhIFGgNHZW0KLwoIc2hvcGljb24SIxohYXNzZXRzL3VpL3Nob3AvSXRlbUljb25fR2VtMDUucG5nCjMKBmltYWdlcxIpKicKJQoEaWNvbhIdGhtwcm9kdWN0cy9JdGVtSWNvbl9HZW0wNS5wbmcK0AIqzQIKGQoDc2t1EhIaEGdlbV9jdXJyZW5jeV80MDAKEgoFcHJpY2USCREAAAAAAABZQAogCg5hY2NvdW50aW5nVHlwZRIOGgxVTlJFQ09HTklaRUQKGwoLZGlzcGxheU5hbWUSDBoKR2VtIEJ1Y2tldAo9CgtkZXNjcmlwdGlvbhIuGiw0MDAgR2VtcyBmb3IgdXNlIGluIHRoZSBTd29yZCAmIFN1cHBlciBzaG9wLgppCghtZXRhZGF0YRJdKlsKDwoGYW1vdW50EgUaAzQwMAoXCg5pdGVtRGVmaW5pdGlvbhIFGgNHZW0KLwoIc2hvcGljb24SIxohYXNzZXRzL3VpL3Nob3AvSXRlbUljb25fR2VtMDQucG5nCjMKBmltYWdlcxIpKicKJQoEaWNvbhIdGhtwcm9kdWN0cy9JdGVtSWNvbl9HZW0wNC5wbmcKywIqyAIKGAoDc2t1EhEaD2dlbV9jdXJyZW5jeV84MAoSCgVwcmljZRIJEQAAAAAAADlACiAKDmFjY291bnRpbmdUeXBlEg4aDFVOUkVDT0dOSVpFRAoZCgtkaXNwbGF5TmFtZRIKGghHZW0gUGlsZQo8CgtkZXNjcmlwdGlvbhItGis4MCBHZW1zIGZvciB1c2UgaW4gdGhlIFN3b3JkICYgU3VwcGVyIHNob3AuCmgKCG1ldGFkYXRhElwqWgoOCgZhbW91bnQSBhoCODAKFwoOaXRlbURlZmluaXRpb24SBRoDR2VtCi8KCHNob3BpY29uEiMaIWFzc2V0cy91aS9zaG9wL0l0ZW1JY29uX0dlbTAyLnBuZwozCgZpbWFnZXMSKSonCiUKBGljb24SHRobcHJvZHVjdHMvSXRlbUljb25fR2VtMDIucG5nChYKCmxvYWRfc3RhdGUSCBoGbG9hZGVkCgsKBWVycm9yEgIIAAoUCgdkZXBlbmRzEgkRAAAAAAAAAAAKTAoUYW5vbnltb3VzLnVzZVN0YXRlLTQSNCoyCgsKBXZhbHVlEgIyAAoWCgpsb2FkX3N0YXRlEggaBmxvYWRlZAoLCgVlcnJvchICCAAKWQoUYW5vbnltb3VzLnVzZVN0YXRlLTUSQSo/ChgKBXZhbHVlEg8aDTE3NjExMjcyMjczMDQKFgoKbG9hZF9zdGF0ZRIIGgZsb2FkZWQKCwoFZXJyb3ISAggACkwKFGFub255bW91cy51c2VTdGF0ZS02EjQqMgoLCgV2YWx1ZRICIAAKFgoKbG9hZF9zdGF0ZRIIGgZsb2FkZWQKCwoFZXJyb3ISAggAClMKFGFub255bW91cy51c2VTdGF0ZS03EjsqOQoSCgV2YWx1ZRIJEQAAAAAAAAAAChYKCmxvYWRfc3RhdGUSCBoGbG9hZGVkCgsKBWVycm9yEgIIAApRChRhbm9ueW1vdXMudXNlU3RhdGUtOBI5KjcKEAoFdmFsdWUSBxoFQUtKOTAKFgoKbG9hZF9zdGF0ZRIIGgZsb2FkZWQKCwoFZXJyb3ISAggACloKFGFub255bW91cy51c2VBc3luYy05EkIqQAoKCgRkYXRhEgIgAAoWCgpsb2FkX3N0YXRlEggaBmxvYWRlZAoLCgVlcnJvchICCAAKDQoHZGVwZW5kcxICCAAKoAEKFWFub255bW91cy51c2VTdGF0ZS0xMBKGASqDAQpcCgV2YWx1ZRJTKlEKHgoKYXV0aG9yTmFtZRIQGg5TZWFfU3Bpcml0NjY3NwovCgV0aXRsZRImGiRJbiBTZWFyY2ggb2YgTW9sZSBTYXVjZSBTYXZvcnkgQ3JlcGUKFgoKbG9hZF9zdGF0ZRIIGgZsb2FkZWQKCwoFZXJyb3ISAggAClQKFWFub255bW91cy51c2VTdGF0ZS0xMRI7KjkKEgoFdmFsdWUSCREAAAAAAAAAAAoWCgpsb2FkX3N0YXRlEggaBmxvYWRlZAoLCgVlcnJvchICCAAKmBAKFWFub255bW91cy51c2VTdGF0ZS0xMhL+Dyr7DwrTDwoFdmFsdWUSyQ8qxg8KsA0KB21pc3Npb24SpA0qoQ0KFwoLZW52aXJvbm1lbnQSCBoGZmllbGRzCqsLCgplbmNvdW50ZXJzEpwLMpkLCm4qbAoPCgR0eXBlEgcaBWVuZW15ClkKB2VuZW1pZXMSTjJMCkoqSAoZCgJpZBITGhFtdXNocm9vbVNtYWxsLTAtMAoXCgR0eXBlEg8aDW11c2hyb29tU21hbGwKEgoFbGV2ZWwSCREAAAAAAADwPwreASrbAQoVCgR0eXBlEg0aC3N0YXRzQ2hvaWNlCmoKB29wdGlvbkESXypdCh8KAmlkEhkaF01pc3Npb25CbGVzc2luZyAtIERvZGdlChQKBHR5cGUSDBoKbXVsdGlwbGllcgoPCgRzdGF0EgcaBURvZGdlChMKBmFtb3VudBIJEXE9CtejcM0/ClYKB29wdGlvbkISSypJCiAKAmlkEhoaGE1pc3Npb25CbGVzc2luZyAtIEhlYWx0aAoQCgR0eXBlEggaBmhlYWx0aAoTCgZhbW91bnQSCREzMzMzMzPTPwpuKmwKDwoEdHlwZRIHGgVlbmVteQpZCgdlbmVtaWVzEk4yTApKKkgKGQoCaWQSExoRbXVzaHJvb21DaGlsZC0xLTAKFwoEdHlwZRIPGg1tdXNocm9vbUNoaWxkChIKBWxldmVsEgkRAAAAAAAAAEAK4gEq3wEKFQoEdHlwZRINGgtzdGF0c0Nob2ljZQpWCgdvcHRpb25BEksqSQogCgJpZBIaGhhNaXNzaW9uQmxlc3NpbmcgLSBIZWFsdGgKEAoEdHlwZRIIGgZoZWFsdGgKEwoGYW1vdW50EgkR7FG4HoXr0T8KbgoHb3B0aW9uQhJjKmEKIQoCaWQSGxoZTWlzc2lvbkJsZXNzaW5nIC0gRGVmZW5zZQoUCgR0eXBlEgwaCm11bHRpcGxpZXIKEQoEc3RhdBIJGgdEZWZlbnNlChMKBmFtb3VudBIJEbgehetRuL4/Cm4qbAoPCgR0eXBlEgcaBWVuZW15ClkKB2VuZW1pZXMSTjJMCkoqSAoZCgJpZBITGhFtdXNocm9vbUNoaWxkLTQtMAoXCgR0eXBlEg8aDW11c2hyb29tQ2hpbGQKEgoFbGV2ZWwSCREAAAAAAAAAQAq+ASq7AQoPCgR0eXBlEgcaBWVuZW15CqcBCgdlbmVtaWVzEpsBMpgBCkoqSAoZCgJpZBITGhFtdXNocm9vbVNtYWxsLTMtMAoXCgR0eXBlEg8aDW11c2hyb29tU21hbGwKEgoFbGV2ZWwSCREAAAAAAADwvwpKKkgKGQoCaWQSExoRbXVzaHJvb21UZWV0aC0zLTEKFwoEdHlwZRIPGg1tdXNocm9vbVRlZXRoChIKBWxldmVsEgkRAAAAAAAA8D8KvAEquQEKDwoEdHlwZRIHGgVlbmVteQqlAQoHZW5lbWllcxKZATKWAQpKKkgKGQoCaWQSExoRbXVzaHJvb21UZWV0aC0yLTAKFwoEdHlwZRIPGg1tdXNocm9vbVRlZXRoChIKBWxldmVsEgkRAAAAAAAA8L8KSCpGChgKAmlkEhIaEG11c2hyb29tRnJvZy0yLTEKFgoEdHlwZRIOGgxtdXNocm9vbUZyb2cKEgoFbGV2ZWwSCREAAAAAAAAAwAqAAir9AQoSCgR0eXBlEgoaCHRyZWFzdXJlChkKC21pc3Npb25UeXBlEgoaCHN0YW5kYXJkCssBCgZyZXdhcmQSwAEqvQEKpwEKCGVzc2VuY2VzEpoBMpcBCi8qLQoUCgJpZBIOGgxFc3NlbmNlQ2hld3kKFQoIcXVhbnRpdHkSCREAAAAAAADwPwowKi4KFQoCaWQSDxoNRXNzZW5jZUNyZWFteQoVCghxdWFudGl0eRIJEQAAAAAAAPA/CjIqMAoXCgJpZBIRGg9Fc3NlbmNlRGVjYWRlbnQKFQoIcXVhbnRpdHkSCREAAAAAAAAAQAoRCgR0aWVyEgkRAAAAAAAACEAKFQoIbWluTGV2ZWwSCREAAAAAAADwPwoVCghtYXhMZXZlbBIJEQAAAAAAABRAChcKCmRpZmZpY3VsdHkSCREAAAAAAAAIQAoiCglmb29kSW1hZ2USFRoTQ3JlcGVfQ2hva29sYXRlLnBuZwolCghmb29kTmFtZRIZGhdNb2xlIFNhdWNlIFNhdm9yeSBDcmVwZQoXCgRjaGVmEg8aDWNoZWZfamFwYW5lc2UKFwoEY2FydBIPGg1jYXJ0X3VtYnJlbGxhChQKBnJhcml0eRIKGgh1bmNvbW1vbgoRCgtlbmVteVRhdW50cxICMgAK2AEKDHNjZW5hcmlvVGV4dBLHARrEAVdoeSBkbyB5b3Ugc2VlayByZW1vdGUgcmVzdGF1cmFudHM/IEluIGEgc2Nhcnkgd29ybGQsIGl0J3MgdGhlIG9ubHkgdGhpbmcgdGhhdCBicmluZ3MgeW91IGhhcHBpbmVzcy4gU2luY2UgYmVjb21pbmcgYW4gaXRpbmVyYW50IGdvdXJtZXQsIHlvdSd2ZSBnYWluZWQgYWNjZXNzIHRvIG1hcHMgbGVhZGluZyB0byBpbmNyZWRpYmxlIHBsYWNlcy4KDwoJaXNJbm5Qb3N0EgIgAAoSCgVwbGF5cxIJEQAAAAAAABhAChYKCmxvYWRfc3RhdGUSCBoGbG9hZGVkCgsKBWVycm9yEgIIAApJChdhbm9ueW1vdXMudXNlV2ViVmlldy0xMxIuKiwKGQoMbWVzc2FnZUNvdW50EgkRAAAAAAAAAAAKDwoJaXNNb3VudGVkEgIgAAobChVhbm9ueW1vdXMucGF5bWVudHMtMTQSAioACpYBCiBhbm9ueW1vdXMuTWlzc2lvbkNhcmQudXNlU3RhdGUtMBJyKnAKSQoFdmFsdWUSQBo+aHR0cHM6Ly93d3cu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`;
-
 	// Convert base64 string to ArrayBuffer for testing
 	function base64ToArrayBuffer(base64: string): ArrayBuffer {
 		const binaryString = atob(base64);
@@ -25,7 +23,7 @@ describe('parseMissionData', () => {
 
 	describe('with real API response data', () => {
 		it('should parse mission data correctly', () => {
-			const arrayBuffer = base64ToArrayBuffer(realResponseData);
+			const arrayBuffer = base64ToArrayBuffer(exampleResponses.basicMission);
 			const postId = 't3_1od3es7';
 
 			const result = parseMissionData(arrayBuffer, postId);
@@ -62,7 +60,7 @@ describe('parseMissionData', () => {
 
 		it('should validate difficulty range', () => {
 			// This test ensures the difficulty validation (1-5) is working
-			const arrayBuffer = base64ToArrayBuffer(realResponseData);
+			const arrayBuffer = base64ToArrayBuffer(exampleResponses.basicMission);
 			const result = parseMissionData(arrayBuffer, 't3_1od3es7');
 
 			expect(result?.difficulty).toBeGreaterThanOrEqual(1);
@@ -87,14 +85,14 @@ describe('parseMissionData', () => {
 
 	describe('field extraction', () => {
 		it('should extract difficulty with multiple offset attempts', () => {
-			const arrayBuffer = base64ToArrayBuffer(realResponseData);
+			const arrayBuffer = base64ToArrayBuffer(exampleResponses.basicMission);
 			const result = parseMissionData(arrayBuffer, 't3_1od3es7');
 
 			expect(result?.difficulty).toBe(3);
 		});
 
 		it('should extract level ranges correctly', () => {
-			const arrayBuffer = base64ToArrayBuffer(realResponseData);
+			const arrayBuffer = base64ToArrayBuffer(exampleResponses.basicMission);
 			const result = parseMissionData(arrayBuffer, 't3_1od3es7');
 
 			expect(result?.minLevel).toBe(1);
@@ -102,13 +100,71 @@ describe('parseMissionData', () => {
 		});
 
 		it('should extract text fields correctly', () => {
-			const arrayBuffer = base64ToArrayBuffer(realResponseData);
+			const arrayBuffer = base64ToArrayBuffer(exampleResponses.basicMission);
 			const result = parseMissionData(arrayBuffer, 't3_1od3es7');
 
 			expect(result?.environment).toBe('fields');
 			expect(result?.foodName).toBe('Mole Sauce Savory Crepe');
 			expect(result?.authorName).toBe('Sea_Spirit6677');
 			expect(result?.title).toBe('In Search of Mole Sauce Savory Crepe');
+		});
+	});
+
+	describe('multiple example responses', () => {
+		// Test each example response from the examples file
+		Object.entries(exampleResponses).forEach(([name, base64Data]) => {
+			it(`should parse ${name} correctly`, () => {
+				const arrayBuffer = base64ToArrayBuffer(base64Data);
+				const postId = `t3_${name.toLowerCase().replace(/\s+/g, '_')}`;
+
+				const result = parseMissionData(arrayBuffer, postId);
+
+				expect(result).not.toBeNull();
+				expect(result?.postId).toBe(postId);
+
+				// Basic validation that we got some data
+				expect(result).toHaveProperty('postId');
+			});
+		});
+	});
+
+	describe('isInnPost detection', () => {
+		it('should detect completed missions (isInnPost: true) when isInnPost string is present', () => {
+			// Create mock data that contains the 'isInnPost' string
+			const mockData = 'some protobuf data with isInnPost field and other content';
+			const arrayBuffer = new TextEncoder().encode(mockData).buffer;
+			const result = parseMissionData(arrayBuffer, 't3_test');
+
+			expect(result).not.toBeNull();
+			expect(result?.isInnPost).toBe(true);
+		});
+
+		it('should detect incomplete missions (isInnPost: false) when isInnPost string is not present', () => {
+			// Create mock data that does NOT contain the 'isInnPost' string
+			const mockData = 'some protobuf data without isInnPost field and other content';
+			const arrayBuffer = new TextEncoder().encode(mockData).buffer;
+			const result = parseMissionData(arrayBuffer, 't3_test');
+
+			expect(result).not.toBeNull();
+			expect(result?.isInnPost).toBe(false);
+		});
+
+		it('should handle empty data gracefully', () => {
+			const emptyBuffer = new ArrayBuffer(0);
+			const result = parseMissionData(emptyBuffer, 't3_test');
+
+			expect(result).not.toBeNull();
+			expect(result?.isInnPost).toBe(false);
+		});
+
+		it('should detect inn post with case sensitivity', () => {
+			// Test that the detection is case sensitive
+			const mockData = 'some protobuf data with IsInnPost field and other content';
+			const arrayBuffer = new TextEncoder().encode(mockData).buffer;
+			const result = parseMissionData(arrayBuffer, 't3_test');
+
+			expect(result).not.toBeNull();
+			expect(result?.isInnPost).toBe(false); // Should be false because case doesn't match
 		});
 	});
 });
