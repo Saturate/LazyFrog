@@ -28,7 +28,11 @@ import { initializeDebugFunctions } from './utils/debug';
 import { installMissionDataHandler } from './utils/missionDataHandler';
 import { startPinging, stopPinging } from './utils/keepAlive';
 import { navigateToUrl, onUrlChange } from '../../utils/navigation';
-import { DOM_UPDATE_DELAY, GAME_LOADER_CHECK_INTERVAL, GAME_LOADER_MAX_WAIT } from '../../constants/timing';
+import {
+	DOM_UPDATE_DELAY,
+	GAME_LOADER_CHECK_INTERVAL,
+	GAME_LOADER_MAX_WAIT,
+} from '../../constants/timing';
 
 // UI components
 import { getStatusText } from './ui/statusText';
@@ -49,6 +53,8 @@ redditLogger.log('Sword & Supper Bot content script loaded', {
 	url: window.location.href,
 	loadTime: new Date().toISOString(),
 });
+
+// Mission completion detection handled in missionDataHandler.ts
 
 let root: Root | null = null;
 
@@ -180,9 +186,23 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 		case 'CHECK_FOR_GAME_LOADER':
 			// Background wants us to check if game loader is present
 			redditLogger.log('[CHECK_FOR_GAME_LOADER] Checking for loader');
-			checkForExistingLoader(currentBotState);
-			sendResponse({ success: true });
-			break;
+
+			// First check for inn detection (mission already completed)
+			(async () => {
+				const { shouldSkipGameDueToInn } = await import('./utils/innDetection');
+				if (shouldSkipGameDueToInn()) {
+					redditLogger.log(
+						'[CHECK_FOR_GAME_LOADER] Skipping game loader check - mission already completed',
+					);
+					sendResponse({ success: true, skipped: true });
+					return;
+				}
+
+				// If not completed, proceed with normal game loader detection
+				checkForExistingLoader(currentBotState);
+				sendResponse({ success: true });
+			})();
+			return true; // Will respond asynchronously
 
 		case 'CHECK_GAME_DIALOG_STATUS':
 			// Background wants to know if game dialog is currently open
