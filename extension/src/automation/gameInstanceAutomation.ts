@@ -835,16 +835,31 @@ export class GameInstanceAutomationEngine {
 		});
 
 		if (isBlessing) {
+			// Extract stat names from blessing buttons (e.g., "Speed" from "Increase Speed by 10%")
+			const blessingStats = skillButtons
+				.map((b) => {
+					const text = b.textContent?.trim() || '';
+					const match = text.match(/Increase (\w+) by \d+%/);
+					return match ? match[1] : null;
+				})
+				.filter((stat): stat is string => !!stat);
+
+			if (blessingStats.length > 0) {
+				this.recordDiscoveredBlessingStats(blessingStats);
+			}
+
 			// Handle blessing stat choices based on priority
 			// Safety check: ensure blessingStatPriority is an array
 			const statPriority = Array.isArray(this.config.blessingStatPriority)
 				? this.config.blessingStatPriority
 				: DEFAULT_GIAE_CONFIG.blessingStatPriority;
 
-			for (const stat of statPriority) {
+			// Match blessing stats by partial text (case-insensitive)
+			for (const preferredStat of statPriority) {
 				const blessingButton = skillButtons.find((b) => {
-					const text = b.textContent?.trim() || '';
-					return text.includes(`Increase ${stat}`);
+					const text = (b.textContent?.trim() || '').toLowerCase();
+					const search = preferredStat.toLowerCase();
+					return text.includes(search);
 				});
 
 				if (blessingButton) {
@@ -854,22 +869,32 @@ export class GameInstanceAutomationEngine {
 			}
 		}
 
+		// Record all ability names we see
+		const abilityNames = skillButtons
+			.map((b) => b.textContent?.trim())
+			.filter((text): text is string => !!text);
+
+		if (abilityNames.length > 0) {
+			this.recordDiscoveredAbilities(abilityNames);
+		}
+
 		// Look for ability names from our tier list
 		// Safety check: ensure abilityTierList is an array
 		const abilityList = Array.isArray(this.config.abilityTierList)
 			? this.config.abilityTierList
 			: DEFAULT_GIAE_CONFIG.abilityTierList;
 
-		for (const abilityId of abilityList) {
+		// Match abilities by partial text (case-insensitive)
+		for (const preferredAbility of abilityList) {
 			const abilityButton = skillButtons.find((b) => {
-				const text = b.textContent?.trim() || '';
-				// Match ability ID or readable name
-				return text.includes(abilityId) || this.matchesAbilityName(text, abilityId);
+				const text = (b.textContent?.trim() || '').toLowerCase();
+				const search = preferredAbility.toLowerCase();
+				return text.includes(search);
 			});
 
 			if (abilityButton) {
 				this.clickElement(abilityButton);
-				return abilityButton.textContent?.trim() || abilityId;
+				return abilityButton.textContent?.trim() || preferredAbility;
 			}
 		}
 
@@ -880,6 +905,58 @@ export class GameInstanceAutomationEngine {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Record discovered abilities to storage for user reference
+	 */
+	private recordDiscoveredAbilities(abilityNames: string[]): void {
+		try {
+			chrome.storage.local.get(['discoveredAbilities'], (result) => {
+				const existing = new Set<string>(result.discoveredAbilities || []);
+				let added = false;
+
+				for (const name of abilityNames) {
+					if (!existing.has(name)) {
+						existing.add(name);
+						added = true;
+					}
+				}
+
+				if (added) {
+					chrome.storage.local.set({ discoveredAbilities: Array.from(existing) });
+				}
+			});
+		} catch (error) {
+			// Silently fail - this is not critical
+			devvitLogger.error('Failed to record discovered abilities', { error: String(error) });
+		}
+	}
+
+	/**
+	 * Record discovered blessing stats to storage for user reference
+	 */
+	private recordDiscoveredBlessingStats(statNames: string[]): void {
+		try {
+			chrome.storage.local.get(['discoveredBlessingStats'], (result) => {
+				const existing = new Set<string>(result.discoveredBlessingStats || []);
+				let added = false;
+
+				for (const name of statNames) {
+					if (!existing.has(name)) {
+						existing.add(name);
+						added = true;
+					}
+				}
+
+				if (added) {
+					chrome.storage.local.set({ discoveredBlessingStats: Array.from(existing) });
+				}
+			});
+		} catch (error) {
+			// Silently fail - this is not critical
+			devvitLogger.error('Failed to record discovered blessing stats', { error: String(error) });
+		}
 	}
 
 	/**
@@ -1005,21 +1082,6 @@ export class GameInstanceAutomationEngine {
 		}
 
 		return null;
-	}
-
-	/**
-	 * Match ability readable name to ability ID
-	 */
-	private matchesAbilityName(buttonText: string, abilityId: string): boolean {
-		const nameMap: Record<string, string[]> = {
-			IceKnifeOnTurnStart: ['ice knife', 'iceknife'],
-			LightningOnCrit: ['lightning', 'crit lightning'],
-			HealOnFirstTurn: ['heal', 'healing', 'first turn heal'],
-		};
-
-		const variants = nameMap[abilityId] || [];
-		const lowerText = buttonText.toLowerCase();
-		return variants.some((variant) => lowerText.includes(variant));
 	}
 
 	/**

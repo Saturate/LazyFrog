@@ -3,7 +3,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Target, GripVertical } from 'lucide-react';
+import { Target, Sparkles, Swords } from 'lucide-react';
+import { PriorityListCard } from '../components/PriorityListCard';
 
 interface AutomationConfig {
   abilityTierList: string[];
@@ -19,10 +20,12 @@ const AutomationTab: React.FC = () => {
     skillBargainStrategy: 'positive-only',
     crossroadsStrategy: 'fight',
   });
+  const [discoveredAbilities, setDiscoveredAbilities] = useState<string[]>([]);
+  const [discoveredBlessingStats, setDiscoveredBlessingStats] = useState<string[]>([]);
 
   // Load config on mount
   useEffect(() => {
-    chrome.storage.local.get(['automationConfig'], (result) => {
+    chrome.storage.local.get(['automationConfig', 'discoveredAbilities', 'discoveredBlessingStats'], (result) => {
       if (result.automationConfig) {
         setConfig({
           abilityTierList: result.automationConfig.abilityTierList || [],
@@ -31,6 +34,8 @@ const AutomationTab: React.FC = () => {
           crossroadsStrategy: result.automationConfig.crossroadsStrategy || 'fight',
         });
       }
+      setDiscoveredAbilities(result.discoveredAbilities || []);
+      setDiscoveredBlessingStats(result.discoveredBlessingStats || []);
     });
   }, []);
 
@@ -48,145 +53,49 @@ const AutomationTab: React.FC = () => {
     });
   }, [config]);
 
-  // Drag and drop handlers for abilities
-  const handleAbilityDragStart = (e: React.DragEvent, index: number) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
-  };
-
-  const handleAbilityDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleAbilityDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-    if (dragIndex === dropIndex) return;
-
-    const newList = [...config.abilityTierList];
-    const [draggedItem] = newList.splice(dragIndex, 1);
-    newList.splice(dropIndex, 0, draggedItem);
-
+  // Handler for ability list changes
+  const handleAbilityListChange = (newList: string[]) => {
     setConfig(prev => ({ ...prev, abilityTierList: newList }));
   };
 
-  // Drag and drop handlers for blessings
-  const handleBlessingDragStart = (e: React.DragEvent, index: number) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
-  };
-
-  const handleBlessingDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleBlessingDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-    if (dragIndex === dropIndex) return;
-
-    const newList = [...config.blessingStatPriority];
-    const [draggedItem] = newList.splice(dragIndex, 1);
-    newList.splice(dropIndex, 0, draggedItem);
-
+  // Handler for blessing stat list changes
+  const handleBlessingStatListChange = (newList: string[]) => {
     setConfig(prev => ({ ...prev, blessingStatPriority: newList }));
   };
 
   return (
     <div>
+      <PriorityListCard
+        title="Ability Pick Order"
+        icon={Target}
+        description="Drag to reorder. Abilities will be selected in this order of preference when given a choice in missions."
+        matchingHint='The automation matches using partial text (case-insensitive). E.g., "Ice" matches "Ice Knife" ability.'
+        items={config.abilityTierList}
+        discoveredItems={discoveredAbilities}
+        inputPlaceholder="Add ability name..."
+        emptyMessage="No abilities in pick order. Add abilities above or play missions to discover them!"
+        accentColor="#3b82f6"
+        onItemsChange={handleAbilityListChange}
+      />
+
+      <PriorityListCard
+        title="Blessing Stat Pick Order"
+        icon={Sparkles}
+        description="Drag to reorder. Stats will be prioritized in this order when choosing blessings during missions."
+        matchingHint='The automation matches using partial text (case-insensitive). E.g., "Speed" matches "Increase Speed by 10%".'
+        items={config.blessingStatPriority}
+        discoveredItems={discoveredBlessingStats}
+        inputPlaceholder="Add blessing stat name..."
+        emptyMessage="No blessing stats in pick order. Add stats above or play missions to discover them!"
+        accentColor="#22c55e"
+        onItemsChange={handleBlessingStatListChange}
+      />
+
       <div className="card">
         <h2>
-          <Target size={20} style={{ display: 'inline-block', marginRight: '8px', verticalAlign: 'middle' }} />
-          Ability Tier List
+          <Swords size={20} style={{ display: 'inline-block', marginRight: '8px', verticalAlign: 'middle' }} />
+          Combat Strategies
         </h2>
-        <p style={{ color: '#a1a1aa', marginBottom: '16px', fontSize: '14px' }}>
-          Drag to reorder. Abilities will be selected in this order of preference when given a choice in missions.
-        </p>
-        {config.abilityTierList.length === 0 ? (
-          <p style={{ color: '#71717a', fontSize: '14px', fontStyle: 'italic' }}>
-            No abilities discovered yet. Play missions to discover abilities!
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {config.abilityTierList.map((ability, index) => (
-              <div
-                key={index}
-                draggable
-                onDragStart={(e) => handleAbilityDragStart(e, index)}
-                onDragOver={handleAbilityDragOver}
-                onDrop={(e) => handleAbilityDrop(e, index)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '12px',
-                  background: '#171717',
-                  border: '1px solid #1a1a1a',
-                  borderRadius: '8px',
-                  cursor: 'move',
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#1f1f1f'}
-                onMouseLeave={(e) => e.currentTarget.style.background = '#171717'}
-              >
-                <GripVertical size={16} style={{ color: '#71717a' }} />
-                <span style={{ fontSize: '14px', fontWeight: '600', color: '#3b82f6', minWidth: '30px' }}>
-                  {index + 1}
-                </span>
-                <span style={{ fontSize: '14px', color: '#e5e5e5' }}>{ability}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Blessing Stat Priority</h2>
-        <p style={{ color: '#a1a1aa', marginBottom: '16px', fontSize: '14px' }}>
-          Drag to reorder. Stats will be prioritized in this order when choosing blessings during missions.
-        </p>
-        {config.blessingStatPriority.length === 0 ? (
-          <p style={{ color: '#71717a', fontSize: '14px', fontStyle: 'italic' }}>
-            No blessing stats discovered yet. Play missions to discover stats!
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {config.blessingStatPriority.map((stat, index) => (
-              <div
-                key={index}
-                draggable
-                onDragStart={(e) => handleBlessingDragStart(e, index)}
-                onDragOver={handleBlessingDragOver}
-                onDrop={(e) => handleBlessingDrop(e, index)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '12px',
-                  background: '#171717',
-                  border: '1px solid #1a1a1a',
-                  borderRadius: '8px',
-                  cursor: 'move',
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#1f1f1f'}
-                onMouseLeave={(e) => e.currentTarget.style.background = '#171717'}
-              >
-                <GripVertical size={16} style={{ color: '#71717a' }} />
-                <span style={{ fontSize: '14px', fontWeight: '600', color: '#22c55e', minWidth: '30px' }}>
-                  {index + 1}
-                </span>
-                <span style={{ fontSize: '14px', color: '#e5e5e5' }}>{stat}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Combat Strategies</h2>
 
         <div className="form-group" style={{ marginBottom: '20px' }}>
           <label>Skill Bargain Strategy:</label>
