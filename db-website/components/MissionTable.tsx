@@ -19,6 +19,7 @@ import {
 	ENCOUNTER_LABELS,
 	EncounterType,
 } from '@lazyfrog/types';
+import { countEnemiesInMission } from '@lazyfrog/utils/src/enemyCounter';
 import { DatabaseFilters } from './MissionFilters';
 
 interface MissionTableProps {
@@ -216,6 +217,19 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 									</div>
 								)}
 							</div>
+						</div>
+					);
+				},
+			},
+			{
+				id: 'enemies',
+				header: 'Enemies',
+				cell: (info) => {
+					const totalEnemies = countEnemiesInMission(info.row.original);
+
+					return (
+						<div className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+							{totalEnemies}
 						</div>
 					);
 				},
