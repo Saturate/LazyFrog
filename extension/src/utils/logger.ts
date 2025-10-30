@@ -6,6 +6,9 @@
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT' | 'DEVVIT-GIAE' | string;
 
+// Default number of logs to keep in storage
+export const DEFAULT_MAX_STORED_LOGS = 5000;
+
 interface LogEntry {
 	timestamp: string;
 	context: LogContext;
@@ -19,6 +22,8 @@ interface LoggerConfig {
 	remoteLogging: boolean;
 	remoteUrl: string;
 	consoleLogging: boolean;
+	storeLogs: boolean;
+	maxStoredLogs: number;
 }
 
 export class Logger {
@@ -36,23 +41,37 @@ export class Logger {
 			remoteLogging: config?.remoteLogging ?? true,
 			remoteUrl: config?.remoteUrl ?? 'http://localhost:7856/log',
 			consoleLogging: config?.consoleLogging ?? true,
+			storeLogs: config?.storeLogs ?? true,
+			maxStoredLogs: config?.maxStoredLogs ?? DEFAULT_MAX_STORED_LOGS,
 		};
 
-		// Load remote logging setting from storage
+		// Load logging settings from storage
 		if (typeof chrome !== 'undefined' && chrome.storage) {
 			chrome.storage.local.get(['automationConfig'], (result) => {
 				if (result.automationConfig?.remoteLogging !== undefined) {
 					this.config.remoteLogging = result.automationConfig.remoteLogging;
 				}
+				if (result.automationConfig?.storeLogs !== undefined) {
+					this.config.storeLogs = result.automationConfig.storeLogs;
+				}
+				if (result.automationConfig?.maxStoredLogs !== undefined) {
+					this.config.maxStoredLogs = result.automationConfig.maxStoredLogs;
+				}
 			});
 
-			// Listen for changes to remote logging setting
+			// Listen for changes to logging settings
 			chrome.storage.onChanged.addListener((changes, areaName) => {
-				if (
-					areaName === 'local' &&
-					changes.automationConfig?.newValue?.remoteLogging !== undefined
-				) {
-					this.config.remoteLogging = changes.automationConfig.newValue.remoteLogging;
+				if (areaName === 'local' && changes.automationConfig?.newValue) {
+					const newConfig = changes.automationConfig.newValue;
+					if (newConfig.remoteLogging !== undefined) {
+						this.config.remoteLogging = newConfig.remoteLogging;
+					}
+					if (newConfig.storeLogs !== undefined) {
+						this.config.storeLogs = newConfig.storeLogs;
+					}
+					if (newConfig.maxStoredLogs !== undefined) {
+						this.config.maxStoredLogs = newConfig.maxStoredLogs;
+					}
 				}
 			});
 		}
@@ -77,6 +96,44 @@ export class Logger {
 			});
 		} catch (error) {
 			// Silently fail
+		}
+	}
+
+	/**
+	 * Store log entry in chrome.storage
+	 */
+	private storeLog(entry: LogEntry): void {
+		if (!this.config.storeLogs) return;
+		if (typeof chrome === 'undefined' || !chrome.storage) return;
+
+		try {
+			// Use callback-based API for better compatibility
+			chrome.storage.local.get(['debugLogs'], (result) => {
+				if (chrome.runtime.lastError) {
+					console.error('[LF] Failed to get logs:', chrome.runtime.lastError);
+					return;
+				}
+
+				const logs: LogEntry[] = result.debugLogs || [];
+
+				// Add new log
+				logs.push(entry);
+
+				// Trim to max size (keep most recent logs)
+				if (logs.length > this.config.maxStoredLogs) {
+					logs.splice(0, logs.length - this.config.maxStoredLogs);
+				}
+
+				// Save back to storage
+				chrome.storage.local.set({ debugLogs: logs }, () => {
+					if (chrome.runtime.lastError) {
+						console.error('[LF] Failed to store log:', chrome.runtime.lastError);
+					}
+				});
+			});
+		} catch (error) {
+			// Silently fail - don't break the extension if storage fails
+			console.error('[LF] Failed to store log:', error);
 		}
 	}
 
@@ -142,6 +199,9 @@ export class Logger {
 				: this.config.context;
 			consoleMethod(`[LF][${fullContext}]`, ...args);
 		}
+
+		// Store in chrome.storage (non-blocking)
+		this.storeLog(entry);
 
 		// Send to remote server (non-blocking)
 		this.sendToRemote(entry);
@@ -219,6 +279,57 @@ export function createLogger(
 	parentContext?: string,
 ): Logger {
 	return new Logger(context, config, parentContext);
+}
+
+/**
+ * Export stored logs as JSON
+ */
+export async function exportLogs(): Promise<string> {
+	if (typeof chrome === 'undefined' || !chrome.storage) {
+		throw new Error('Chrome storage not available');
+	}
+
+	const result = await chrome.storage.local.get(['debugLogs']);
+	const logs: LogEntry[] = result.debugLogs || [];
+
+	return JSON.stringify(
+		{
+			exportDate: new Date().toISOString(),
+			logCount: logs.length,
+			logs,
+		},
+		null,
+		2,
+	);
+}
+
+/**
+ * Clear all stored logs
+ */
+export async function clearLogs(): Promise<void> {
+	if (typeof chrome === 'undefined' || !chrome.storage) {
+		throw new Error('Chrome storage not available');
+	}
+
+	await chrome.storage.local.set({ debugLogs: [] });
+}
+
+/**
+ * Get log statistics
+ */
+export async function getLogStats(): Promise<{ count: number; oldestLog?: string; newestLog?: string }> {
+	if (typeof chrome === 'undefined' || !chrome.storage) {
+		return { count: 0 };
+	}
+
+	const result = await chrome.storage.local.get(['debugLogs']);
+	const logs: LogEntry[] = result.debugLogs || [];
+
+	return {
+		count: logs.length,
+		oldestLog: logs.length > 0 ? logs[0].timestamp : undefined,
+		newestLog: logs.length > 0 ? logs[logs.length - 1].timestamp : undefined,
+	};
 }
 
 /**

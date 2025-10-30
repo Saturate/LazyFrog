@@ -49,11 +49,11 @@ window.addEventListener('message', (event: MessageEvent) => {
 			}
 		}
 	} catch (error) {
-		devvitLogger.error('[Devvit] Error in early message listener', { error: String(error) });
+		devvitLogger.error('Error in early message listener', { error: String(error) });
 	}
 });
 
-devvitLogger.log('[Devvit] Early message listener installed');
+devvitLogger.log('Early message listener installed');
 
 // ============================================================================
 // Extension Context Error Handling
