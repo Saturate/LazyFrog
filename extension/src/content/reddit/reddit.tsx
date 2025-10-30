@@ -47,12 +47,9 @@ import { normalizeRedditPermalink } from '../../utils/url';
 declare const __VERSION__: string;
 declare const __BUILD_TIME__: string;
 
-redditLogger.log('Sword & Supper Bot content script loaded', {
-	version: __VERSION__,
-	buildTime: __BUILD_TIME__,
-	url: window.location.href,
-	loadTime: new Date().toISOString(),
-});
+redditLogger.log(
+	`Sword & Supper Bot (${__VERSION__}) content script loaded on ${window.location.href}`,
+);
 
 // Mission completion detection handled in missionDataHandler.ts
 
