@@ -7,7 +7,7 @@ export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT' | 'DEVVIT-GIAE' | string;
 
 // Default number of logs to keep in storage
-export const DEFAULT_MAX_STORED_LOGS = 5000;
+export const DEFAULT_MAX_STORED_LOGS = 10000;
 
 interface LogEntry {
 	timestamp: string;
@@ -317,7 +317,11 @@ export async function clearLogs(): Promise<void> {
 /**
  * Get log statistics
  */
-export async function getLogStats(): Promise<{ count: number; oldestLog?: string; newestLog?: string }> {
+export async function getLogStats(): Promise<{
+	count: number;
+	oldestLog?: string;
+	newestLog?: string;
+}> {
 	if (typeof chrome === 'undefined' || !chrome.storage) {
 		return { count: 0 };
 	}
