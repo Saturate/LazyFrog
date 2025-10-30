@@ -23,6 +23,10 @@ Find the newest release at [lazyfrog.akj.io](https://lazyfrog.akj.io/).
 - **Auto-play**: Automated gameplay with configurable strategies
 - **Mission database**: Local storage with export capability
 
+### FrogDB
+
+[FrogDB](https://frogdb.akj.io/) is a community-contributed mission database for Sword & Supper. Browse, search, and import missions discovered by other players. The extension includes a one-click import feature to easily add missions from FrogDB to your local database.
+
 ### For Developers
 
 See [extension/README.md](extension/README.md) for setup, architecture, and debugging information.
