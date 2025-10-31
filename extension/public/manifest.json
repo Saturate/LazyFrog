@@ -47,7 +47,7 @@
 
 	"web_accessible_resources": [
 		{
-			"resources": ["fetchInterceptor.js"],
+			"resources": ["fetchInterceptor.js", "missionDataFetcher.js"],
 			"matches": ["https://www.reddit.com/*"]
 		}
 	],

@@ -55,6 +55,39 @@ redditLogger.log(
 
 let root: Root | null = null;
 
+/**
+ * Inject mission data fetcher script into page context
+ * This script can make fetch requests with Reddit's cookies/credentials
+ */
+let missionDataFetcherInjected = false;
+function injectMissionDataFetcher(): void {
+	if (missionDataFetcherInjected) {
+		return; // Already injected
+	}
+
+	const scriptUrl = chrome.runtime.getURL('missionDataFetcher.js');
+	redditLogger.log('[injectMissionDataFetcher] Injecting script', { scriptUrl });
+
+	const script = document.createElement('script');
+	script.src = scriptUrl;
+	script.onload = () => {
+		redditLogger.log('[injectMissionDataFetcher] Script loaded successfully');
+		script.remove();
+		missionDataFetcherInjected = true;
+	};
+	script.onerror = (error) => {
+		redditLogger.error('[injectMissionDataFetcher] Failed to load script', { error: String(error) });
+	};
+
+	const target = document.head || document.documentElement;
+	if (target) {
+		target.appendChild(script);
+		redditLogger.log('[injectMissionDataFetcher] Script tag appended to DOM', { targetTag: target.tagName });
+	} else {
+		redditLogger.error('[injectMissionDataFetcher] No document.head or documentElement available for injection');
+	}
+}
+
 // ============================================================================
 // State Tracking (Actual state machine lives in background service worker)
 // ============================================================================
@@ -611,6 +644,116 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			safeSendMessage({ type: 'AUTOMATION_READY' });
 			sendResponse({ success: true });
 			break;
+
+		case 'FETCH_MISSION_DATA_FROM_PAGE':
+			{
+				const { postId } = message as any;
+				redditLogger.log('[FETCH_MISSION_DATA_FROM_PAGE] Fetching mission data for', postId);
+
+				// Build proper protobuf request using @devvit/protos and send to injected script
+				(async () => {
+					try {
+						const { UIRequest, UIResponse } = await import('@devvit/protos/types/devvit/ui/block_kit/v1beta/ui.js');
+
+						// Create UIRequest
+						const request: any = { props: { postId }, state: {}, events: [] };
+						const encoded = UIRequest.encode(request).finish();
+
+						// Add gRPC-web frame header
+						const header = new Uint8Array(5);
+						header[0] = 0;
+						const length = encoded.length;
+						header[1] = (length >> 24) & 0xff;
+						header[2] = (length >> 16) & 0xff;
+						header[3] = (length >> 8) & 0xff;
+						header[4] = length & 0xff;
+
+						const requestBody = new Uint8Array(5 + encoded.length);
+						requestBody.set(header, 0);
+						requestBody.set(encoded, 5);
+
+						// Inject fetcher script
+						injectMissionDataFetcher();
+
+						const requestId = `fetch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+						// Set up response listener
+						const responseListener = async (event: Event) => {
+							const customEvent = event as CustomEvent;
+							const { requestId: responseRequestId, postId: responsePostId, success, arrayBuffer, error } = customEvent.detail;
+
+							if (responseRequestId !== requestId) return;
+
+							window.removeEventListener('autosupper:fetch-mission-response', responseListener);
+
+							if (success && arrayBuffer) {
+								try {
+									// Skip gRPC-web frame header
+									let buffer = arrayBuffer.byteLength > 5 ? arrayBuffer.slice(5) : arrayBuffer;
+
+									// Decode using UIResponse
+									const uiResponse = UIResponse.decode(new Uint8Array(buffer));
+									const json = UIResponse.toJSON(uiResponse) as any;
+
+									// Extract mission data from state hooks
+									const data: any = { postId: responsePostId };
+									if (json.state) {
+										for (const [_, value] of Object.entries(json.state)) {
+											if (typeof value === 'object' && value !== null) {
+												const stateValue = (value as any).value;
+												if (stateValue && typeof stateValue === 'object') {
+													if (stateValue.mission) {
+														const m = stateValue.mission;
+														if (m.difficulty !== undefined) data.difficulty = Math.round(m.difficulty);
+														if (m.minLevel !== undefined) data.minLevel = Math.round(m.minLevel);
+														if (m.maxLevel !== undefined) data.maxLevel = Math.round(m.maxLevel);
+														if (m.environment) data.environment = m.environment;
+														if (m.foodName) data.foodName = m.foodName;
+														if (m.encounters) data.encounters = m.encounters;
+													}
+													if (stateValue.isInnPost !== undefined) data.isInnPost = stateValue.isInnPost;
+													if (stateValue.authorName) data.authorName = stateValue.authorName;
+													if (stateValue.title) data.title = stateValue.title;
+												}
+											}
+										}
+									}
+
+									if (data.difficulty) {
+										redditLogger.log('[FETCH_MISSION_DATA_FROM_PAGE] Success', data);
+										sendResponse({ success: true, data });
+									} else {
+										redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] No mission data found');
+										sendResponse({ success: false, error: 'No mission data found in response' });
+									}
+								} catch (parseError) {
+									redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] Parse failed', { error: parseError });
+									sendResponse({ success: false, error: 'Failed to decode response: ' + String(parseError) });
+								}
+							} else {
+								sendResponse({ success: false, error: error || 'Fetch failed' });
+							}
+						};
+
+						window.addEventListener('autosupper:fetch-mission-response', responseListener);
+
+						// Send request with built body
+						window.dispatchEvent(new CustomEvent('autosupper:fetch-mission-request', {
+							detail: { postId, requestId, requestBody: Array.from(requestBody) }
+						}));
+
+						setTimeout(() => {
+							window.removeEventListener('autosupper:fetch-mission-response', responseListener);
+							sendResponse({ success: false, error: 'Request timeout' });
+						}, 30000);
+
+					} catch (error) {
+						redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] Build failed', { error });
+						sendResponse({ success: false, error: 'Failed to build request: ' + String(error) });
+					}
+				})();
+			}
+			return true;
 
 		default:
 			sendResponse({ error: 'Unknown message type' });
