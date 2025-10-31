@@ -35,10 +35,31 @@ export default function Home() {
           <p className="text-2xl text-emerald-600 dark:text-emerald-300 mb-8">
             Automation bot for Sword & Supper on Reddit
           </p>
-          <DownloadButton
-            href={latest.href}
-            label={`Download v${latest.version}`}
-          />
+          <div className="flex flex-col items-center gap-3">
+            <DownloadButton
+              href={latest.href}
+              label={`Download v${latest.version}`}
+            />
+            <a
+              href="/downloads"
+              className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              View all versions
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </a>
+          </div>
         </div>
       </header>
 
