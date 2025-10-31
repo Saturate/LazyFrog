@@ -56,9 +56,10 @@ export function waitForElement(
  * Navigates deep into shadow DOM and handles fullscreen button clicking
  */
 export async function clickGameUI(): Promise<boolean> {
-  const loader = document.querySelector("shreddit-devvit-ui-loader");
+  // Wait for the loader element to appear
+  const loader = await waitForElement("shreddit-devvit-ui-loader", 5000);
   if (!loader) {
-    redditLogger.warn("[clickGameUI] No loader found");
+    redditLogger.warn("[clickGameUI] No loader found after waiting");
     chrome.runtime.sendMessage({
       type: "ERROR_OCCURRED",
       message: "Game loader not found",
@@ -153,10 +154,9 @@ export async function clickGameUI(): Promise<boolean> {
 
         // Wait a bit for fullscreen to engage, then signal dialog opened
         await new Promise((resolve) => setTimeout(resolve, 500));
-        safeSendMessage({ type: "GAME_DIALOG_OPENED" });
       } else {
-        redditLogger.error(
-          "[clickGameUI] Fullscreen button not found after trying all selectors",
+        redditLogger.warn(
+          "[clickGameUI] Fullscreen button not found, continuing without fullscreen",
           {
             fullscreenControlsHTML: fullscreenControls.innerHTML?.substring(
               0,
@@ -169,17 +169,15 @@ export async function clickGameUI(): Promise<boolean> {
             ),
           }
         );
-        safeSendMessage({
-          type: "ERROR_OCCURRED",
-          message: "Fullscreen button not found",
-        });
       }
+
+      // Signal dialog opened regardless of fullscreen success
+      safeSendMessage({ type: "GAME_DIALOG_OPENED" });
     } else {
-      redditLogger.warn("[clickGameUI] Fullscreen controls did not appear");
-      safeSendMessage({
-        type: "ERROR_OCCURRED",
-        message: "Fullscreen controls not found",
-      });
+      redditLogger.warn("[clickGameUI] Fullscreen controls did not appear, continuing without fullscreen");
+
+      // Still signal dialog opened - we can try to play without fullscreen
+      safeSendMessage({ type: "GAME_DIALOG_OPENED" });
     }
 
     return true;
