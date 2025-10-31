@@ -1,8 +1,19 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import LogViewer, { type LogEntry } from '@lazyfrog/ui/LogViewer';
+import dynamic from 'next/dynamic';
+import { type LogEntry } from '@lazyfrog/ui/LogViewer';
 import { Upload, FileText, AlertCircle, Bug, BarChart3, X } from 'lucide-react';
+
+// Dynamically import LogViewer with SSR disabled to avoid document access during prerendering
+const LogViewer = dynamic(() => import('@lazyfrog/ui/LogViewer'), {
+	ssr: false,
+	loading: () => (
+		<div className="flex items-center justify-center h-full">
+			<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+		</div>
+	),
+});
 
 export default function LogViewerPage() {
 	const [logs, setLogs] = useState<LogEntry[]>([]);
