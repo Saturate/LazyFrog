@@ -1,5 +1,5 @@
 import { redditLogger } from './logger';
-import { STORAGE_KEYS, RedditAPICache } from '../lib/storage/types';
+import { STORAGE_KEYS, RedditAPICache } from '../lib/storage/storageTypes';
 
 /**
  * Fetch Reddit post JSON and extract level from flair

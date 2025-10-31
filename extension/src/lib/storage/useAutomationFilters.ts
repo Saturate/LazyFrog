@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { AutomationFilters } from './types';
+import { AutomationFilters } from './storageTypes';
 import { getAutomationFilters, setAutomationFilters } from './getAutomationFilters';
 
 /**

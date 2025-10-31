@@ -9,6 +9,7 @@ import { DatabaseDownloadButton } from '@/components/DatabaseDownloadButton';
 import { CommunitySection } from '@/components/CommunitySection';
 import { Footer } from '@/components/Footer';
 import { Database, AlertCircle } from 'lucide-react';
+import { normalizeMissionRecord } from '@/utils/migration';
 
 const MissionStats = dynamic(
 	() =>
@@ -81,8 +82,8 @@ export default function DatabasePage() {
 
 				const data: MissionsDatabase = await response.json();
 
-				// Convert object to array
-				const missionsArray = Object.values(data);
+				// Convert object to array and normalize legacy format if needed
+				const missionsArray = Object.values(data).map(normalizeMissionRecord);
 				setMissions(missionsArray);
 			} catch (err) {
 				console.error('Error fetching missions:', err);

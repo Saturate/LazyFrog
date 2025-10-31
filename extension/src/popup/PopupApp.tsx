@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { getMissionStats } from '../lib/storage/missionStats';
 import { getNextMissions } from '../lib/storage/missionQueries';
-import { MissionRecord, AutomationFilters } from '../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types'; import { AutomationFilters } from '../lib/storage/storageTypes';
 import { getAutomationFilters } from '../lib/storage/getAutomationFilters';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
 import './popup.css';

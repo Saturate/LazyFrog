@@ -1,4 +1,4 @@
-import { MissionRecord } from '../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 
 // Enemy name mappings
 const enemyNames: Record<string, string> = {
@@ -72,17 +72,14 @@ const mapNames: Record<string, string> = {
 };
 
 /**
- * Generate markdown for a mission's metadata in Reddit-friendly format
+ * Generate markdown for a mission in Reddit-friendly format
  */
 export function generateMissionMarkdown(mission: MissionRecord): string | null {
-	const metadata = mission.metadata;
-	const missionData = metadata?.mission;
-
-	if (!missionData) {
+	if (!mission.encounters || mission.encounters.length === 0) {
 		return null;
 	}
 
-	const encounters = missionData.encounters || [];
+	const encounters = mission.encounters;
 	const stars = '⭐'.repeat(mission.difficulty || 0);
 	const mapName = mapNames[mission.environment || ''] || mission.environment || 'Unknown';
 
@@ -100,7 +97,7 @@ export function generateMissionMarkdown(mission: MissionRecord): string | null {
 		const roomNum = index + 1;
 		const roomIcon = getEncounterIcon(enc.type);
 		const roomType = getEncounterTypeName(enc.type);
-		const details = getEncounterDetails(enc, missionData.foodName);
+		const details = getEncounterDetails(enc, mission.foodName);
 
 		markdown += `| ${roomNum} | ${roomIcon} ${roomType} | ${details} |\n`;
 	});

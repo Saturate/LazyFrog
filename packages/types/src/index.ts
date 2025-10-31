@@ -107,7 +107,25 @@ export type Environment =
 
 export type Rarity = "common" | "rare" | "epic" | "legendary" | "mythic";
 
-export interface Mission {
+// ============================================================================
+// Mission Record - Simplified flat structure
+// ============================================================================
+
+/**
+ * Mission record stored in the database
+ * Flattened structure - no nested metadata/mission objects
+ */
+export interface MissionRecord {
+  // Core identification
+  postId: string; // Reddit post ID with 't3_' prefix
+  timestamp?: number; // When mission was first discovered
+  permalink: string; // Reddit URL to the mission post
+
+  // Mission metadata
+  missionTitle: string;
+  missionAuthorName: string;
+
+  // Mission data (from game state)
   environment: Environment;
   encounters: Encounter[];
   minLevel: number;
@@ -115,46 +133,45 @@ export interface Mission {
   difficulty: number; // Star rating: 1-5
   foodImage: string;
   foodName: string;
-  authorWeaponId: string;
-  chef: string;
-  cart: string;
+  authorWeaponId?: string;
+  chef?: string;
+  cart?: string;
   rarity: Rarity;
   type?: string; // Mission type (e.g., "bossRush")
 }
 
+// ============================================================================
+// Legacy types for backwards compatibility
+// ============================================================================
+
+/**
+ * @deprecated Use MissionRecord fields directly
+ * Legacy nested structure - kept for backwards compatibility
+ */
+export interface Mission {
+  environment: Environment;
+  encounters: Encounter[];
+  minLevel: number;
+  maxLevel: number;
+  difficulty: number;
+  foodImage: string;
+  foodName: string;
+  authorWeaponId: string;
+  chef: string;
+  cart: string;
+  rarity: Rarity;
+  type?: string;
+}
+
+/**
+ * @deprecated Use MissionRecord fields directly
+ * Legacy nested structure - kept for backwards compatibility
+ */
 export interface MissionMetadata {
   mission: Mission;
   missionAuthorName: string;
   missionTitle: string;
-  enemyTauntData: any[]; // Usually empty, keeping for compatibility
-  // scenarioText removed - not useful for automation
-}
-
-// ============================================================================
-// Mission Record - Database format (no tracking fields)
-// ============================================================================
-
-/**
- * Base mission record stored in the database
- * Does not include tracking fields like cleared/clearedAt
- */
-export interface MissionRecord {
-  // Core identification
-  postId: string; // Reddit post ID with 't3_' prefix
-  timestamp: number; // When mission was first discovered
-
-  // Mission data
-  metadata: MissionMetadata;
-  permalink: string; // Reddit URL to the mission post
-
-  // Derived/cached fields (for quick filtering)
-  difficulty: number; // 1-5 stars
-  missionTitle: string;
-  minLevel: number;
-  maxLevel: number;
-  environment: Environment;
-  foodName: string;
-  tags: string; // Human-readable summary: "2* | 121 - 140 | haunted_forest | Lemon Pistachio Swirl"
+  enemyTauntData: any[];
 }
 
 /**

@@ -3,7 +3,7 @@
  * This is the single source of truth for filter defaults and retrieval
  */
 
-import { AutomationFilters, DEFAULT_AUTOMATION_FILTERS, STORAGE_KEYS } from './types';
+import { AutomationFilters, DEFAULT_AUTOMATION_FILTERS, STORAGE_KEYS } from './storageTypes';
 
 /**
  * Get automation filters from storage, initializing defaults if none exist

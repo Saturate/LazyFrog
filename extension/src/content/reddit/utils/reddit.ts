@@ -5,7 +5,7 @@
 
 import { Level, LevelFilters } from '../../../types';
 import { saveMission } from '../../../lib/storage/missions';
-import { MissionRecord } from '../../../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 import { redditLogger } from '../../../utils/logger';
 
 /**
@@ -195,56 +195,31 @@ export function parseLevelFromPost(post: Element): Level | null {
 }
 
 /**
- * Save basic mission info from scanned level (without full metadata)
+ * Process scanned level - check for cleared status
+ * NOTE: We no longer save partial mission data from scanning.
+ * Complete missions are saved via RenderPostContent API or gameplay capture.
  */
 async function saveScannedMission(level: Level): Promise<void> {
 	if (!level.postId || !level.href) {
-		redditLogger.warn('Skipping mission - missing data', {
-			title: level.title.substring(0, 50),
-			postId: level.postId,
-			href: level.href,
-			starDifficulty: level.stars,
-		});
 		return;
 	}
 
 	// Skip missions with no difficulty rating (0 stars = preview not loaded yet)
 	if (!level.stars || level.stars === 0) {
-		redditLogger.log('Skipping mission - no difficulty rating yet', {
-			title: level.title.substring(0, 50),
-			postId: level.postId,
-		});
 		return;
 	}
 
-	// Skip missions with missing level data - we need both minLevel and maxLevel to filter properly
+	// Skip missions with missing level data
 	if (!level.levelRangeMin || !level.levelRangeMax) {
-		redditLogger.log('⚠️ Skipping mission - missing level range data', {
-			title: level.title.substring(0, 50),
-			postId: level.postId,
-			levelRange: level.levelRange,
-			minLevel: level.levelRangeMin,
-			maxLevel: level.levelRangeMax,
-		});
 		return;
 	}
 
 	// Sanity check: maxLevel should be >= minLevel
 	if (level.levelRangeMax < level.levelRangeMin) {
-		redditLogger.error('⚠️ Skipping mission - invalid level range', {
-			title: level.title.substring(0, 50),
-			postId: level.postId,
-			minLevel: level.levelRangeMin,
-			maxLevel: level.levelRangeMax,
-		});
 		return;
 	}
 
 	try {
-		// Check if mission already exists in database
-		const { getMission } = await import('../../../lib/storage/missions');
-		const existingMission = await getMission(level.postId);
-
 		// Check if cleared status changed
 		if (level.cleared) {
 			const { isMissionCleared } = await import('../../../lib/storage/userProgress');
@@ -262,26 +237,8 @@ async function saveScannedMission(level: Level): Promise<void> {
 			}
 		}
 
-		const { normalizeRedditPermalink } = await import('../../../utils/url');
-
-		const record: MissionRecord = {
-			postId: level.postId,
-			timestamp: existingMission?.timestamp || Date.now(), // Preserve original timestamp
-			metadata: existingMission?.metadata || null,
-			tags: existingMission?.tags || undefined,
-			difficulty: level.stars,
-			environment: existingMission?.environment,
-			minLevel: level.levelRangeMin || 1,
-			maxLevel: level.levelRangeMax || 340,
-			missionTitle: level.title,
-			foodName: existingMission?.foodName,
-			permalink: level.href ? normalizeRedditPermalink(level.href) : '',
-		};
-
-		await saveMission(record);
-
-		// COMBINED LOG: Parse + Save success
-		redditLogger.log(`Saved mission: ${level.postId}`, {
+		// Log that we found a mission (for debugging)
+		redditLogger.log(`Found mission: ${level.postId}`, {
 			title: level.title.substring(0, 50),
 			starDifficulty: level.stars,
 			levelRange: level.levelRange,

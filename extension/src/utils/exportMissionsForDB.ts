@@ -1,29 +1,29 @@
 /**
- * Export missions with metadata in database format
+ * Export missions with complete data in database format
  */
 
-import type { MissionRecord } from '../lib/storage/types';
+import type { MissionRecord } from '@lazyfrog/types';
 
 /**
- * Export missions that have metadata in the format needed for the database
+ * Export missions that have complete data in the format needed for the database
  * @param missions - Array of mission records
- * @returns Count of exported missions, or 0 if none have metadata
+ * @returns Count of exported missions, or 0 if none are complete
  */
 export function exportMissionsForDB(missions: MissionRecord[]): number {
-	// Filter missions that have complete metadata (required for DB)
-	const missionsWithMetadata = missions.filter(
-		(m) => m.metadata?.mission && m.difficulty && m.environment && m.foodName && m.tags
+	// Filter missions that have complete data (required for DB)
+	const completeMissions = missions.filter(
+		(m) => m.encounters && m.encounters.length > 0 && m.difficulty && m.environment && m.foodName
 	);
 
-	if (missionsWithMetadata.length === 0) {
-		alert('No missions with complete metadata found. Play missions to capture their data first.');
+	if (completeMissions.length === 0) {
+		alert('No missions with complete data found. Browse missions to capture their data via RenderPostContent API.');
 		return 0;
 	}
 
 	// Create DB format: { postId: MissionRecord }
 	// Strip extension-specific fields (cleared, clearedAt, disabled, totalLoot)
 	const dbExport: Record<string, any> = {};
-	missionsWithMetadata.forEach((mission) => {
+	completeMissions.forEach((mission) => {
 		// Create a clean copy without extension-specific fields
 		const { cleared, clearedAt, disabled, totalLoot, ...cleanMission } = mission as any;
 		dbExport[mission.postId] = cleanMission;
@@ -39,5 +39,5 @@ export function exportMissionsForDB(missions: MissionRecord[]): number {
 	a.click();
 	URL.revokeObjectURL(url);
 
-	return missionsWithMetadata.length;
+	return completeMissions.length;
 }

@@ -2,7 +2,7 @@
  * Convert RenderPostContent MissionData to full MissionRecord
  */
 
-import { MissionRecord, MissionMetadata, Mission } from '../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 import { MissionData } from './parseMissionData';
 import { normalizeRedditPermalink } from './url';
 
@@ -20,8 +20,18 @@ export function convertMissionDataToRecord(data: MissionData): MissionRecord | n
 		return null;
 	}
 
-	// Build the Mission object
-	const mission: Mission = {
+	// Build the complete MissionRecord (flat structure)
+	const record: MissionRecord = {
+		// Core identification
+		postId: data.postId,
+		timestamp: Date.now(),
+		permalink: normalizeRedditPermalink(data.postId),
+
+		// Mission metadata
+		missionTitle: data.title || data.foodName || `Mission ${data.postId}`,
+		missionAuthorName: data.authorName || 'Unknown',
+
+		// Mission data (from game state)
 		environment: data.environment as any,
 		encounters: data.encounters,
 		minLevel: data.minLevel,
@@ -34,32 +44,6 @@ export function convertMissionDataToRecord(data: MissionData): MissionRecord | n
 		cart: data.cart || '',
 		rarity: (data.rarity as any) || 'common',
 		type: data.type,
-	};
-
-	// Build the MissionMetadata
-	const metadata: MissionMetadata = {
-		mission,
-		missionAuthorName: data.authorName || 'Unknown',
-		missionTitle: data.title || data.foodName || `Mission ${data.postId}`,
-		enemyTauntData: [],
-	};
-
-	// Build the tags string for quick filtering
-	const tags = `${data.difficulty}* | ${data.minLevel} - ${data.maxLevel} | ${data.environment} | ${data.foodName}`;
-
-	// Build the complete MissionRecord
-	const record: MissionRecord = {
-		postId: data.postId,
-		timestamp: Date.now(),
-		metadata,
-		permalink: normalizeRedditPermalink(data.postId),
-		difficulty: data.difficulty,
-		missionTitle: data.title || data.foodName || `Mission ${data.postId}`,
-		minLevel: data.minLevel,
-		maxLevel: data.maxLevel,
-		environment: data.environment as any,
-		foodName: data.foodName || '',
-		tags,
 	};
 
 	return record;

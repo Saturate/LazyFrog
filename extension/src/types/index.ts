@@ -7,7 +7,6 @@ export interface MissionRecord {
 	username?: string;
 	timestamp: number;
 	metadata?: any;
-	tags?: string;
 	difficulty?: number;
 	environment?: string;
 	minLevel?: number;

@@ -45,35 +45,13 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 		if (json.state) {
 			// Debug: Log state keys to see what's available
 			const stateKeys = Object.keys(json.state);
-			redditLogger.log(`State keys for ${postId}:`, {
-				keys: stateKeys,
-				count: stateKeys.length,
-				json,
-			});
+			redditLogger.debug(`Decoded UIResponse for ${postId}:`, json);
 
 			// Look for mission data in useState-12 (or similar)
 			for (const [key, value] of Object.entries(json.state)) {
 				if (typeof value === 'object' && value !== null) {
 					const stateValue = (value as any).value;
 					if (stateValue && typeof stateValue === 'object') {
-						// Debug: Log when we find objects with interesting keys
-						const hasInterestingKeys =
-							stateValue.mission ||
-							stateValue.isInnPost !== undefined ||
-							stateValue.authorName ||
-							stateValue.title ||
-							stateValue.encounters;
-						if (hasInterestingKeys) {
-							redditLogger.log(`Found interesting state in ${key}:`, {
-								hasMission: !!stateValue.mission,
-								hasIsInnPost: stateValue.isInnPost !== undefined,
-								hasAuthorName: !!stateValue.authorName,
-								hasTitle: !!stateValue.title,
-								hasEncounters: !!stateValue.encounters,
-								encountersCount: stateValue.encounters?.length || 0,
-							});
-						}
-
 						// Check if this is the mission state hook
 						if (stateValue.mission) {
 							const mission = stateValue.mission;
@@ -142,7 +120,7 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 			redditLogger.warn(`No state object found in UIResponse for ${postId}`);
 		}
 
-		redditLogger.log(`Parsed mission (${postId}) using @devvit/protos decoder`, { ...data });
+		redditLogger.log(`Parsed mission (${postId})`, data);
 		return data;
 	} catch (decoderError) {
 		redditLogger.warn('UIResponse decoder failed, falling back to legacy parser', {

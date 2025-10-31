@@ -2,7 +2,8 @@
  * Mission CRUD operations
  */
 
-import { MissionRecord, STORAGE_KEYS } from './types';
+import { MissionRecord } from '@lazyfrog/types';
+import { STORAGE_KEYS } from './storageTypes';
 import * as userProgressOps from './userProgress';
 
 /**

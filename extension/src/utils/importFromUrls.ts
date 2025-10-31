@@ -5,7 +5,7 @@
 
 import { normalizeRedditPermalink, normalizePostId } from './url';
 import { saveMissionsBatch, getMission } from '../lib/storage/missions';
-import { MissionRecord } from '../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 
 export interface ImportFromUrlsOptions {
 	urls: string[];
@@ -87,15 +87,31 @@ export async function importFromUrls(options: ImportFromUrlsOptions): Promise<Im
 				continue;
 			}
 
-			// Create mission record with only required fields
-			// Data will be enriched when the mission is actually played
+			// Create partial mission record with placeholder values
+			// Will be enriched when mission is browsed/played
 			const mission: MissionRecord = {
+				// Core identification
 				postId,
 				timestamp: Date.now(),
+				permalink: normalizeRedditPermalink(postId.slice(3)),
+
+				// Mission metadata
+				missionTitle: `Mission ${postId.slice(3)}`,
+				missionAuthorName: 'Unknown',
+
+				// Mission data (placeholders for now)
+				environment: 'haunted_forest', // Default placeholder
+				encounters: [], // Will be filled when data is captured
 				minLevel: options.minLevel,
 				maxLevel: options.maxLevel,
-				missionTitle: `Mission ${postId.slice(3)}`,
-				permalink: normalizeRedditPermalink(postId.slice(3)),
+				difficulty: 0, // Unknown until captured
+				foodImage: '',
+				foodName: '',
+				authorWeaponId: '',
+				chef: '',
+				cart: '',
+				rarity: 'common',
+				type: undefined,
 			};
 
 			missionsToSave.push(mission);

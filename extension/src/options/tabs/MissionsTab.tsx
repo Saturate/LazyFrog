@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, RefreshCw, Check, Star, Download, Search, X, Upload, Link, Database } from 'lucide-react';
 import { getAllMissions, importMissions } from '../../lib/storage/missions';
 import { getAllUserProgress } from '../../lib/storage/userProgress';
-import { MissionRecord } from '../../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 import { generateMissionMarkdown } from '../../utils/missionMarkdown';
 import { exportMissionsForDB } from '../../utils/exportMissionsForDB';
 import ImportFromUrlsModal from '../components/ImportFromUrlsModal';
@@ -161,7 +161,7 @@ const MissionsTab: React.FC = () => {
 					m.missionTitle?.toLowerCase().includes(query) ||
 					m.environment?.toLowerCase().includes(query) ||
 					m.postId?.toLowerCase().includes(query) ||
-					m.metadata?.missionAuthorName?.toLowerCase().includes(query)
+					m.missionAuthorName?.toLowerCase().includes(query)
 				);
 			});
 		}
@@ -189,8 +189,8 @@ const MissionsTab: React.FC = () => {
 					bVal = b.foodName || '';
 					break;
 				case 'author':
-					aVal = a.metadata?.missionAuthorName || '';
-					bVal = b.metadata?.missionAuthorName || '';
+					aVal = a.missionAuthorName || '';
+					bVal = b.missionAuthorName || '';
 					break;
 				default:
 					aVal = a.timestamp || 0;
@@ -775,7 +775,7 @@ const MissionsTab: React.FC = () => {
 													whiteSpace: 'nowrap',
 												}}
 											>
-												{new Date(mission.timestamp).toLocaleDateString()}
+												{mission.timestamp ? new Date(mission.timestamp).toLocaleDateString() : 'N/A'}
 											</td>
 											<td style={{ padding: '14px 16px', fontSize: '14px' }}>
 												<a
@@ -788,7 +788,7 @@ const MissionsTab: React.FC = () => {
 												</a>
 											</td>
 											<td style={{ padding: '14px 16px', fontSize: '13px', color: '#a1a1aa' }}>
-												{mission.metadata?.missionAuthorName || 'N/A'}
+												{mission.missionAuthorName || 'N/A'}
 											</td>
 											<td style={{ padding: '14px 16px', fontSize: '16px', color: '#eab308' }}>
 												{mission.difficulty ? (
@@ -815,9 +815,9 @@ const MissionsTab: React.FC = () => {
 												{mission.environment || 'N/A'}
 											</td>
 											<td style={{ padding: '14px 16px', textAlign: 'center' }}>
-												{mission.metadata?.mission?.encounters ? (
+												{mission.encounters && mission.encounters.length > 0 ? (
 													<span
-														title={`${mission.metadata.mission.encounters.length} encounters`}
+														title={`${mission.encounters.length} encounters`}
 														style={{ cursor: 'help' }}
 													>
 														<Check size={16} color="#22c55e" />

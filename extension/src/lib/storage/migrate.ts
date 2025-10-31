@@ -4,8 +4,8 @@
  * Migrates to per-user progress storage using current Reddit username
  */
 
-import { STORAGE_KEYS } from './types';
-import type { MissionRecord, UserProgressData, MultiUserProgressDatabase } from './types';
+import { STORAGE_KEYS } from './storageTypes';
+import type { MissionRecord } from '@lazyfrog/types'; import { UserProgressData, MultiUserProgressDatabase } from './storageTypes';
 
 /**
  * Get cached Reddit username without trying to fetch

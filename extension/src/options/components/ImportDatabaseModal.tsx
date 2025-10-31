@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Download, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { MissionsDatabase } from '../../lib/storage/types';
+import { MissionsDatabase } from '@lazyfrog/types';
 import { importMissions, getAllMissions } from '../../lib/storage/missions';
 
 interface ImportDatabaseModalProps {

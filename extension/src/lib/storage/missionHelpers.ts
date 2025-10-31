@@ -3,7 +3,7 @@
  * No more merging - just filtering missions based on progress arrays
  */
 
-import type { MissionRecord } from './types';
+import type { MissionRecord } from '@lazyfrog/types';
 import { getAllMissions } from './missions';
 import { getAllUserProgress } from './userProgress';
 
