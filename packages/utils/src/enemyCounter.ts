@@ -10,13 +10,13 @@ import { MissionRecord } from '@lazyfrog/types';
  * @returns Total number of enemies in the mission
  */
 export function countEnemiesInMission(mission: MissionRecord): number {
-	if (!mission.metadata?.mission?.encounters) {
+	if (!mission.encounters) {
 		return 0;
 	}
 
 	let totalEnemies = 0;
 
-	for (const encounter of mission.metadata.mission.encounters) {
+	for (const encounter of mission.encounters) {
 		if (encounter.type === 'enemy' && encounter.enemies) {
 			totalEnemies += encounter.enemies.length;
 		}

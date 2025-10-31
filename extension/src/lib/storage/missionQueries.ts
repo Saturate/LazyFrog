@@ -2,7 +2,7 @@
  * Mission query and filtering functions
  */
 
-import { MissionRecord } from './types';
+import { MissionRecord } from '@lazyfrog/types';
 import { getAllMissions } from './missions';
 import { getAllUserProgress } from './userProgress';
 
@@ -118,7 +118,7 @@ export async function getFilteredUnclearedMissions(filters?: {
 	}
 
 	// Sort by timestamp (newest first)
-	unclearedMissions.sort((a, b) => b.timestamp - a.timestamp);
+	unclearedMissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
 	return unclearedMissions;
 }
@@ -184,5 +184,5 @@ export async function getUnclearedMissions(): Promise<MissionRecord[]> {
 	const [missions, progress] = await Promise.all([getAllMissions(), getAllUserProgress()]);
 	return Object.values(missions)
 		.filter((m) => !progress.cleared.includes(m.postId) && !progress.disabled.includes(m.postId))
-		.sort((a, b) => a.timestamp - b.timestamp); // Oldest first
+		.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // Oldest first
 }

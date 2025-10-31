@@ -4,8 +4,9 @@
  * Migrates to per-user progress storage using current Reddit username
  */
 
-import { STORAGE_KEYS } from './types';
-import type { MissionRecord, UserProgressData, MultiUserProgressDatabase } from './types';
+import { STORAGE_KEYS } from './storageTypes';
+import type { MissionRecord } from '@lazyfrog/types';
+import { UserProgressData, MultiUserProgressDatabase } from './storageTypes';
 
 /**
  * Get cached Reddit username without trying to fetch
@@ -43,19 +44,18 @@ async function requestUsernameFromRedditTabs(): Promise<void> {
 			console.log('[Migration] Found', tabs.length, 'Reddit tabs, requesting username...');
 
 			// Send message to first Reddit tab to fetch username
-			chrome.tabs.sendMessage(
-				tabs[0].id!,
-				{ type: 'FETCH_REDDIT_USERNAME' },
-				(response) => {
-					if (chrome.runtime.lastError) {
-						console.log('[Migration] Could not communicate with Reddit tab:', chrome.runtime.lastError.message);
-					} else {
-						console.log('[Migration] Username fetch requested from Reddit tab');
-					}
-					// Resolve after a short delay to let the content script cache the username
-					setTimeout(resolve, 500);
+			chrome.tabs.sendMessage(tabs[0].id!, { type: 'FETCH_REDDIT_USERNAME' }, (response) => {
+				if (chrome.runtime.lastError) {
+					console.log(
+						'[Migration] Could not communicate with Reddit tab:',
+						chrome.runtime.lastError.message,
+					);
+				} else {
+					console.log('[Migration] Username fetch requested from Reddit tab');
 				}
-			);
+				// Resolve after a short delay to let the content script cache the username
+				setTimeout(resolve, 500);
+			});
 		});
 	});
 }
@@ -94,12 +94,10 @@ export async function migrateToSeparateProgress(): Promise<{
 				return (
 					val &&
 					typeof val === 'object' &&
-					(
-						Array.isArray(val.cleared) ||
+					(Array.isArray(val.cleared) ||
 						Array.isArray(val.disabled) ||
 						(typeof val.clearedAt === 'object' && val.clearedAt !== null) ||
-						(typeof val.loot === 'object' && val.loot !== null)
-					)
+						(typeof val.loot === 'object' && val.loot !== null))
 				);
 			}
 
@@ -139,7 +137,7 @@ export async function migrateToSeparateProgress(): Promise<{
 				}
 
 				existingMultiUserProgress = {
-					[username]: convertedUserProgress
+					[username]: convertedUserProgress,
 				};
 			} else {
 				existingMultiUserProgress = existingUserProgress;

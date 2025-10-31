@@ -48,6 +48,7 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
 
 	// Calculate stats
 	const totalMissions = missions.length;
+	const bossRushMissions = missions.filter((m) => m.type === 'bossRush').length;
 
 	const byEnvironment = missions.reduce(
 		(acc, mission) => {
@@ -76,9 +77,10 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
 		{} as Record<string, number>,
 	);
 
+	const timestamps = missions.map((m) => m.timestamp).filter((t): t is number => t !== undefined);
 	const lastUpdated =
-		missions.length > 0
-			? new Date(Math.max(...missions.map((m) => m.timestamp))).toLocaleDateString('en-US', {
+		timestamps.length > 0
+			? new Date(Math.max(...timestamps)).toLocaleDateString('en-US', {
 					year: 'numeric',
 					month: 'short',
 					day: 'numeric',
@@ -298,6 +300,7 @@ export function MissionStats({ missions, isLoading }: MissionStatsProps) {
 						<div>
 							<p className="text-emerald-100 text-xs font-medium mb-0.5">Total Missions</p>
 							<p className="text-2xl font-bold">{totalMissions.toLocaleString()}</p>
+							<p className="text-emerald-100 text-xs mt-0.5">{bossRushMissions} Boss Rush</p>
 						</div>
 						<div className="bg-white/20 rounded-full p-2">
 							<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

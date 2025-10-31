@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://frogdb.akj.io/mission-schema.json",
+  "version": 2,
+  "title": "Sword & Supper Mission Record",
+  "description": "Schema for validating Sword & Supper mission data",
+  "type": "object",
+  "patternProperties": {
+    "^t3_[a-z0-9]+$": {
+      "$ref": "#/definitions/MissionRecord"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "MissionRecord": {
+      "type": "object",
+      "required": [
+        "postId",
+        "permalink",
+        "missionTitle",
+        "missionAuthorName",
+        "environment",
+        "encounters",
+        "minLevel",
+        "maxLevel",
+        "difficulty",
+        "foodImage",
+        "foodName",
+        "rarity"
+      ],
+      "properties": {
+        "postId": {
+          "type": "string",
+          "pattern": "^t3_[a-z0-9]+$",
+          "description": "Reddit post ID with t3_ prefix"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix timestamp in milliseconds when mission was discovered"
+        },
+        "permalink": {
+          "type": "string",
+          "format": "uri",
+          "description": "Reddit URL to the mission post"
+        },
+        "missionTitle": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display name of the mission"
+        },
+        "missionAuthorName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reddit username of creator"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "haunted_forest",
+            "new_eden",
+            "wild_west",
+            "jungle",
+            "desert",
+            "tundra"
+          ],
+          "description": "Map/biome where mission takes place"
+        },
+        "encounters": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Encounter"
+          },
+          "description": "Array of encounter objects"
+        },
+        "minLevel": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 340,
+          "description": "Minimum player level"
+        },
+        "maxLevel": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 340,
+          "description": "Maximum player level"
+        },
+        "difficulty": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Star rating difficulty"
+        },
+        "foodImage": {
+          "type": "string",
+          "description": "Image URL or identifier for food reward"
+        },
+        "foodName": {
+          "type": "string",
+          "description": "Name of food reward"
+        },
+        "authorWeaponId": {
+          "type": "string",
+          "description": "Creator's weapon ID"
+        },
+        "chef": {
+          "type": "string",
+          "description": "Chef character"
+        },
+        "cart": {
+          "type": "string",
+          "description": "Cart type"
+        },
+        "rarity": {
+          "type": "string",
+          "enum": ["common", "rare", "epic", "legendary", "mythic"],
+          "description": "Mission rarity"
+        },
+        "type": {
+          "type": "string",
+          "description": "Mission type (e.g., bossRush)"
+        }
+      }
+    },
+    "Encounter": {
+      "oneOf": [
+        { "$ref": "#/definitions/EnemyEncounter" },
+        { "$ref": "#/definitions/CrossroadsEncounter" },
+        { "$ref": "#/definitions/InvestigateEncounter" },
+        { "$ref": "#/definitions/StatsChoiceEncounter" },
+        { "$ref": "#/definitions/SkillBargainEncounter" },
+        { "$ref": "#/definitions/AbilityChoiceEncounter" }
+      ]
+    },
+    "EnemyEncounter": {
+      "type": "object",
+      "required": ["type", "enemies"],
+      "properties": {
+        "type": { "const": "enemy" },
+        "enemies": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Enemy" }
+        }
+      }
+    },
+    "CrossroadsEncounter": {
+      "type": "object",
+      "required": ["type", "enemies"],
+      "properties": {
+        "type": { "const": "crossroads" },
+        "enemies": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Enemy" }
+        }
+      }
+    },
+    "InvestigateEncounter": {
+      "type": "object",
+      "required": ["type", "bonusChance", "bonusGold", "failHpPenaltyPct"],
+      "properties": {
+        "type": { "const": "investigate" },
+        "bonusChance": { "type": "number" },
+        "bonusGold": { "type": "number" },
+        "failHpPenaltyPct": { "type": "number" },
+        "bonusResourceType": { "type": "string" }
+      }
+    },
+    "StatsChoiceEncounter": {
+      "type": "object",
+      "required": ["type", "optionA", "optionB"],
+      "properties": {
+        "type": { "const": "statsChoice" },
+        "optionA": { "$ref": "#/definitions/Effect" },
+        "optionB": { "$ref": "#/definitions/Effect" }
+      }
+    },
+    "SkillBargainEncounter": {
+      "type": "object",
+      "required": ["type", "positiveEffect", "negativeEffect"],
+      "properties": {
+        "type": { "const": "skillBargain" },
+        "positiveEffect": { "$ref": "#/definitions/Effect" },
+        "negativeEffect": { "$ref": "#/definitions/Effect" }
+      }
+    },
+    "AbilityChoiceEncounter": {
+      "type": "object",
+      "required": ["type", "isEnchanted", "optionA", "optionB"],
+      "properties": {
+        "type": { "const": "abilityChoice" },
+        "isEnchanted": { "type": "boolean" },
+        "optionA": { "$ref": "#/definitions/Effect" },
+        "optionB": { "$ref": "#/definitions/Effect" }
+      }
+    },
+    "Enemy": {
+      "type": "object",
+      "required": ["id", "health", "attack", "speed", "crit", "dodge", "defense", "loot", "tier"],
+      "properties": {
+        "id": { "type": "string" },
+        "health": { "type": "number" },
+        "attack": { "type": "number" },
+        "speed": { "type": "number" },
+        "crit": { "type": "number" },
+        "dodge": { "type": "number" },
+        "defense": { "type": "number" },
+        "abilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "loot": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "quantity"],
+            "properties": {
+              "id": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "tier": { "type": "integer" }
+      }
+    },
+    "Effect": {
+      "type": "object",
+      "description": "Effect object for choices"
+    }
+  }
+}

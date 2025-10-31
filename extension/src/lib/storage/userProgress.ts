@@ -4,7 +4,7 @@
  * Progress is scoped per Reddit user, with "default" for non-logged-in users
  */
 
-import { UserProgressData, MultiUserProgressDatabase, STORAGE_KEYS } from './types';
+import { UserProgressData, MultiUserProgressDatabase, STORAGE_KEYS } from './storageTypes';
 import { getCurrentRedditUser } from '../reddit/userDetection';
 
 /**

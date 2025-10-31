@@ -13,6 +13,7 @@ import { botMachine, isBotRunning } from '../automation/botStateMachine';
 import { getNextUnclearedMission } from '../lib/storage/missionQueries';
 import { markMissionCleared, setMissionDisabled } from '../lib/storage/missions';
 import { needsMigration, migrateToSeparateProgress } from '../lib/storage/migrate';
+import { migrateMissionsStorage } from '../lib/storage/migrateMissionsStorage';
 import { getCurrentRedditUser } from '../lib/reddit/userDetection';
 import { STORAGE_PROPAGATION_DELAY, INITIAL_RETRY_DELAY, RETRY_BACKOFF_BASE } from '../constants/timing';
 
@@ -906,17 +907,36 @@ async function initializeExtension() {
 		extensionLogger.error('[UserDetection] Failed to detect user on load:', error);
 	}
 
+	// Migrate missions from nested to flat format
+	try {
+		extensionLogger.log('[MissionMigration] Checking for missions to migrate...');
+		const result = await migrateMissionsStorage();
+		if (result.migrated > 0) {
+			extensionLogger.log('[MissionMigration] Migrated missions from old format', {
+				total: result.total,
+				migrated: result.migrated,
+				alreadyFlat: result.alreadyFlat,
+				errors: result.errors.length,
+			});
+		} else {
+			extensionLogger.log('[MissionMigration] All missions already in flat format');
+		}
+	} catch (error) {
+		extensionLogger.error('[MissionMigration] Failed to migrate missions', { error: String(error) });
+	}
+
+	// Migrate progress data to separate storage
 	try {
 		const needsToMigrate = await needsMigration();
 		if (needsToMigrate) {
-			extensionLogger.log('[Migration] Storage migration needed, starting migration...');
+			extensionLogger.log('[ProgressMigration] Storage migration needed, starting migration...');
 			const result = await migrateToSeparateProgress();
-			extensionLogger.log('[Migration] Migration completed', result);
+			extensionLogger.log('[ProgressMigration] Migration completed', result);
 		} else {
-			extensionLogger.log('[Migration] No migration needed');
+			extensionLogger.log('[ProgressMigration] No migration needed');
 		}
 	} catch (error) {
-		extensionLogger.error('[Migration] Migration check failed', { error: String(error) });
+		extensionLogger.error('[ProgressMigration] Migration check failed', { error: String(error) });
 	}
 }
 

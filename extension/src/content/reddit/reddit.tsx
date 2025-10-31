@@ -429,7 +429,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 					if (mission && mission.permalink) {
 						redditLogger.log('[NAVIGATE_TO_MISSION] Found uncompleted mission', {
 							postId: mission.postId,
-							tags: mission.tags,
+							missionTitle: mission.missionTitle,
 							difficulty: mission.difficulty,
 							levelRange: `${mission.minLevel}-${mission.maxLevel}`,
 							permalink: mission.permalink,
@@ -454,7 +454,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 							sendResponse({
 								success: true,
-								message: `Starting mission: ${mission.tags || mission.postId}`,
+								message: `Starting mission: ${mission.missionTitle || mission.postId}`,
 							});
 						} else {
 							// Navigate to the mission page - SPA navigation
@@ -472,7 +472,7 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 
 							sendResponse({
 								success: true,
-								message: `Navigating to: ${mission.tags || mission.postId}`,
+								message: `Navigating to: ${mission.missionTitle || mission.postId}`,
 							});
 						}
 					} else if (mission) {

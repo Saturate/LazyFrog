@@ -2,7 +2,7 @@
  * User options storage functions
  */
 
-import { UserOptions, STORAGE_KEYS } from './types';
+import { UserOptions, STORAGE_KEYS } from './storageTypes';
 
 /**
  * Save user options

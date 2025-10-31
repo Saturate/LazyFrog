@@ -2,8 +2,10 @@
  * Mission CRUD operations
  */
 
-import { MissionRecord, STORAGE_KEYS } from './types';
+import { MissionRecord } from '@lazyfrog/types';
+import { STORAGE_KEYS } from './storageTypes';
 import * as userProgressOps from './userProgress';
+import { normalizeMissionRecord } from '../../utils/missionRecordMigration';
 
 /**
  * Save a mission to storage
@@ -89,6 +91,7 @@ export async function saveMissionsBatch(missions: MissionRecord[]): Promise<void
 
 /**
  * Get all saved missions
+ * Automatically migrates old nested format to new flat format
  */
 export async function getAllMissions(): Promise<Record<string, MissionRecord>> {
 	return new Promise((resolve, reject) => {
@@ -96,7 +99,13 @@ export async function getAllMissions(): Promise<Record<string, MissionRecord>> {
 			if (chrome.runtime.lastError) {
 				reject(chrome.runtime.lastError);
 			} else {
-				resolve(result[STORAGE_KEYS.MISSIONS] || {});
+				const rawMissions = result[STORAGE_KEYS.MISSIONS] || {};
+				// Migrate any old format missions to new flat format
+				const migratedMissions: Record<string, MissionRecord> = {};
+				for (const postId in rawMissions) {
+					migratedMissions[postId] = normalizeMissionRecord(rawMissions[postId]);
+				}
+				resolve(migratedMissions);
 			}
 		});
 	});

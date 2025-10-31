@@ -17,5 +17,5 @@
     "types": ["chrome", "node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "extension"]
+  "exclude": ["node_modules", "dist", "extension", "**/*.test.ts", "**/*.test.tsx", "**/__tests__"]
 }
