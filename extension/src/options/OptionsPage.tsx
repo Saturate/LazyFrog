@@ -4,23 +4,44 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Target, Settings, BarChart3, Info, Terminal } from 'lucide-react';
+import { Target, Settings, BarChart3, Info, Terminal, Bug } from 'lucide-react';
 import AutomationTab from './tabs/AutomationTab';
 import SettingsTab from './tabs/SettingsTab';
 import LoggingTab from './tabs/LoggingTab';
 import MissionsTab from './tabs/MissionsTab';
 import AboutTab from './tabs/AboutTab';
+import DebugTab from './tabs/DebugTab';
 import './options.css';
 
-type TabType = 'missions' | 'automation' | 'logging' | 'settings' | 'about';
+type TabType = 'missions' | 'automation' | 'logging' | 'settings' | 'about' | 'debug';
 
 const OptionsPage: React.FC = () => {
 	const [activeTab, setActiveTab] = useState<TabType>('missions');
+	const [debugMode, setDebugMode] = useState(false);
+
+	// Load debug mode setting
+	useEffect(() => {
+		chrome.storage.local.get(['userOptions'], (result) => {
+			if (result.userOptions?.debugMode) {
+				setDebugMode(true);
+			}
+		});
+
+		// Listen for changes to debug mode
+		const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+			if (changes.userOptions?.newValue?.debugMode !== undefined) {
+				setDebugMode(changes.userOptions.newValue.debugMode);
+			}
+		};
+
+		chrome.storage.onChanged.addListener(handleStorageChange);
+		return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+	}, []);
 
 	// Support URL hash navigation
 	useEffect(() => {
 		const hash = window.location.hash.slice(1) as TabType;
-		if (hash && ['missions', 'automation', 'logging', 'settings', 'about'].includes(hash)) {
+		if (hash && ['missions', 'automation', 'logging', 'settings', 'about', 'debug'].includes(hash)) {
 			setActiveTab(hash);
 		}
 	}, []);
@@ -69,6 +90,15 @@ const OptionsPage: React.FC = () => {
 					<Settings size={16} />
 					Settings
 				</button>
+				{debugMode && (
+					<button
+						className={`tab-button ${activeTab === 'debug' ? 'active' : ''}`}
+						onClick={() => handleTabChange('debug')}
+					>
+						<Bug size={16} />
+						Debug
+					</button>
+				)}
 				<button
 					className={`tab-button ${activeTab === 'about' ? 'active' : ''}`}
 					onClick={() => handleTabChange('about')}
@@ -84,6 +114,7 @@ const OptionsPage: React.FC = () => {
 				{activeTab === 'automation' && <AutomationTab />}
 				{activeTab === 'logging' && <LoggingTab />}
 				{activeTab === 'settings' && <SettingsTab />}
+				{activeTab === 'debug' && debugMode && <DebugTab />}
 				{activeTab === 'about' && <AboutTab />}
 			</main>
 		</div>

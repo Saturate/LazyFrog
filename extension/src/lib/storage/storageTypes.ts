@@ -42,6 +42,7 @@ export interface UserOptions {
 	crossroadsStrategy?: 'fight' | 'skip';
 	autoStartMissions?: boolean;
 	showNotifications?: boolean;
+	debugMode?: boolean;
 }
 
 export interface AutomationFilters {

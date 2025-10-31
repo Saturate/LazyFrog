@@ -859,6 +859,61 @@ async function handleMessage(
 			}
 			break;
 
+		case 'FETCH_MISSION_DATA':
+			// Debug tab requesting mission data fetch
+			{
+				const { postId, tabId } = message as any;
+
+				if (!postId || !tabId) {
+					sendResponse({ success: false, error: 'Missing postId or tabId' });
+					break;
+				}
+
+				extensionLogger.log('[FETCH_MISSION_DATA] Forwarding request to content script', {
+					postId,
+					tabId,
+				});
+
+				// Forward the request to the content script in the specified tab
+				chrome.tabs.sendMessage(
+					tabId,
+					{
+						type: 'FETCH_MISSION_DATA_FROM_PAGE',
+						postId,
+					},
+					(response) => {
+						if (chrome.runtime.lastError) {
+							extensionLogger.error('[FETCH_MISSION_DATA] Failed to communicate with tab', {
+								error: chrome.runtime.lastError.message,
+								tabId,
+							});
+							sendResponse({
+								success: false,
+								error: `Failed to communicate with tab: ${chrome.runtime.lastError.message}`,
+							});
+						} else if (response?.success) {
+							extensionLogger.log('[FETCH_MISSION_DATA] Successfully fetched mission data', {
+								postId,
+								data: response.data,
+							});
+							sendResponse({
+								success: true,
+								data: response.data,
+							});
+						} else {
+							extensionLogger.error('[FETCH_MISSION_DATA] Failed to fetch mission data', {
+								error: response?.error,
+							});
+							sendResponse({
+								success: false,
+								error: response?.error || 'Unknown error occurred',
+							});
+						}
+					},
+				);
+			}
+			return true; // Will respond asynchronously
+
 		default:
 			extensionLogger.warn('Unknown message type', { type: message.type });
 			sendResponse({ error: 'Unknown message type: ' + message.type });

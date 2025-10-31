@@ -83,6 +83,7 @@ module.exports = {
         },
         { from: 'public/icons', to: 'icons' },
         { from: 'src/content/reddit/injected/fetchInterceptor.js', to: 'fetchInterceptor.js' },
+        { from: 'src/content/reddit/injected/missionDataFetcher.js', to: 'missionDataFetcher.js' },
       ],
     }),
     new VersionSyncPlugin(),

@@ -3,11 +3,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Trash2, Download, Upload, CheckCircle } from 'lucide-react';
+import { Settings, Trash2, Upload, Download, CheckCircle, Bug } from 'lucide-react';
+import { UserOptions } from '../../lib/storage/storageTypes';
 
 interface DebugSettings {
 	showNextMissions: boolean;
 	nextMissionsCount: number;
+	debugMode: boolean;
+	showStepByStepControls: boolean;
 }
 
 const SettingsTab: React.FC = () => {
@@ -15,16 +18,24 @@ const SettingsTab: React.FC = () => {
 	const [settings, setSettings] = useState<DebugSettings>({
 		showNextMissions: true,
 		nextMissionsCount: 5,
+		debugMode: false,
+		showStepByStepControls: false,
 	});
+	const [userOptions, setUserOptions] = useState<UserOptions>({});
 
 	// Load settings on mount
 	useEffect(() => {
-		chrome.storage.local.get(['automationConfig'], (result) => {
+		chrome.storage.local.get(['automationConfig', 'userOptions'], (result) => {
 			if (result.automationConfig) {
 				setSettings({
 					showNextMissions: result.automationConfig.showNextMissions !== false,
 					nextMissionsCount: result.automationConfig.nextMissionsCount || 5,
+					debugMode: result.automationConfig.debugMode || false,
+					showStepByStepControls: result.automationConfig.showStepByStepControls || false,
 				});
+			}
+			if (result.userOptions) {
+				setUserOptions(result.userOptions);
 			}
 		});
 	}, []);
@@ -36,10 +47,17 @@ const SettingsTab: React.FC = () => {
 				...result.automationConfig,
 				showNextMissions: settings.showNextMissions,
 				nextMissionsCount: settings.nextMissionsCount,
+				debugMode: settings.debugMode,
+				showStepByStepControls: settings.showStepByStepControls,
 			};
 			chrome.storage.local.set({ automationConfig: fullConfig });
 		});
 	}, [settings]);
+
+	// Save user options when they change
+	useEffect(() => {
+		chrome.storage.local.set({ userOptions });
+	}, [userOptions]);
 
 	const handleClearMissions = async () => {
 		if (
@@ -125,6 +143,122 @@ const SettingsTab: React.FC = () => {
 
 	return (
 		<div>
+			<div className="card">
+				<h2>
+					<Bug
+						size={20}
+						style={{
+							display: 'inline-block',
+							marginRight: '8px',
+							verticalAlign: 'middle',
+						}}
+					/>
+					Developer Mode
+				</h2>
+
+				<div className="form-group" style={{ marginBottom: '20px' }}>
+					<label
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: '8px',
+							cursor: 'pointer',
+						}}
+					>
+						<input
+							type="checkbox"
+							checked={userOptions.debugMode || false}
+							onChange={(e) =>
+								setUserOptions((prev: UserOptions) => ({
+									...prev,
+									debugMode: e.target.checked,
+								}))
+							}
+							style={{ cursor: 'pointer' }}
+						/>
+						<span>Enable Debug Tab</span>
+					</label>
+					<p
+						style={{
+							color: '#a1a1aa',
+							fontSize: '13px',
+							marginTop: '8px',
+							marginLeft: '28px',
+						}}
+					>
+						Enables the Debug tab with developer tools for testing mission data fetching and other advanced features.
+					</p>
+				</div>
+
+				<div className="form-group" style={{ marginBottom: '20px' }}>
+					<label
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: '8px',
+							cursor: 'pointer',
+						}}
+					>
+						<input
+							type="checkbox"
+							checked={settings.debugMode}
+							onChange={(e) =>
+								setSettings((prev) => ({
+									...prev,
+									debugMode: e.target.checked,
+								}))
+							}
+							style={{ cursor: 'pointer' }}
+						/>
+						<span>Enable Debug Logging</span>
+					</label>
+					<p
+						style={{
+							color: '#a1a1aa',
+							fontSize: '13px',
+							marginTop: '8px',
+							marginLeft: '28px',
+						}}
+					>
+						Enables additional debug logging and features throughout the extension. Useful for troubleshooting issues or understanding extension behavior.
+					</p>
+				</div>
+
+				<div className="form-group">
+					<label
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: '8px',
+							cursor: 'pointer',
+						}}
+					>
+						<input
+							type="checkbox"
+							checked={settings.showStepByStepControls}
+							onChange={(e) =>
+								setSettings((prev) => ({
+									...prev,
+									showStepByStepControls: e.target.checked,
+								}))
+							}
+							style={{ cursor: 'pointer' }}
+						/>
+						<span>Show Step-by-Step Controls</span>
+					</label>
+					<p
+						style={{
+							color: '#a1a1aa',
+							fontSize: '13px',
+							marginTop: '8px',
+							marginLeft: '28px',
+						}}
+					>
+						Shows step-by-step automation controls in the popup (1. Navigate, 2. Open, 3. Play). Useful for debugging automation flow or manually controlling each step.
+					</p>
+				</div>
+			</div>
+
 			<div className="card">
 				<h2>
 					<Settings
