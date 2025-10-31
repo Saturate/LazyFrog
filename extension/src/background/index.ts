@@ -190,6 +190,9 @@ async function canNavigateAway(): Promise<boolean> {
 // Track the last retry count to avoid sending duplicate FIND_NEXT_MISSION
 let lastCompletingRetryCount = -1;
 
+// Track the idle state check interval
+let idleStateCheckInterval: NodeJS.Timeout | null = null;
+
 /**
  * Find next mission from database and send appropriate event to state machine
  * Sends different events based on current state:
@@ -316,6 +319,13 @@ function handleStateTransition(stateObj: any, context: any): void {
 	const presentationState = getPresentationStateName(stateObj);
 	extensionLogger.log('[StateTransition] Entered state', { state: presentationState });
 
+	// Clear idle state check interval when leaving idle state
+	if (presentationState !== 'idle' && presentationState !== 'idleDialogOpen' && idleStateCheckInterval) {
+		extensionLogger.log('[StateTransition] Clearing idle state check interval');
+		clearInterval(idleStateCheckInterval);
+		idleStateCheckInterval = null;
+	}
+
 	// Nested mission state routing
 	if (stateObj?.matches) {
 		if (stateObj.matches('gameMission.waitingForGame')) {
@@ -397,8 +407,26 @@ function handleStateTransition(stateObj: any, context: any): void {
 
 	switch (presentationState) {
 		case 'idle':
+			// Reset completing retry counter when going idle
+			lastCompletingRetryCount = -1;
+
+			// Start periodic check for automation ready (user manually opened dialog)
+			if (!idleStateCheckInterval) {
+				extensionLogger.log('[StateTransition] Starting idle state check interval (every 5s)');
+				idleStateCheckInterval = setInterval(() => {
+					extensionLogger.log('[IdleCheck] Checking if automation is ready');
+					checkAutomationReady().then((isReady) => {
+						if (isReady) {
+							extensionLogger.log('[IdleCheck] Automation ready, sending AUTOMATION_READY');
+							sendToStateMachine({ type: 'AUTOMATION_READY' });
+						}
+					});
+				}, 5000); // Check every 5 seconds
+			}
+			break;
+
 		case 'error':
-			// Reset completing retry counter when going idle or error
+			// Reset completing retry counter when going to error
 			lastCompletingRetryCount = -1;
 			break;
 		case 'navigating':
@@ -458,6 +486,49 @@ function broadcastToAllFrames(message: any): void {
 	});
 }
 
+/**
+ * Check if automation engine is ready in devvit iframe
+ * Returns a promise that resolves to true if automation is ready, false otherwise
+ */
+async function checkAutomationReady(): Promise<boolean> {
+	return new Promise((resolve) => {
+		// Query Reddit tabs
+		chrome.tabs.query({ url: 'https://www.reddit.com/*' }, (tabs) => {
+			if (tabs.length === 0 || !tabs[0].id) {
+				// No Reddit tab found
+				extensionLogger.log('[checkAutomationReady] No Reddit tab found');
+				resolve(false);
+				return;
+			}
+
+			// Send CHECK_AUTOMATION_STATUS to all frames
+			chrome.tabs.sendMessage(
+				tabs[0].id,
+				{ type: 'CHECK_AUTOMATION_STATUS' },
+				{ frameId: undefined }, // All frames
+				(response) => {
+					if (chrome.runtime.lastError) {
+						// No devvit frame or error occurred
+						extensionLogger.log('[checkAutomationReady] Error or no devvit frame', {
+							error: chrome.runtime.lastError.message,
+						});
+						resolve(false);
+						return;
+					}
+
+					const isReady = response?.isReady || false;
+					extensionLogger.log('[checkAutomationReady] Automation status check result', {
+						isReady,
+						state: response?.state,
+					});
+
+					resolve(isReady);
+				},
+			);
+		});
+	});
+}
+
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
 	extensionLogger.log('Received message', {
@@ -499,8 +570,17 @@ async function handleMessage(
 				break;
 			}
 
-			// Detect current Reddit user first (will be cached for subsequent calls)
-			getCurrentRedditUser()
+			// Check if automation is already ready (dialog already open)
+			checkAutomationReady()
+				.then((isReady) => {
+					if (isReady) {
+						extensionLogger.log('[START_BOT] Automation already ready, sending AUTOMATION_READY');
+						sendToStateMachine({ type: 'AUTOMATION_READY' });
+					}
+
+					// Detect current Reddit user first (will be cached for subsequent calls)
+					return getCurrentRedditUser();
+				})
 				.then((username) => {
 					extensionLogger.log('[UserDetection] Current user:', username);
 

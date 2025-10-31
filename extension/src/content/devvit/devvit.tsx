@@ -156,15 +156,11 @@ function initializeAutomation(): void {
 			delete (window as any).__capturedInitialData;
 		}
 
-		// Notify background script that automation is ready
+		// Notify background script that automation is ready (initial notification only)
 		safeSendMessage({
 			type: 'AUTOMATION_READY',
 			config: giaeConfig,
 		});
-
-		// Set up periodic heartbeat to send AUTOMATION_READY
-		// This ensures state machine can detect ready state even if bot starts after iframe loads
-		startAutomationReadyHeartbeat();
 
 		// Process any pending START_MISSION_AUTOMATION message
 		if (pendingStartMessage) {
@@ -179,39 +175,6 @@ function initializeAutomation(): void {
 			pendingStartMessage = null;
 		}
 	});
-}
-
-// Track heartbeat interval
-let automationReadyHeartbeatInterval: NodeJS.Timeout | null = null;
-
-/**
- * Start sending periodic AUTOMATION_READY heartbeats
- * Sends every 3 seconds while automation engine is initialized
- */
-function startAutomationReadyHeartbeat(): void {
-	// Clear any existing interval
-	if (automationReadyHeartbeatInterval) {
-		clearInterval(automationReadyHeartbeatInterval);
-	}
-
-	// Send heartbeat every 3 seconds
-	automationReadyHeartbeatInterval = setInterval(() => {
-		if (gameAutomation) {
-			devvitLogger.log('[Heartbeat] Sending AUTOMATION_READY');
-			safeSendMessage({
-				type: 'AUTOMATION_READY',
-			});
-		} else {
-			// Stop heartbeat if automation is no longer initialized
-			devvitLogger.log('[Heartbeat] Stopping - automation not initialized');
-			if (automationReadyHeartbeatInterval) {
-				clearInterval(automationReadyHeartbeatInterval);
-				automationReadyHeartbeatInterval = null;
-			}
-		}
-	}, 3000);
-
-	devvitLogger.log('[Heartbeat] Started AUTOMATION_READY heartbeat (every 3s)');
 }
 
 /**
@@ -268,6 +231,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	});
 
 	switch (message.type) {
+		case 'CHECK_AUTOMATION_STATUS':
+			// Respond to query about automation engine state
+			const isReady = gameAutomation !== null;
+			const automationState = gameAutomation ? gameAutomation.getState() : null;
+			sendResponse({
+				isReady,
+				isRunning: automationState === 'running',
+				state: automationState,
+			});
+			break;
+
 		case 'START_MISSION_AUTOMATION':
 			if (!gameAutomation) {
 				// Automation not ready yet, queue the message

@@ -83,65 +83,11 @@ export function parseLevelFromPost(post: Element): Level | null {
 			}
 		}
 
-		// Parse star difficulty from Devvit preview (if loaded)
-		// Stars are deep in nested shadow DOMs:
-		// post -> loader -> loader.shadowRoot -> surface -> surface.shadowRoot -> renderer -> renderer.shadowRoot
-		let starDifficulty = 0;
-		let isCleared = false;
+		// Star difficulty is now populated from PostRenderContent API (parseMissionData.ts)
+		// DOM-based detection has been deprecated (see reddit.deprecated.ts)
+		const starDifficulty = 0;
 
-		const devvitLoader = post.querySelector('shreddit-devvit-ui-loader');
-		if (devvitLoader) {
-			// Check if preview is still loading
-			const isLoading = devvitLoader.textContent?.includes('Loading');
-
-			// Navigate through nested shadow DOMs to find the renderer
-			if (devvitLoader.shadowRoot) {
-				const surface = devvitLoader.shadowRoot.querySelector('devvit-surface');
-				if (surface?.shadowRoot) {
-					const renderer = surface.shadowRoot.querySelector('devvit-blocks-renderer');
-					if (renderer?.shadowRoot) {
-						// Count filled star images (ap8a5ghsvyre1.png)
-						const filledStars = renderer.shadowRoot.querySelectorAll(
-							'img[src*="ap8a5ghsvyre1.png"]',
-						);
-						starDifficulty = filledStars.length;
-
-						// Check for cleared banner (cleared/done image)
-						const clearedImages = renderer.shadowRoot.querySelectorAll(
-							'img[src*="fxlui9egtgbf1.png"]',
-						);
-						if (clearedImages.length > 0) {
-							isCleared = true;
-							redditLogger.log('Mission marked as cleared (cleared banner detected)', {
-								title: title.substring(0, 50),
-								postId,
-							});
-						}
-
-						// DEBUG: Log successful parse
-						if (starDifficulty > 0) {
-							redditLogger.log('Parsed star difficulty', {
-								title: title.substring(0, 50),
-								postId,
-								stars: starDifficulty,
-							});
-						}
-					}
-				}
-			}
-
-			// Warn if preview loaded but star detection failed
-			if (starDifficulty === 0 && !isLoading) {
-				redditLogger.warn('Preview loaded but no stars detected', {
-					title: title.substring(0, 50),
-					postId,
-					isLoading,
-				});
-			}
-		}
-
-		// Cleared check is already done above in the shadow DOM parsing (isCleared variable)
-		// Also check for cleared indicators in title as fallback
+		// Check for cleared indicators in title
 		const isTitleCleared =
 			title.toLowerCase().includes('cleared') ||
 			title.toLowerCase().includes('completed') ||
@@ -149,8 +95,6 @@ export function parseLevelFromPost(post: Element): Level | null {
 			title.includes('✔') ||
 			title.includes('[done]') ||
 			title.toLowerCase().includes('solved');
-
-		const finalCleared = isCleared || isTitleCleared;
 
 		const href = permalink ? `https://www.reddit.com${permalink}` : null;
 
@@ -164,7 +108,7 @@ export function parseLevelFromPost(post: Element): Level | null {
 			levelRangeMin,
 			levelRangeMax,
 			stars: starDifficulty,
-			cleared: finalCleared,
+			cleared: isTitleCleared,
 			element: post,
 		};
 	} catch (error) {

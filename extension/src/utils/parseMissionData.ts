@@ -11,7 +11,8 @@ export interface MissionData {
 	foodImage?: string;
 	authorName?: string;
 	title?: string;
-	isInnPost?: boolean; // Mission completion status
+	isInnPost?: boolean; // State variable from protobuf (meaning unclear)
+	__cleared?: boolean; // Detected from Inn image (fxlui9egtgbf1.png)
 	encounters?: any[]; // Encounter/enemy data for the mission
 	// Additional mission fields from state
 	authorWeaponId?: string;
@@ -118,6 +119,14 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 			}
 		} else {
 			redditLogger.warn(`No state object found in UIResponse for ${postId}`);
+		}
+
+		// Check for Inn image (fxlui9egtgbf1.png) in the entire JSON structure
+		// This indicates mission completion / cleared status
+		const jsonString = JSON.stringify(json);
+		if (jsonString.includes('fxlui9egtgbf1.png')) {
+			redditLogger.log(`Detected Inn image (fxlui9egtgbf1.png) in UIResponse for ${postId}`);
+			data.__cleared = true;
 		}
 
 		redditLogger.log(`Parsed mission (${postId})`, data);
@@ -232,9 +241,13 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 			}
 		}
 
-		// Extract isInnPost (mission completion status)
-		// Simplified: if we see the string 'isInnPost', it's an inn
+		// Extract isInnPost state variable (meaning unclear)
 		data.isInnPost = text.includes('isInnPost');
+
+		// Check for Inn image (fxlui9egtgbf1.png) - indicates mission completion
+		if (text.includes('fxlui9egtgbf1.png')) {
+			data.__cleared = true;
+		}
 
 		redditLogger.log(`Parsed mission (${data.postId}) data from API`, {
 			...data,

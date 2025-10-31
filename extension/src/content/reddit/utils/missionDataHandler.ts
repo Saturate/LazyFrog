@@ -115,12 +115,14 @@ export function installMissionDataHandler(): void {
 					await saveMissionFromAPI(data);
 				}
 
-				// Check for mission completion
-				if (data.isInnPost === true) {
+				// Check for mission completion (cleared indicator)
+				if (data.__cleared === true || data.isInnPost === true) {
 					redditLogger.log(
 						'[missionDataHandler] Mission completion detected from PostRenderContent',
 						{
 							postId: data.postId,
+							hasInnImage: data.__cleared,
+							hasInnPostFlag: data.isInnPost,
 						},
 					);
 
