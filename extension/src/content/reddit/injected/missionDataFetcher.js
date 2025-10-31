@@ -10,13 +10,9 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFrog] Installing mission data fetcher in page context');
-
   // Listen for fetch requests from content script
   window.addEventListener('autosupper:fetch-mission-request', async (event) => {
     const { postId, requestId, requestBody } = event.detail;
-
-    console.log('[LazyFrog] Received fetch mission request:', postId);
 
     try {
       // requestBody is already built properly by content script using @devvit/protos
@@ -24,8 +20,6 @@
       const body = requestBody instanceof Uint8Array
         ? requestBody
         : new Uint8Array(requestBody);
-
-      console.log('[LazyFrog] Request body length:', body.length);
 
       // Make the fetch request to Reddit's Devvit gateway
       const response = await fetch(
@@ -58,8 +52,6 @@
       // Get response as ArrayBuffer
       const arrayBuffer = await response.arrayBuffer();
 
-      console.log('[LazyFrog] Fetch successful, received', arrayBuffer.byteLength, 'bytes');
-
       // Send response back to content script
       window.dispatchEvent(new CustomEvent('autosupper:fetch-mission-response', {
         detail: {
@@ -71,7 +63,7 @@
       }));
 
     } catch (error) {
-      console.error('[LazyFrog] Fetch mission data failed:', error);
+      console.error('[LazyFrog] Fetch failed:', postId, error);
 
       // Send error back to content script
       window.dispatchEvent(new CustomEvent('autosupper:fetch-mission-response', {
@@ -84,6 +76,4 @@
       }));
     }
   });
-
-  console.log('[LazyFrog] Mission data fetcher installed successfully');
 })();
