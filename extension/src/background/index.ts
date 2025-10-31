@@ -67,9 +67,18 @@ function getPresentationStateName(stateObj: any): string {
 			if (stateObj.value.gameMission && typeof stateObj.value.gameMission === 'string') {
 				return String(stateObj.value.gameMission);
 			}
+			// Handle idle sub-states
+			if (stateObj.value.idle && typeof stateObj.value.idle === 'string') {
+				// idle.stopped -> 'idle', idle.dialogOpen -> 'idleDialogOpen'
+				return stateObj.value.idle === 'dialogOpen' ? 'idleDialogOpen' : 'idle';
+			}
 		}
 		// Use matches if available (xstate v5)
 		if (stateObj?.matches) {
+			// Idle sub-states
+			if (stateObj.matches('idle.stopped')) return 'idle';
+			if (stateObj.matches('idle.dialogOpen')) return 'idleDialogOpen';
+			// Game mission sub-states
 			if (stateObj.matches('gameMission.waitingForGame')) return 'waitingForGame';
 			if (stateObj.matches('gameMission.openingGame')) return 'openingGame';
 			if (stateObj.matches('gameMission.gameReady')) return 'gameReady';

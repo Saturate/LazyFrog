@@ -32,6 +32,7 @@ export type BotEvent =
 	| { type: 'GAME_DIALOG_OPENED' }
 	| { type: 'GAME_DIALOG_CLOSED' }
 	| { type: 'GAME_IFRAME_DETECTED' }
+	| { type: 'AUTOMATION_READY' }
 	| { type: 'AUTOMATION_STARTED' }
 	| { type: 'MISSION_COMPLETED'; missionId: string }
 	| { type: 'MISSION_DELETED'; missionId: string }
@@ -185,13 +186,38 @@ export const botMachine = setup({
 	states: {
 		// ========================================================================
 		// IDLE: Bot is stopped, no automation
+		// Sub-states track whether game dialog is open
 		// ========================================================================
 		idle: {
 			description: 'Bot is stopped, no automation',
+			initial: 'stopped',
 			entry: ['logIdleReason', 'resetContext'],
+			states: {
+				stopped: {
+					description: 'Normal idle state - no game dialog open',
+					on: {
+						START_BOT: {
+							// Normal flow: find mission and open game
+							target: '#bot.starting',
+						},
+					},
+				},
+				dialogOpen: {
+					description: 'Game dialog is open and automation engine ready',
+					on: {
+						START_BOT: {
+							// Dialog already open, send START_MISSION_AUTOMATION via gameReady
+							target: '#bot.gameMission.gameReady',
+							actions: ['logTransition'],
+						},
+					},
+				},
+			},
 			on: {
-				START_BOT: {
-					target: 'starting',
+				AUTOMATION_READY: {
+					// When iframe loads while idle, go to dialogOpen sub-state
+					target: '.dialogOpen',
+					actions: ['logTransition'],
 				},
 			},
 		},
@@ -267,6 +293,11 @@ export const botMachine = setup({
 					entry: ['logTransition'],
 					on: {
 						GAME_LOADER_DETECTED: { target: 'openingGame', actions: ['logTransition'] },
+						AUTOMATION_READY: {
+							// Iframe loaded while waiting for game - skip to gameReady
+							target: 'gameReady',
+							actions: ['logTransition'],
+						},
 						MISSION_DELETED: { target: 'completing', actions: ['logTransition'] },
 						ERROR_OCCURRED: {
 							target: '#bot.error',
@@ -279,6 +310,11 @@ export const botMachine = setup({
 					entry: ['logTransition'],
 					on: {
 						GAME_DIALOG_OPENED: { target: 'gameReady', actions: ['logTransition'] },
+						AUTOMATION_READY: {
+							// Iframe loaded while opening game - skip to gameReady
+							target: 'gameReady',
+							actions: ['logTransition'],
+						},
 						ERROR_OCCURRED: {
 							target: '#bot.error',
 							actions: ['setError', 'setCompletionReason'],

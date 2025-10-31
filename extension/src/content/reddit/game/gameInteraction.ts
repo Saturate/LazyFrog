@@ -4,189 +4,221 @@
 
 import { redditLogger } from '../../../utils/logger';
 import { safeSendMessage } from '../utils/messaging';
+import { querySelectorDeep } from 'query-selector-shadow-dom';
+
+// Enable/disable fullscreen mode when clicking game UI
+const ENABLE_FULLSCREEN = false;
 
 /**
  * Wait for an element to appear in the DOM
  */
 export function waitForElement(
-  selector: string,
-  timeout: number = 5000,
-  rootElement: Element | Document = document
+	selector: string,
+	timeout: number = 5000,
+	rootElement: Element | Document = document,
 ): Promise<Element | null> {
-  return new Promise((resolve) => {
-    // Check if element already exists
-    const existingElement = rootElement.querySelector(selector);
-    if (existingElement) {
-      resolve(existingElement);
-      return;
-    }
+	return new Promise((resolve) => {
+		// Check if element already exists
+		const existingElement = rootElement.querySelector(selector);
+		if (existingElement) {
+			resolve(existingElement);
+			return;
+		}
 
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      observer.disconnect();
-      resolve(null);
-    }, timeout);
+		// Set up timeout
+		const timeoutId = setTimeout(() => {
+			observer.disconnect();
+			resolve(null);
+		}, timeout);
 
-    // Set up MutationObserver
-    const observer = new MutationObserver(() => {
-      const element = rootElement.querySelector(selector);
-      if (element) {
-        clearTimeout(timeoutId);
-        observer.disconnect();
-        resolve(element);
-      }
-    });
+		// Set up MutationObserver
+		const observer = new MutationObserver(() => {
+			const element = rootElement.querySelector(selector);
+			if (element) {
+				clearTimeout(timeoutId);
+				observer.disconnect();
+				resolve(element);
+			}
+		});
 
-    // Start observing
-    const targetNode = rootElement === document ? document.body : rootElement;
-    if (targetNode) {
-      observer.observe(targetNode, {
-        childList: true,
-        subtree: true,
-      });
-    } else {
-      clearTimeout(timeoutId);
-      resolve(null);
-    }
-  });
+		// Start observing
+		const targetNode = rootElement === document ? document.body : rootElement;
+		if (targetNode) {
+			observer.observe(targetNode, {
+				childList: true,
+				subtree: true,
+			});
+		} else {
+			clearTimeout(timeoutId);
+			resolve(null);
+		}
+	});
+}
+
+/**
+ * Find the clickable game preview element in the shadow DOM
+ * Uses querySelectorDeep to pierce through shadow roots automatically
+ */
+function findGamePreviewElement(): Element | null {
+	// Try specific selectors in order of specificity
+	// querySelectorDeep automatically searches through all shadow DOMs
+	const specificDiv = querySelectorDeep('devvit-blocks-renderer div>div>div');
+	if (specificDiv) return specificDiv;
+
+	const cursorPointer = querySelectorDeep('devvit-blocks-renderer .cursor-pointer');
+	if (cursorPointer) return cursorPointer;
+
+	// Fallback: find renderer and get first child
+	const renderer = querySelectorDeep('devvit-blocks-renderer');
+	if (renderer?.shadowRoot?.firstElementChild) {
+		return renderer.shadowRoot.firstElementChild;
+	}
+
+	return null;
+}
+
+/**
+ * Wait for the game preview to render in the shadow DOM using polling
+ */
+function waitForGamePreview(timeoutMs: number = 20000): Promise<Element | null> {
+	return new Promise((resolve) => {
+		const startTime = Date.now();
+		const pollInterval = 500; // Check every 500ms
+
+		const checkForElement = () => {
+			const element = findGamePreviewElement();
+			if (element) {
+				const elapsed = Date.now() - startTime;
+				redditLogger.log('[clickGameUI] Game preview found', { elapsed });
+				resolve(element);
+				return;
+			}
+
+			// Check if timeout exceeded
+			if (Date.now() - startTime >= timeoutMs) {
+				redditLogger.warn('[clickGameUI] Timeout waiting for game preview');
+				resolve(null);
+				return;
+			}
+
+			// Keep polling
+			setTimeout(checkForElement, pollInterval);
+		};
+
+		checkForElement();
+	});
+}
+
+/**
+ * Find the game dialog iframe inside shadow DOM
+ * Uses querySelectorDeep to pierce through shadow roots automatically
+ */
+function findDialogIframe(): Element | null {
+	// Search for devvit iframe anywhere in shadow DOMs
+	// This is more robust than hardcoding the path
+	const iframe = querySelectorDeep('iframe[src*="devvit.net"]');
+	if (iframe) {
+		redditLogger.log('[findDialogIframe] Found devvit iframe', {
+			src: (iframe as HTMLIFrameElement).src?.substring(0, 60),
+		});
+		return iframe;
+	}
+
+	// Fallback: try to find any iframe inside devvit-blocks-web-view
+	const webViewIframe = querySelectorDeep('devvit-blocks-web-view iframe');
+	if (webViewIframe) {
+		redditLogger.log('[findDialogIframe] Found iframe in devvit-blocks-web-view');
+		return webViewIframe;
+	}
+
+	return null;
+}
+
+/**
+ * Wait for the game dialog to open after clicking
+ */
+function waitForGameDialog(timeoutMs: number = 20000): Promise<boolean> {
+	return new Promise((resolve) => {
+		const startTime = Date.now();
+		const pollInterval = 500; // Check every 500ms
+		let fullscreenHandled = false;
+
+		const checkForDialog = () => {
+			const iframe = findDialogIframe();
+
+			// Dialog opened successfully
+			if (iframe) {
+				// Handle fullscreen if enabled
+				if (ENABLE_FULLSCREEN && !fullscreenHandled) {
+					// Use querySelectorDeep to find fullscreen button
+					const button =
+						querySelectorDeep('button[aria-label="Toggle fullscreen web view"]') ||
+						querySelectorDeep('devvit-web-view-preview-size-controls button');
+
+					if (button) {
+						redditLogger.log('[clickGameUI] Enabling fullscreen');
+						(button as HTMLElement).click();
+						fullscreenHandled = true;
+					}
+				}
+
+				// Done if fullscreen not needed or already handled
+				if (!ENABLE_FULLSCREEN || fullscreenHandled) {
+					const elapsed = Date.now() - startTime;
+					redditLogger.log('[clickGameUI] Dialog opened', { elapsed });
+					resolve(true);
+					return;
+				}
+			}
+
+			// Check if timeout exceeded
+			if (Date.now() - startTime >= timeoutMs) {
+				if (iframe) {
+					redditLogger.warn('[clickGameUI] Dialog opened but fullscreen timeout');
+					resolve(true);
+				} else {
+					redditLogger.warn('[clickGameUI] Dialog did not open');
+					chrome.runtime.sendMessage({
+						type: 'ERROR_OCCURRED',
+						message: 'Game dialog did not appear',
+					});
+					resolve(false);
+				}
+				return;
+			}
+
+			// Keep polling
+			setTimeout(checkForDialog, pollInterval);
+		};
+
+		checkForDialog();
+	});
 }
 
 /**
  * Click the game UI to open the mission dialog
- * Navigates deep into shadow DOM and handles fullscreen button clicking
  */
 export async function clickGameUI(): Promise<boolean> {
-  // Wait for the loader element to appear
-  const loader = await waitForElement("shreddit-devvit-ui-loader", 5000);
-  if (!loader) {
-    redditLogger.warn("[clickGameUI] No loader found after waiting");
-    chrome.runtime.sendMessage({
-      type: "ERROR_OCCURRED",
-      message: "Game loader not found",
-    });
-    return false;
-  }
+	// Step 1: Wait for game preview to render
+	const gamePreview = await waitForGamePreview();
+	if (!gamePreview) {
+		redditLogger.warn('[clickGameUI] Game preview not found');
+		chrome.runtime.sendMessage({
+			type: 'ERROR_OCCURRED',
+			message: 'Game preview not found',
+		});
+		return false;
+	}
 
-  // Wait for shadow DOM to render (retry up to 10 times with 500ms delay)
-  let clickableContainer: Element | null | undefined = null;
-  for (let i = 0; i < 10; i++) {
-    // Navigate deep into shadow DOM to find clickable container
-    const surface = loader.shadowRoot?.querySelector("devvit-surface");
-    const renderer = surface?.shadowRoot?.querySelector(
-      "devvit-blocks-renderer"
-    );
-    clickableContainer = renderer?.shadowRoot?.querySelector(".cursor-pointer");
+	// Step 2: Click the game preview
+	redditLogger.log('[clickGameUI] Clicking game preview');
+	(gamePreview as HTMLElement).click();
 
-    if (clickableContainer) {
-      redditLogger.log("[clickGameUI] Found clickable container on attempt", {
-        attempt: i + 1,
-      });
-      break;
-    }
+	// Step 3: Wait for dialog to open
+	const success = await waitForGameDialog();
+	if (success) {
+		safeSendMessage({ type: 'GAME_DIALOG_OPENED' });
+	}
 
-    redditLogger.log("[clickGameUI] Shadow DOM not ready, waiting...", {
-      attempt: i + 1,
-    });
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-
-  if (clickableContainer) {
-    redditLogger.log("[clickGameUI] Found clickable container, clicking");
-    (clickableContainer as HTMLElement).click();
-
-    // Wait for fullscreen controls to appear using MutationObserver
-    const fullscreenControls = await waitForElement(
-      "devvit-fullscreen-web-view-controls",
-      3000
-    );
-
-    if (fullscreenControls) {
-      redditLogger.log(
-        "[clickGameUI] Fullscreen controls found, waiting for animation to complete"
-      );
-
-      // Wait for animation to complete (dialog slide-in, etc.)
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      redditLogger.log(
-        "[clickGameUI] Exploring shadow DOM for fullscreen button",
-        {
-          hasShadowRoot: !!fullscreenControls.shadowRoot,
-        }
-      );
-
-      const sizeControls = fullscreenControls.shadowRoot?.querySelector(
-        "devvit-web-view-preview-size-controls"
-      );
-      redditLogger.log("[clickGameUI] Size controls", {
-        found: !!sizeControls,
-        hasShadowRoot: !!sizeControls?.shadowRoot,
-      });
-
-      // Try multiple selectors for the fullscreen button
-      let fullscreenButton = sizeControls?.shadowRoot?.querySelector(
-        'button[aria-label="Toggle fullscreen web view"]'
-      ) as HTMLElement;
-
-      if (!fullscreenButton) {
-        // Try without aria-label
-        fullscreenButton = sizeControls?.shadowRoot?.querySelector(
-          "button"
-        ) as HTMLElement;
-        redditLogger.log("[clickGameUI] Tried generic button selector", {
-          found: !!fullscreenButton,
-        });
-      }
-
-      if (!fullscreenButton) {
-        // Try in fullscreenControls directly
-        fullscreenButton = fullscreenControls.shadowRoot?.querySelector(
-          "button"
-        ) as HTMLElement;
-        redditLogger.log("[clickGameUI] Tried button in fullscreenControls", {
-          found: !!fullscreenButton,
-        });
-      }
-
-      if (fullscreenButton) {
-        redditLogger.log("[clickGameUI] Clicking fullscreen button");
-        fullscreenButton.click();
-
-        // Wait a bit for fullscreen to engage, then signal dialog opened
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      } else {
-        redditLogger.warn(
-          "[clickGameUI] Fullscreen button not found, continuing without fullscreen",
-          {
-            fullscreenControlsHTML: fullscreenControls.innerHTML?.substring(
-              0,
-              200
-            ),
-            hasShadowRoot: !!fullscreenControls.shadowRoot,
-            shadowRootHTML: fullscreenControls.shadowRoot?.innerHTML?.substring(
-              0,
-              200
-            ),
-          }
-        );
-      }
-
-      // Signal dialog opened regardless of fullscreen success
-      safeSendMessage({ type: "GAME_DIALOG_OPENED" });
-    } else {
-      redditLogger.warn("[clickGameUI] Fullscreen controls did not appear, continuing without fullscreen");
-
-      // Still signal dialog opened - we can try to play without fullscreen
-      safeSendMessage({ type: "GAME_DIALOG_OPENED" });
-    }
-
-    return true;
-  }
-
-  redditLogger.warn("[clickGameUI] Clickable container not found");
-  chrome.runtime.sendMessage({
-    type: "ERROR_OCCURRED",
-    message: "Clickable container not found",
-  });
-  return false;
+	return success;
 }

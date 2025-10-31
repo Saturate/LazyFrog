@@ -7,32 +7,16 @@ import { Level, LevelFilters } from '../../../types';
 import { saveMission } from '../../../lib/storage/missions';
 import { MissionRecord } from '@lazyfrog/types';
 import { redditLogger } from '../../../utils/logger';
+import { querySelectorDeep } from 'query-selector-shadow-dom';
 
 /**
  * Find game iframe in nested shadow DOMs
+ * Uses querySelectorDeep to pierce through shadow roots automatically
  */
 export const findGameIframe = (): HTMLIFrameElement | null => {
-	// Try direct search first
-	let gameIframe = document.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
-	if (gameIframe) return gameIframe;
-
-	// Search in loader's shadow root
-	const loader = document.querySelector('shreddit-devvit-ui-loader');
-	if (loader?.shadowRoot) {
-		gameIframe = loader.shadowRoot.querySelector('iframe[src*="devvit.net"]') as HTMLIFrameElement;
-		if (gameIframe) return gameIframe;
-
-		// Search in nested shadow DOMs (devvit-blocks-web-view)
-		const webView = loader.shadowRoot.querySelector('devvit-blocks-web-view');
-		if (webView?.shadowRoot) {
-			gameIframe = webView.shadowRoot.querySelector(
-				'iframe[src*="devvit.net"]',
-			) as HTMLIFrameElement;
-			if (gameIframe) return gameIframe;
-		}
-	}
-
-	return null;
+	// Use querySelectorDeep to find iframe anywhere in shadow DOMs
+	const gameIframe = querySelectorDeep('iframe[src*="devvit.net"]') as HTMLIFrameElement | null;
+	return gameIframe;
 };
 
 /**
@@ -44,21 +28,16 @@ export const isGameDialogOpen = (): boolean => {
 	const gameIframe = findGameIframe();
 	if (!gameIframe) return false;
 
-	// Check if the fullscreen controls modal is present (indicates game is open)
-	const fullscreenControls = document.querySelector('devvit-fullscreen-web-view-controls');
-	if (!fullscreenControls) return false;
-
 	// Check if iframe has loaded content (not just empty)
 	const iframeLoaded = !!(gameIframe.src && gameIframe.src.includes('devvit.net'));
 
 	redditLogger.log('Game dialog status check', {
 		hasIframe: !!gameIframe,
-		hasFullscreenControls: !!fullscreenControls,
 		iframeLoaded,
-		isOpen: !!gameIframe && !!fullscreenControls && iframeLoaded,
+		isOpen: iframeLoaded,
 	});
 
-	return !!gameIframe && !!fullscreenControls && iframeLoaded;
+	return iframeLoaded;
 };
 
 /**

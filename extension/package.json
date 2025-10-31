@@ -33,6 +33,7 @@
 		"express": "^5.1.0",
 		"lucide-react": "^0.546.0",
 		"protobufjs": "^7.5.4",
+		"query-selector-shadow-dom": "^1.0.1",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
 		"xstate": "^5.23.0"
@@ -40,6 +41,7 @@
 	"devDependencies": {
 		"@types/chrome": "^0.0.256",
 		"@types/node": "^20.10.5",
+		"@types/query-selector-shadow-dom": "^1.0.4",
 		"@types/react": "^19.2.2",
 		"@types/react-dom": "^19.2.2",
 		"@types/webextension-polyfill": "^0.10.7",
