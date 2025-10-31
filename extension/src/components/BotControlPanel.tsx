@@ -27,6 +27,8 @@ const BotControlPanel: React.FC<BotControlPanelProps> = ({
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 	const panelRef = useRef<HTMLDivElement>(null);
+	const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const hasLoadedPosition = useRef(false);
 
 	// Load saved position from storage
 	useEffect(() => {
@@ -37,17 +39,34 @@ const BotControlPanel: React.FC<BotControlPanelProps> = ({
 			} else {
 				console.log('[BotControlPanel] No saved position found, using default');
 			}
+			hasLoadedPosition.current = true;
 		});
 	}, []);
 
 	// Save position when it changes (debounced to avoid excessive writes)
 	useEffect(() => {
-		// Don't save default position immediately on mount
-		if (position.x === 20 && position.y === 20) {
+		// Don't save before position has been loaded or if it's the default position
+		if (!hasLoadedPosition.current || (position.x === 20 && position.y === 20)) {
 			return;
 		}
-		console.log('[BotControlPanel] Saving position:', position);
-		chrome.storage.local.set({ botPanelPosition: position });
+
+		// Clear any existing timeout
+		if (saveTimeoutRef.current) {
+			clearTimeout(saveTimeoutRef.current);
+		}
+
+		// Set a new timeout to save after 500ms of no changes
+		saveTimeoutRef.current = setTimeout(() => {
+			console.log('[BotControlPanel] Saving position:', position);
+			chrome.storage.local.set({ botPanelPosition: position });
+		}, 500);
+
+		// Cleanup timeout on unmount or when position changes
+		return () => {
+			if (saveTimeoutRef.current) {
+				clearTimeout(saveTimeoutRef.current);
+			}
+		};
 	}, [position]);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
