@@ -5,97 +5,65 @@
 
 import { redditLogger } from '../../../utils/logger';
 import { saveMission } from '../../../lib/storage/missions';
-import { MissionRecord } from '../../../lib/storage/types';
 import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
-import { fetchLevelFromRedditAPI } from '../../../utils/redditAPI';
 import { safeSendMessage } from './messaging';
+import { convertMissionDataToRecord, isCompleteMissionData } from '../../../utils/missionDataConverter';
 
 /**
  * Save mission data from API response
  */
 async function saveMissionFromAPI(data: MissionData): Promise<void> {
-	// Validate that we have all required data before saving
-	if (!data.difficulty || data.difficulty === 0) {
-		redditLogger.warn('Skipping mission: no difficulty data', { postId: data.postId });
-		return;
-	}
+	// First check if we have complete mission data from the protobuf
+	if (isCompleteMissionData(data)) {
+		const record = convertMissionDataToRecord(data);
+		if (record) {
+			try {
+				// Check if mission already exists to preserve timestamp
+				const { getMission } = await import('../../../lib/storage/missions');
+				const existingMission = await getMission(data.postId);
+				if (existingMission?.timestamp) {
+					record.timestamp = existingMission.timestamp;
+				}
 
-	// Try to get levels from protobuf, fallback to Reddit JSON API if missing
-	if (data.minLevel === undefined || data.maxLevel === undefined) {
-		redditLogger.warn('Missing level data from protobuf, trying Reddit API fallback', {
-			postId: data.postId,
-			difficulty: data.difficulty,
-		});
-
-		const levelData = await fetchLevelFromRedditAPI(data.postId);
-		if (levelData && levelData.minLevel !== undefined && levelData.maxLevel !== undefined) {
-			data.minLevel = levelData.minLevel;
-			data.maxLevel = levelData.maxLevel;
-			// Also use title and author from Reddit API if available
-			if (levelData.title) {
-				data.title = levelData.title;
+				await saveMission(record);
+				redditLogger.log(`Saved complete mission from RenderPostContent: ${data.postId}`, {
+					name: data.foodName,
+					difficulty: data.difficulty,
+					levels: `${data.minLevel}-${data.maxLevel}`,
+					encounters: data.encounters?.length || 0,
+				});
+				return;
+			} catch (error) {
+				redditLogger.error('Failed to save complete mission from RenderPostContent', {
+					error: error instanceof Error ? error.message : String(error),
+					postId: data.postId,
+				});
+				// Fall through to legacy save method
 			}
-			if (levelData.author) {
-				data.authorName = levelData.author;
-			}
-			redditLogger.log('Retrieved data from Reddit API', {
-				postId: data.postId,
-				minLevel: data.minLevel,
-				maxLevel: data.maxLevel,
-				title: data.title,
-				author: data.authorName,
-			});
-		} else {
-			redditLogger.warn('Could not retrieve levels from Reddit API, skipping mission', {
-				postId: data.postId,
-			});
-			return;
 		}
 	}
 
-	// Sanity check: maxLevel should be >= minLevel
-	if (data.maxLevel < data.minLevel) {
-		redditLogger.warn('Skipping mission: invalid level range', {
-			postId: data.postId,
-			minLevel: data.minLevel,
-			maxLevel: data.maxLevel,
-		});
-		return;
-	}
+	// If we reach here, we don't have complete data
+	// Log what we're missing for debugging
+	const missing: string[] = [];
+	if (!data.difficulty) missing.push('difficulty');
+	if (!data.minLevel) missing.push('minLevel');
+	if (!data.maxLevel) missing.push('maxLevel');
+	if (!data.environment) missing.push('environment');
+	if (!data.foodName) missing.push('foodName');
+	if (!data.encounters || data.encounters.length === 0) missing.push('encounters');
 
-	try {
-		// Check if mission already exists
-		const { getMission } = await import('../../../lib/storage/missions');
-		const existingMission = await getMission(data.postId);
-
-		const record: MissionRecord = {
-			postId: data.postId,
-			timestamp: existingMission?.timestamp || Date.now(),
-			minLevel: data.minLevel,
-			maxLevel: data.maxLevel,
-			missionTitle: data.foodName || data.title || `Mission ${data.postId}`,
-			metadata: existingMission?.metadata,
-			difficulty: data.difficulty,
-			environment: data.environment as any,
-			foodName: data.foodName,
-			permalink: (await import('../../../utils/url')).normalizeRedditPermalink(data.postId),
-		};
-
-		await saveMission(record);
-
-		redditLogger.log(`Saved mission from API: ${data.postId}`, {
-			name: data.foodName || data.title,
-			difficulty: data.difficulty,
-			levels: `${data.minLevel}-${data.maxLevel}`,
-			fullData: data,
-		});
-	} catch (error) {
-		redditLogger.error('Failed to save mission from API', {
-			error: error instanceof Error ? error.message : String(error),
-			errorStack: error instanceof Error ? error.stack : undefined,
-			postId: data.postId,
-		});
-	}
+	redditLogger.warn('Incomplete mission data from RenderPostContent - cannot save', {
+		postId: data.postId,
+		missingFields: missing,
+		hasData: {
+			difficulty: !!data.difficulty,
+			levels: !!(data.minLevel && data.maxLevel),
+			environment: !!data.environment,
+			foodName: !!data.foodName,
+			encounters: data.encounters?.length || 0,
+		},
+	});
 }
 
 /**

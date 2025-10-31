@@ -43,8 +43,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 				mission.missionTitle,
 				mission.foodName,
 				mission.environment,
-				mission.metadata?.missionAuthorName,
-				mission.tags,
+				mission.missionAuthorName,
 			]
 				.filter(Boolean)
 				.join(' ')
@@ -71,7 +70,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 		// Encounter types filter
 		if (filters.encounterTypes.length > 0) {
 			const missionEncounterTypes =
-				mission.metadata?.mission?.encounters?.map((e) => e.type as EncounterType) || [];
+				mission.encounters?.map((e) => e.type as EncounterType) || [];
 			const hasMatchingEncounter = filters.encounterTypes.some((type) =>
 				missionEncounterTypes.includes(type),
 			);
@@ -80,14 +79,14 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 
 		// Rarity filter
 		if (filters.rarities.length > 0) {
-			const missionRarity = mission.metadata?.mission?.rarity;
+			const missionRarity = mission.rarity;
 			if (!missionRarity || !filters.rarities.includes(missionRarity)) return false;
 		}
 
 		// Miniboss filter (crossroadsFight encounters are miniboss encounters)
 		if (filters.hasMiniboss !== null) {
 			const hasMiniboss =
-				mission.metadata?.mission?.encounters?.some(
+				mission.encounters?.some(
 					(e) => (e.type as string) === 'crossroadsFight',
 				) || false;
 			if (filters.hasMiniboss !== hasMiniboss) return false;
@@ -95,14 +94,14 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 
 		// Boss Rush filter (missions with type === "bossRush")
 		if (filters.hasBossRush !== null) {
-			const hasBossRush = (mission.metadata?.mission?.type as string) === 'bossRush';
+			const hasBossRush = (mission.type as string) === 'bossRush';
 			if (filters.hasBossRush !== hasBossRush) return false;
 		}
 
 		// Boss Loot filter (missions with boss encounters)
 		if (filters.hasBossLoot !== null) {
 			const hasBossLoot =
-				mission.metadata?.mission?.encounters?.some((e) => (e.type as string) === 'boss') || false;
+				mission.encounters?.some((e) => (e.type as string) === 'boss') || false;
 			if (filters.hasBossLoot !== hasBossLoot) return false;
 		}
 
@@ -178,10 +177,10 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 				id: 'encounters',
 				header: 'Encounters',
 				cell: (info) => {
-					const encounters = info.row.original.metadata?.mission?.encounters || [];
+					const encounters = info.row.original.encounters || [];
 					const uniqueTypes = [...new Set(encounters.map((e) => e.type))];
 					const hasMiniboss = encounters.some((e) => (e.type as string) === 'crossroadsFight');
-					const hasBossRush = (info.row.original.metadata?.mission?.type as string) === 'bossRush';
+					const hasBossRush = (info.row.original.type as string) === 'bossRush';
 					const hasBossLoot = encounters.some((e) => (e.type as string) === 'boss');
 
 					return (
@@ -236,7 +235,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 			},
 			{
 				id: 'rarity',
-				accessorFn: (row) => row.metadata?.mission?.rarity,
+				accessorFn: (row) => row.rarity,
 				header: 'Rarity',
 				cell: (info) => {
 					const rarity = info.getValue() as string;
@@ -444,7 +443,7 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 										Author
 									</h3>
 									<p className="text-base font-medium text-gray-900 dark:text-white">
-										{selectedMission.metadata?.missionAuthorName || 'Unknown'}
+										{selectedMission.missionAuthorName || 'Unknown'}
 									</p>
 								</div>
 								<div>
@@ -452,11 +451,11 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 										Posted
 									</h3>
 									<p className="text-base font-medium text-gray-900 dark:text-white">
-										{new Date(selectedMission.timestamp).toLocaleDateString('en-US', {
+										{selectedMission.timestamp ? new Date(selectedMission.timestamp).toLocaleDateString('en-US', {
 											year: 'numeric',
 											month: 'short',
 											day: 'numeric',
-										})}
+										}) : 'N/A'}
 									</p>
 								</div>
 								<div>
@@ -464,19 +463,19 @@ export function MissionTable({ missions, filters }: MissionTableProps) {
 										Rarity
 									</h3>
 									<p className="text-base font-medium text-gray-900 dark:text-white capitalize">
-										{selectedMission.metadata?.mission?.rarity || 'Unknown'}
+										{selectedMission.rarity || 'Unknown'}
 									</p>
 								</div>
 							</div>
 
 							{/* Encounters */}
-							{selectedMission.metadata?.mission?.encounters && (
+							{selectedMission.encounters && selectedMission.encounters.length > 0 && (
 								<div>
 									<h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
 										Encounters
 									</h3>
 									<div className="space-y-2">
-										{selectedMission.metadata.mission.encounters.map((encounter, idx) => (
+										{selectedMission.encounters.map((encounter, idx) => (
 											<div
 												key={idx}
 												className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-900 rounded-lg"

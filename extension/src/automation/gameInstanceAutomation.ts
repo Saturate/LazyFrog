@@ -5,7 +5,7 @@
 
 import { devvitGIAELogger as devvitLogger } from '../utils/logger';
 import { saveMission, accumulateMissionLoot } from '../lib/storage/missions';
-import { MissionRecord } from '../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 import { checkMissionClearedInDOM } from '../lib/storage/domUtils';
 import { enemyNames, mapNames } from '../data';
 import { extractPostIdFromUrl } from '../content/devvit/utils/extractPostIdFromUrl';
@@ -102,39 +102,46 @@ export class GameInstanceAutomationEngine {
 			const { getMission } = await import('../lib/storage/missions');
 			const existingMission = await getMission(postId);
 
-			// Generate tags for the mission
-			const tags = this.generateMissionTags(metadata);
-
 			// Build permalink URL from postId (e.g., t3_1obdqvw -> /r/SwordAndSupperGame/comments/1obdqvw/)
 			const permalink = postId.startsWith('t3_')
 				? `https://www.reddit.com/r/SwordAndSupperGame/comments/${postId.slice(3)}/`
-				: undefined;
+				: '';
 
+			// Build flat MissionRecord
 			const record: MissionRecord = {
+				// Core identification
 				postId,
-				timestamp: existingMission?.timestamp || Date.now(), // Keep original timestamp if updating
-				metadata,
-				tags,
-				difficulty: mission.difficulty,
+				timestamp: existingMission?.timestamp || Date.now(),
+				permalink,
+
+				// Mission metadata
+				missionTitle: metadata.missionTitle || mission.foodName || 'Unknown',
+				missionAuthorName: metadata.missionAuthorName || 'Unknown',
+
+				// Mission data (flattened from mission object)
 				environment: mission.environment,
+				encounters: mission.encounters || [],
 				minLevel: mission.minLevel,
 				maxLevel: mission.maxLevel,
-				missionTitle: metadata.missionTitle,
-				foodName: mission.foodName,
-				permalink: permalink || '',
+				difficulty: mission.difficulty,
+				foodImage: mission.foodImage || '',
+				foodName: mission.foodName || '',
+				authorWeaponId: mission.authorWeaponId || '',
+				chef: mission.chef || '',
+				cart: mission.cart || '',
+				rarity: mission.rarity || 'common',
+				type: mission.type,
 			};
 
 			await saveMission(record);
 
 			if (existingMission) {
-				// Updating existing mission with enriched metadata
-				devvitLogger.log('Mission metadata enriched', {
+				// Updating existing mission with enriched data
+				devvitLogger.log('Mission data enriched', {
 					postId,
 					difficulty: record.difficulty,
 					environment: record.environment,
 					encounters: mission.encounters?.length,
-					tags,
-					hadMetadataBefore: !!existingMission.metadata,
 				});
 			} else {
 				// New mission discovered from playing (not previously scanned)
@@ -143,7 +150,6 @@ export class GameInstanceAutomationEngine {
 					difficulty: record.difficulty,
 					environment: record.environment,
 					encounters: mission.encounters?.length,
-					tags,
 					permalink,
 					foodName: mission.foodName,
 				});
@@ -151,60 +157,6 @@ export class GameInstanceAutomationEngine {
 		} catch (error) {
 			devvitLogger.error('Failed to save mission', { error: String(error) });
 		}
-	}
-
-	/**
-	 * Generate mission tags (same logic as GameControlPanel)
-	 */
-	private generateMissionTags(metadata: any): string {
-		if (!metadata?.mission) return '';
-
-		const mission = metadata.mission;
-		const encounters = mission.encounters || [];
-		const tags: string[] = [];
-
-		// Stars
-		tags.push(`${mission.difficulty}*`);
-
-		// Level range
-		tags.push(`${mission.minLevel} - ${mission.maxLevel}`);
-
-		// Map name
-		if (mission.environment && mapNames[mission.environment]) {
-			tags.push(mapNames[mission.environment]);
-		}
-
-		// Food name
-		if (mission.foodName) {
-			tags.push(mission.foodName);
-		}
-
-		// Boss rush
-		if (mission.type === 'bossRush') {
-			tags.push('boss rush');
-		}
-
-		// Process encounters
-		encounters.forEach((encounter: any) => {
-			if (encounter.type === 'crossroadsFight' && encounter.enemies?.[0]) {
-				let minibossTag = `miniboss ${enemyNames[encounter.enemies[0].type] || encounter.enemies[0].type}`;
-				if (mission.minLevel > 60) {
-					minibossTag = '2k ' + minibossTag;
-				} else if (mission.minLevel > 40) {
-					minibossTag = '1k ' + minibossTag;
-				}
-				tags.push(minibossTag);
-			} else if (
-				(encounter.type === 'boss' || encounter.type === 'rushBoss') &&
-				encounter.enemies?.[0]
-			) {
-				tags.push(`${enemyNames[encounter.enemies[0].type] || encounter.enemies[0].type} boss`);
-			} else if (encounter.type === 'investigate') {
-				tags.push('hut');
-			}
-		});
-
-		return tags.join(' | ');
 	}
 
 	/**

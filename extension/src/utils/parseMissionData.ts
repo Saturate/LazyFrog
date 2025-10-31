@@ -1,4 +1,5 @@
 import { redditLogger } from './logger';
+import { UIResponse } from '@devvit/protos/types/devvit/ui/block_kit/v1beta/ui.js';
 
 export interface MissionData {
 	postId: string;
@@ -11,13 +12,123 @@ export interface MissionData {
 	authorName?: string;
 	title?: string;
 	isInnPost?: boolean; // Mission completion status
+	encounters?: any[]; // Encounter/enemy data for the mission
+	// Additional mission fields from state
+	authorWeaponId?: string;
+	chef?: string;
+	cart?: string;
+	rarity?: string;
+	type?: string;
 }
 
 /**
- * Parse protobuf response to extract mission data
- * Protocol buffers use varint encoding, this is a simplified parser
+ * Parse protobuf response to extract mission data using official @devvit/protos decoder
  */
 export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): MissionData | null {
+	// Try new decoder with @devvit/protos
+	try {
+		// gRPC-web responses have a 5-byte header (1 byte flags + 4 bytes message length)
+		// Skip it to get to the actual protobuf message
+		let buffer = arrayBuffer;
+		if (buffer.byteLength > 5) {
+			buffer = buffer.slice(5);
+		}
+
+		// Decode using official UIResponse protobuf definition
+		const uint8Array = new Uint8Array(buffer);
+		const response = UIResponse.decode(uint8Array);
+		const json = UIResponse.toJSON(response) as any;
+
+		const data: MissionData = { postId };
+
+		// Extract mission data from state hooks
+		if (json.state) {
+			// Debug: Log state keys to see what's available
+			const stateKeys = Object.keys(json.state);
+			redditLogger.debug(`Decoded UIResponse for ${postId}:`, json);
+
+			// Look for mission data in useState-12 (or similar)
+			for (const [key, value] of Object.entries(json.state)) {
+				if (typeof value === 'object' && value !== null) {
+					const stateValue = (value as any).value;
+					if (stateValue && typeof stateValue === 'object') {
+						// Check if this is the mission state hook
+						if (stateValue.mission) {
+							const mission = stateValue.mission;
+							if (mission.difficulty !== undefined) {
+								data.difficulty = Math.round(mission.difficulty);
+							}
+							if (mission.minLevel !== undefined) {
+								data.minLevel = Math.round(mission.minLevel);
+							}
+							if (mission.maxLevel !== undefined) {
+								data.maxLevel = Math.round(mission.maxLevel);
+							}
+							if (mission.environment) {
+								data.environment = mission.environment;
+							}
+							if (mission.foodName) {
+								data.foodName = mission.foodName;
+							}
+							if (mission.foodImage) {
+								data.foodImage = mission.foodImage;
+							}
+							if (mission.authorWeaponId) {
+								data.authorWeaponId = mission.authorWeaponId;
+							}
+							if (mission.chef) {
+								data.chef = mission.chef;
+							}
+							if (mission.cart) {
+								data.cart = mission.cart;
+							}
+							if (mission.rarity) {
+								data.rarity = mission.rarity;
+							}
+							if (mission.type) {
+								data.type = mission.type;
+							}
+							if (mission.encounters && Array.isArray(mission.encounters)) {
+								data.encounters = mission.encounters;
+							}
+						}
+
+						// Check if this is the isInnPost state hook
+						if (stateValue.isInnPost !== undefined) {
+							data.isInnPost = stateValue.isInnPost;
+						}
+
+						// Check if this is the authorName/title state hook
+						if (stateValue.authorName) {
+							data.authorName = stateValue.authorName;
+						}
+						if (stateValue.title) {
+							data.title = stateValue.title;
+						}
+
+						// Check if this is the encounters state hook
+						if (stateValue.encounters && Array.isArray(stateValue.encounters)) {
+							data.encounters = stateValue.encounters;
+							redditLogger.log(`Found ${stateValue.encounters.length} encounters in ${key}`, {
+								encounters: stateValue.encounters,
+							});
+						}
+					}
+				}
+			}
+		} else {
+			redditLogger.warn(`No state object found in UIResponse for ${postId}`);
+		}
+
+		redditLogger.log(`Parsed mission (${postId})`, data);
+		return data;
+	} catch (decoderError) {
+		redditLogger.warn('UIResponse decoder failed, falling back to legacy parser', {
+			error: decoderError instanceof Error ? decoderError.message : String(decoderError),
+		});
+	}
+
+	// Fallback to legacy string-based parsing
 	try {
 		const uint8Array = new Uint8Array(arrayBuffer);
 		const text = new TextDecoder().decode(uint8Array);
@@ -122,27 +233,8 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 		}
 
 		// Extract isInnPost (mission completion status)
-		const innIndex = text.indexOf('isInnPost');
-		if (innIndex >= 0) {
-			// Look for boolean value after isInnPost field
-			// Try different offsets to find the boolean value
-			const offsets = [8, 9, 10, 11, 12];
-			for (const offset of offsets) {
-				if (innIndex + offset + 1 <= arrayBuffer.byteLength) {
-					try {
-						const dataView = new DataView(arrayBuffer, innIndex + offset, 1);
-						const innValue = dataView.getUint8(0);
-						// Boolean values in protobuf are typically 0 (false) or 1 (true)
-						if (innValue === 0 || innValue === 1) {
-							data.isInnPost = innValue === 1;
-							break;
-						}
-					} catch (e) {
-						// Continue trying other offsets
-					}
-				}
-			}
-		}
+		// Simplified: if we see the string 'isInnPost', it's an inn
+		data.isInnPost = text.includes('isInnPost');
 
 		redditLogger.log(`Parsed mission (${data.postId}) data from API`, {
 			...data,

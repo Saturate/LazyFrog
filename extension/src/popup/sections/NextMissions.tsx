@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, List, Star } from 'lucide-react';
-import { MissionRecord } from '../../lib/storage/types';
+import { MissionRecord } from '@lazyfrog/types';
 
 interface NextMissionsProps {
 	nextMissions: MissionRecord[];

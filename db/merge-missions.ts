@@ -22,6 +22,7 @@ import {
   stripExtensionFields,
   formatValidationErrors,
 } from './utils/validation.js';
+import { normalizeMissionRecord, isLegacyFormat } from './utils/migration.js';
 
 const MISSIONS_FILE = join(import.meta.dirname, 'missions.json');
 
@@ -74,15 +75,23 @@ function main() {
   let skippedCount = 0;
   let updatedCount = 0;
   let rejectedCount = 0;
+  let migratedCount = 0;
   const rejectedMissions: string[] = [];
 
   for (const postId in sourceData) {
     const sourceMission = sourceData[postId] as any;
 
-    // Strip extension fields and clean metadata
-    const cleanedMission = stripExtensionFields(sourceMission);
+    // Normalize old format to new flat format if needed
+    let normalizedMission = sourceMission;
+    if (isLegacyFormat(sourceMission)) {
+      normalizedMission = normalizeMissionRecord(sourceMission);
+      migratedCount++;
+    }
 
-    // Validate mission
+    // Strip extension fields
+    const cleanedMission = stripExtensionFields(normalizedMission);
+
+    // Validate mission (works for both formats during validation, but we normalize before saving)
     const errors = validateMission(cleanedMission, postId);
 
     if (errors.length > 0) {
@@ -127,6 +136,7 @@ function main() {
   console.log('\n=== Merge Summary ===');
   console.log(`Added:    ${addedCount} new missions`);
   console.log(`Updated:  ${updatedCount} existing missions`);
+  console.log(`Migrated: ${migratedCount} missions from old format to new flat format`);
   console.log(`Skipped:  ${skippedCount} duplicates (older or same timestamp)`);
   console.log(`Rejected: ${rejectedCount} invalid missions`);
   console.log(`Total:    ${Object.keys(existingData).length} missions in database`);
