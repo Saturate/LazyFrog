@@ -92,11 +92,17 @@ export function checkForExistingLoader(currentBotState: string): boolean {
 
 	// Loader not found yet, make sure observer is active
 	redditLogger.log('[checkForExistingLoader] Loader not found, ensuring observer is active');
-	if (document.body) {
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true,
-		});
+	if (document.body && document.body instanceof Node) {
+		try {
+			observer.observe(document.body, {
+				childList: true,
+				subtree: true,
+			});
+		} catch (error) {
+			redditLogger.error('[checkForExistingLoader] Failed to observe document.body', {
+				error: String(error),
+			});
+		}
 	}
 	return false;
 }
@@ -105,24 +111,38 @@ export function checkForExistingLoader(currentBotState: string): boolean {
  * Start observing for game loader when body is available
  */
 export function startObserving(currentBotState: string): void {
-	if (document.body) {
+	if (document.body && document.body instanceof Node) {
 		redditLogger.log('[MutationObserver] Starting to observe DOM for game loader');
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true,
-		});
-
-		// Check immediately in case the loader is already there
-		checkForExistingLoader(currentBotState);
-	} else {
-		// Body not ready yet, wait for DOMContentLoaded
-		document.addEventListener('DOMContentLoaded', () => {
-			redditLogger.log('[MutationObserver] DOM ready, starting to observe');
+		try {
 			observer.observe(document.body, {
 				childList: true,
 				subtree: true,
 			});
+
+			// Check immediately in case the loader is already there
 			checkForExistingLoader(currentBotState);
+		} catch (error) {
+			redditLogger.error('[startObserving] Failed to observe document.body', {
+				error: String(error),
+			});
+		}
+	} else {
+		// Body not ready yet, wait for DOMContentLoaded
+		document.addEventListener('DOMContentLoaded', () => {
+			redditLogger.log('[MutationObserver] DOM ready, starting to observe');
+			if (document.body && document.body instanceof Node) {
+				try {
+					observer.observe(document.body, {
+						childList: true,
+						subtree: true,
+					});
+					checkForExistingLoader(currentBotState);
+				} catch (error) {
+					redditLogger.error('[startObserving] Failed to observe document.body on DOMContentLoaded', {
+						error: String(error),
+					});
+				}
+			}
 		});
 	}
 }

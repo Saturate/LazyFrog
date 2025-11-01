@@ -330,14 +330,11 @@ export class GameInstanceAutomationEngine {
 		this.config.enabled = true;
 		this.broadcastStatus('Waiting for mission to be ready');
 
-		// Check for buttons every 1500ms (1.5 seconds)
-		// This is a fallback since we're not relying on messages
-		// Increased from 500ms to reduce performance impact and logs
 		this.intervalId = window.setInterval(() => {
 			if (this.config.enabled && !this.isProcessing) {
 				this.processButtons();
 			}
-		}, 1500);
+		}, 1000);
 	}
 
 	/**
@@ -462,10 +459,10 @@ export class GameInstanceAutomationEngine {
 			this.checkMissionCleared();
 
 			// Skip if in combat (let the battle play out)
-			if (this.inCombat) {
-				this.isProcessing = false;
-				return;
-			}
+			// if (this.inCombat) {
+			// 	this.isProcessing = false;
+			// 	return;
+			// }
 
 			const buttons = this.findAllButtons();
 
