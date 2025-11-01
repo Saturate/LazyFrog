@@ -122,6 +122,7 @@ function initializeAutomation(): void {
 			clickDelay: 300,
 		};
 
+		// Create automation engine
 		gameAutomation = new GameInstanceAutomationEngine(giaeConfig);
 
 		devvitLogger.log('Game instance automation engine initialized');
@@ -269,6 +270,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		case 'STATE_CHANGED':
 			// Ignore state changes - only reddit-content needs these
 			sendResponse({ success: true });
+			break;
+
+		case 'GET_GAME_STATE':
+			// Return current game state for status display
+			if (gameAutomation) {
+				const state = gameAutomation.getGameState();
+				sendResponse({ gameState: state });
+			} else {
+				sendResponse({ gameState: null });
+			}
 			break;
 
 		default:

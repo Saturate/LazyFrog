@@ -47,6 +47,13 @@ import { normalizeRedditPermalink } from '../../utils/url';
 declare const __VERSION__: string;
 declare const __BUILD_TIME__: string;
 
+// Styled init banner (only shown in console, not logged to storage)
+console.log(
+	'%c 🐸 LazyFrog %c v' + __VERSION__ + ' ',
+	'background: #10b981; color: #000; font-size: 16px; font-weight: bold; padding: 4px 8px; border-radius: 4px 0 0 4px;',
+	'background: #000; color: #10b981; font-size: 16px; font-weight: bold; padding: 4px 8px; border-radius: 0 4px 4px 0;',
+);
+
 redditLogger.log(
 	`Sword & Supper Bot (${__VERSION__}) content script loaded on ${window.location.href}`,
 );

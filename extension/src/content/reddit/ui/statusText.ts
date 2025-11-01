@@ -24,6 +24,15 @@ export function getStatusText(state: string, context: any): string {
     case "gameReady":
       return "Starting automation...";
     case "running":
+      // Show encounter progress if available
+      if (context?.gameState) {
+        const { postId, encounterCurrent, encounterTotal } = context.gameState;
+
+        if (encounterTotal > 0) {
+          return `Running - ${postId || "???"} - Encounter ${encounterCurrent + 1}/${encounterTotal}`;
+        }
+        return `Running - ${postId || "???"}`;
+      }
       return "Running";
     case "completing":
       return "Finding next mission...";

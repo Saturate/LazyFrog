@@ -41,14 +41,31 @@ export function waitForElement(
 			}
 		});
 
-		// Start observing
-		const targetNode = rootElement === document ? document.body : rootElement;
-		if (targetNode) {
-			observer.observe(targetNode, {
-				childList: true,
-				subtree: true,
-			});
+		// Start observing - ensure we have a valid Node
+		const targetNode = rootElement === document ? document.body : (rootElement as Element);
+
+		// Validate targetNode is a valid Node before observing
+		if (targetNode && targetNode instanceof Node) {
+			try {
+				observer.observe(targetNode, {
+					childList: true,
+					subtree: true,
+				});
+			} catch (error) {
+				redditLogger.error('[waitForElement] Failed to observe node', {
+					error: String(error),
+					selector,
+					targetNodeType: targetNode ? (targetNode as any).constructor?.name : 'null',
+				});
+				clearTimeout(timeoutId);
+				resolve(null);
+			}
 		} else {
+			redditLogger.warn('[waitForElement] Invalid target node for observation', {
+				selector,
+				hasTargetNode: !!targetNode,
+				targetNodeType: targetNode ? (targetNode as any).constructor?.name : 'null',
+			});
 			clearTimeout(timeoutId);
 			resolve(null);
 		}
@@ -199,6 +216,14 @@ function waitForGameDialog(timeoutMs: number = 20000): Promise<boolean> {
  * Click the game UI to open the mission dialog
  */
 export async function clickGameUI(): Promise<boolean> {
+	// Step 0: Check if game dialog is already open
+	const existingIframe = findDialogIframe();
+	if (existingIframe) {
+		redditLogger.log('[clickGameUI] Game dialog already open, skipping preview click');
+		safeSendMessage({ type: 'GAME_DIALOG_OPENED' });
+		return true;
+	}
+
 	// Step 1: Wait for game preview to render
 	const gamePreview = await waitForGamePreview();
 	if (!gamePreview) {

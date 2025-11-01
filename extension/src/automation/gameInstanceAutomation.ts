@@ -1,14 +1,11 @@
 /**
- * Simple Button-Clicking Automation
- * No metadata required - just clicks buttons as they appear
+ * Game Instance Automation Engine
+ * Smart automation for game missions
  */
 
-import { devvitGIAELogger as devvitLogger } from '../utils/logger';
-import { saveMission, accumulateMissionLoot } from '../lib/storage/missions';
-import { MissionRecord } from '@lazyfrog/types';
-import { checkMissionClearedInDOM } from '../lib/storage/domUtils';
-import { enemyNames, mapNames } from '../data';
-import { extractPostIdFromUrl } from '../content/devvit/utils/extractPostIdFromUrl';
+import { devvitGIAELogger as logger } from '../utils/logger';
+import { GameState } from './GameState';
+import { DecisionMaker } from './DecisionMaker';
 
 export interface GameInstanceAutomationConfig {
 	enabled: boolean;
@@ -26,17 +23,20 @@ export const DEFAULT_GIAE_CONFIG: GameInstanceAutomationConfig = {
 	blessingStatPriority: ['Speed', 'Attack', 'Crit', 'Health', 'Defense', 'Dodge'], // Speed first for faster gameplay
 	autoAcceptSkillBargains: true,
 	skillBargainStrategy: 'positive-only',
-	crossroadsStrategy: 'skip', // Skip mini bosses by default (safer/faster)
+	crossroadsStrategy: 'fight', // Fight mini bosses by default
 	clickDelay: 1000,
 };
 
 export class GameInstanceAutomationEngine {
 	private config: GameInstanceAutomationConfig;
+	private gameState: GameState;
+	private decisionMaker: DecisionMaker;
 	private intervalId: number | null = null;
 	private isProcessing = false;
-	private inCombat = false;
-	public missionMetadata: any = null;
+
+	// Public properties for compatibility
 	public currentPostId: string | null = null;
+	public missionMetadata: any = null;
 
 	constructor(config: GameInstanceAutomationConfig) {
 		// Deep merge config, ensuring arrays are properly preserved
@@ -51,44 +51,310 @@ export class GameInstanceAutomationEngine {
 				? config.blessingStatPriority
 				: DEFAULT_GIAE_CONFIG.blessingStatPriority,
 		};
+
+		this.gameState = new GameState();
+		this.decisionMaker = new DecisionMaker(this.gameState, this.config);
+
 		this.setupMessageListener();
+		logger.log('Game automation engine initialized');
 	}
 
-	/**
-	 * Emit state change event for UI components
-	 */
-	private emitStateChange(): void {
-		window.dispatchEvent(
-			new CustomEvent('SS_AUTOMATION_STATE_CHANGE', {
-				detail: this.getState(),
-			}),
-		);
+	private setupMessageListener(): void {
+		window.addEventListener('message', (event: MessageEvent) => {
+			try {
+				// initialData
+				if (
+					event.data?.type === 'devvit-message' &&
+					event.data?.data?.message?.type === 'initialData'
+				) {
+					const data = event.data.data.message.data;
+					this.gameState.setMissionData(data.missionMetadata, data.postId);
+
+					// Set properties for compatibility
+					this.currentPostId = data.postId;
+					this.missionMetadata = data.missionMetadata;
+
+					logger.log('Mission started', {
+						postId: data.postId,
+						encounters: this.gameState.totalEncounters,
+						difficulty: this.gameState.difficulty,
+					});
+
+					// Report initial state to background
+					this.reportGameState();
+				}
+
+				// encounterResult
+				if (event.data?.data?.message?.type === 'encounterResult') {
+					const result = event.data.data.message.data;
+					const idx = result.encounterAction?.encounterIndex;
+
+					logger.log('encounterResult received', {
+						encounterIndex: idx,
+						currentEncounter: this.gameState.currentEncounter,
+						totalEncounters: this.gameState.totalEncounters,
+					});
+
+					if (idx !== undefined) {
+						this.gameState.onEncounterComplete(idx);
+						logger.log('Encounter complete', {
+							encounterIndex: idx,
+							progress: this.gameState.getProgress(),
+							lives: this.gameState.livesRemaining,
+						});
+
+						// Report state update to background
+						this.reportGameState();
+					}
+				}
+
+				// missionComplete
+				if (event.data?.data?.message?.type === 'missionComplete') {
+					const postId = event.data.data.message.data?.postId;
+					if (postId) {
+						logger.log('Mission complete', { postId });
+						chrome.runtime.sendMessage({
+							type: 'MISSION_COMPLETED',
+							postId,
+						});
+					}
+				}
+			} catch (error) {
+				logger.error('Message error', { error: String(error) });
+			}
+		});
 	}
 
-	/**
-	 * Broadcast status update to popup
-	 */
-	private broadcastStatus(
-		status: string,
-		missionId?: string,
-		encounter?: { current: number; total: number },
-	): void {
-		try {
-			chrome.runtime.sendMessage({
-				type: 'STATUS_UPDATE',
-				status,
-				missionId,
-				encounter,
-			});
-		} catch (error) {
-			// Silently fail if popup is closed
+	start(): void {
+		if (this.intervalId) return;
+
+		this.config.enabled = true;
+		logger.log('Starting automation');
+
+		this.intervalId = window.setInterval(() => {
+			if (this.config.enabled && !this.isProcessing) {
+				this.processGame();
+			}
+		}, 1500);
+	}
+
+	stop(): void {
+		logger.log('Stopping automation');
+		this.config.enabled = false;
+
+		if (this.intervalId) {
+			clearInterval(this.intervalId);
+			this.intervalId = null;
 		}
 	}
 
-	/**
-	 * Save mission to Chrome storage database
-	 * Public so it can be called from content script when initialData is captured early
-	 */
+	private async processGame(): Promise<void> {
+		this.isProcessing = true;
+
+		try {
+			// Update state from DOM
+			this.gameState.updateFromDOM();
+
+			// Check if dead
+			if (!this.gameState.isAlive()) {
+				logger.error('Out of lives');
+				this.stop();
+				chrome.runtime.sendMessage({
+					type: 'ERROR_OCCURRED',
+					message: 'Out of lives',
+				});
+				return;
+			}
+
+			// Find buttons
+			const buttons = this.findAllButtons();
+			if (buttons.length === 0) return;
+
+			// Detect screen
+			const screen = this.detectScreen(buttons);
+			const screenChanged = this.gameState.currentScreen !== screen;
+			this.gameState.currentScreen = screen;
+
+			// Report state update if screen changed
+			if (screenChanged) {
+				this.reportGameState();
+			}
+
+			// Handle screen (if actionable)
+			if (screen !== 'unknown' && screen !== 'in_progress') {
+				logger.log('Screen', {
+					screen,
+					lives: this.gameState.livesRemaining,
+					playSafe: this.gameState.shouldPlaySafe(),
+				});
+
+				await this.handleScreen(screen, buttons);
+				await this.delay(this.config.clickDelay || 300);
+			}
+		} catch (error) {
+			logger.error('Process error', { error: String(error) });
+		} finally {
+			this.isProcessing = false;
+		}
+	}
+
+	private detectScreen(buttons: HTMLElement[]): string {
+		const texts = buttons.map((b) => b.textContent?.trim().toLowerCase() || '');
+		const classes = buttons.map((b) => b.className);
+
+		// Inn check
+		const tooltip = document.querySelector('.navbar-tooltip');
+		if (tooltip?.textContent?.includes('Find and play missions')) {
+			return 'inn';
+		}
+
+		// Screen detection
+		if (classes.some((c) => c.includes('skip-button'))) return 'skip';
+		if (document.querySelector('.mission-end-footer')) return 'finish';
+		if (texts.includes('fight') && texts.includes('skip')) return 'crossroads';
+		if (texts.includes('accept') && texts.includes('decline')) return 'bargain';
+		if (classes.filter((c) => c.includes('skill-button')).length > 1) return 'choice';
+		if (classes.some((c) => c.includes('advance-button'))) return 'battle';
+		if (texts.includes('continue')) return 'continue';
+
+		// In progress (only UI buttons)
+		if (classes.some((c) => c.includes('volume-icon-button'))) {
+			return 'in_progress';
+		}
+
+		return 'unknown';
+	}
+
+	private async handleScreen(screen: string, buttons: HTMLElement[]): Promise<void> {
+		switch (screen) {
+			case 'skip':
+				this.clickByClass(buttons, 'skip-button');
+				break;
+
+			case 'battle':
+				this.clickByClass(buttons, 'advance-button');
+				break;
+
+			case 'crossroads': {
+				const choice = this.decisionMaker.decideCrossroads();
+				logger.log('Crossroads decision', { choice });
+
+				const btn = buttons.find((b) => b.textContent?.toLowerCase().includes(choice));
+				if (btn) btn.click();
+				break;
+			}
+
+			case 'bargain': {
+				// Read bargain text from page
+				const bargainText = document.body.textContent || '';
+				const choice = this.decisionMaker.decideSkillBargain(bargainText);
+				logger.log('Bargain decision', { choice });
+
+				const btn = buttons.find((b) => b.textContent?.toLowerCase() === choice);
+				if (btn) btn.click();
+				break;
+			}
+
+			case 'choice': {
+				const abilities = buttons
+					.filter((b) => b.classList.contains('skill-button'))
+					.map((b) => b.textContent?.trim() || '');
+
+				const chosen = this.decisionMaker.pickAbility(abilities);
+				logger.log('Ability choice', { chosen, available: abilities });
+
+				const btn = buttons.find((b) => b.textContent?.includes(chosen));
+				if (btn) btn.click();
+				break;
+			}
+
+			case 'continue':
+			case 'finish': {
+				const btn = buttons.find(
+					(b) =>
+						b.textContent?.toLowerCase() === 'continue' ||
+						b.classList.contains('end-mission-button'),
+				);
+				if (btn) btn.click();
+				break;
+			}
+
+			case 'inn':
+				if (this.gameState.postId) {
+					logger.log('Inn detected, completing mission', {
+						postId: this.gameState.postId,
+					});
+					chrome.runtime.sendMessage({
+						type: 'MISSION_COMPLETED',
+						postId: this.gameState.postId,
+					});
+				}
+				break;
+		}
+	}
+
+	private clickByClass(buttons: HTMLElement[], className: string): void {
+		const btn = buttons.find((b) => b.classList.contains(className));
+		if (btn) btn.click();
+	}
+
+	private findAllButtons(): HTMLElement[] {
+		const selectors = ['.advance-button', '.skill-button', '.skip-button', 'button'];
+		const buttons: HTMLElement[] = [];
+
+		for (const selector of selectors) {
+			document.querySelectorAll(selector).forEach((el) => {
+				const rect = el.getBoundingClientRect();
+				if (rect.width > 0 && rect.height > 0) {
+					buttons.push(el as HTMLElement);
+				}
+			});
+		}
+
+		return buttons;
+	}
+
+	private delay(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	// Public API
+	updateConfig(config: Partial<GameInstanceAutomationConfig>): void {
+		this.config = { ...this.config, ...config };
+	}
+
+	getState(): string {
+		return this.config.enabled ? 'running' : 'stopped';
+	}
+
+	getGameState(): any {
+		return {
+			enabled: this.config.enabled,
+			screen: this.gameState.currentScreen,
+			lives: this.gameState.livesRemaining,
+			progress: this.gameState.getProgress(),
+			postId: this.gameState.postId,
+			encounterCurrent: this.gameState.currentEncounter,
+			encounterTotal: this.gameState.totalEncounters,
+			playSafe: this.gameState.shouldPlaySafe(),
+			difficulty: this.gameState.difficulty,
+		};
+	}
+
+	// Report game state to background service worker
+	private reportGameState(): void {
+		try {
+			chrome.runtime.sendMessage({
+				type: 'GAME_STATE_UPDATE',
+				gameState: this.getGameState(),
+			});
+		} catch (error) {
+			// Silently fail if background is not available
+			logger.error('Failed to report game state', { error: String(error) });
+		}
+	}
+
+	// Save mission to database
 	public async saveMissionToDatabase(
 		postId: string,
 		username: string,
@@ -98,27 +364,22 @@ export class GameInstanceAutomationEngine {
 			const mission = metadata.mission;
 			if (!mission) return;
 
-			// Check if mission already exists
-			const { getMission } = await import('../lib/storage/missions');
+			// Import storage functions
+			const { getMission, saveMission } = await import('../lib/storage/missions');
 			const existingMission = await getMission(postId);
 
-			// Build permalink URL from postId (e.g., t3_1obdqvw -> /r/SwordAndSupperGame/comments/1obdqvw/)
+			// Build permalink URL from postId
 			const permalink = postId.startsWith('t3_')
 				? `https://www.reddit.com/r/SwordAndSupperGame/comments/${postId.slice(3)}/`
 				: '';
 
 			// Build flat MissionRecord
-			const record: MissionRecord = {
-				// Core identification
+			const record: any = {
 				postId,
 				timestamp: existingMission?.timestamp || Date.now(),
 				permalink,
-
-				// Mission metadata
 				missionTitle: metadata.missionTitle || mission.foodName || 'Unknown',
 				missionAuthorName: metadata.missionAuthorName || 'Unknown',
-
-				// Mission data (flattened from mission object)
 				environment: mission.environment,
 				encounters: mission.encounters || [],
 				minLevel: mission.minLevel,
@@ -136,910 +397,20 @@ export class GameInstanceAutomationEngine {
 			await saveMission(record);
 
 			if (existingMission) {
-				// Updating existing mission with enriched data
-				devvitLogger.log('Mission data enriched', {
+				logger.log('Mission data enriched', {
 					postId,
 					difficulty: record.difficulty,
 					environment: record.environment,
-					encounters: mission.encounters?.length,
 				});
 			} else {
-				// New mission discovered from playing (not previously scanned)
-				devvitLogger.log('🆕 NEW MISSION discovered from gameplay', {
+				logger.log('🆕 NEW MISSION discovered', {
 					postId,
 					difficulty: record.difficulty,
-					environment: record.environment,
-					encounters: mission.encounters?.length,
-					permalink,
 					foodName: mission.foodName,
 				});
 			}
 		} catch (error) {
-			devvitLogger.error('Failed to save mission', { error: String(error) });
+			logger.error('Failed to save mission', { error: String(error) });
 		}
-	}
-
-	/**
-	 * Listen to window messages for game state
-	 */
-	private setupMessageListener(): void {
-		window.addEventListener('message', (event: MessageEvent) => {
-			try {
-				// Log ALL messages to understand what's coming through
-				// if (event.data) {
-				// 	// Check if this is a devvit-message (the format the game uses)
-				// 	const isDevvitMessage = event.data?.type === 'devvit-message';
-				// 	const messageType = event.data?.data?.message?.type;
-
-				// 	// Log devvit-messages with more detail
-				// 	if (isDevvitMessage) {
-				// 		devvitLogger.log('📨 devvit-message received', {
-				// 			origin: event.origin,
-				// 			messageType: messageType,
-				// 			hasMessageData: !!event.data?.data?.message?.data,
-				// 			topLevelKeys: Object.keys(event.data).slice(0, 20),
-				// 			messageKeys: event.data?.data?.message
-				// 				? Object.keys(event.data.data.message).slice(0, 20)
-				// 				: [],
-				// 			// Include full data for initialData and encounterResult messages
-				// 			fullData:
-				// 				messageType === 'initialData' ||
-				// 				messageType === 'initialDataInn' ||
-				// 				messageType === 'encounterResult'
-				// 					? event.data
-				// 					: undefined,
-				// 		});
-				// 	}
-				// }
-
-				// Check for initialData message (mission metadata)
-				// Using the EXACT structure the game uses: event.data.type === "devvit-message"
-				if (
-					event.data?.type === 'devvit-message' &&
-					event.data?.data?.message?.type === 'initialData'
-				) {
-					this.missionMetadata = event.data.data.message.data?.missionMetadata;
-					const postId = event.data.data.message.data?.postId;
-					const username = event.data.data.message.data?.username;
-
-					// Store postId for later use (e.g., marking as cleared)
-					this.currentPostId = postId;
-
-					devvitLogger.log('Mission metadata received', {
-						postId,
-						difficulty: this.missionMetadata?.mission?.difficulty,
-						environment: this.missionMetadata?.mission?.environment,
-						encounters: this.missionMetadata?.mission?.encounters?.length,
-					});
-
-					// Broadcast status
-					const encounterCount = this.missionMetadata?.mission?.encounters?.length || 0;
-					this.broadcastStatus('Starting mission clearing', postId, {
-						current: 0,
-						total: encounterCount,
-					});
-
-					// Save mission to database
-					if (this.missionMetadata && postId) {
-						this.saveMissionToDatabase(postId, username, this.missionMetadata);
-					}
-
-					this.emitStateChange(); // Notify UI
-				}
-
-				// Check for combat events
-				if (event.data?.type === 'COMBAT_START') {
-					this.inCombat = true;
-					devvitLogger.log('Combat started - pausing button clicks');
-					this.emitStateChange(); // Notify UI
-				}
-
-				if (event.data?.type === 'COMBAT_END') {
-					this.inCombat = false;
-					devvitLogger.log('Combat ended - resuming automation');
-					this.emitStateChange(); // Notify UI
-				}
-
-				// Check for encounter result with loot (final encounter)
-				// Try both possible message structures
-				const encounterResult =
-					(event.data?.data?.message?.type === 'encounterResult' && event.data.data.message.data) ||
-					(event.data?.type === 'devvit-message' &&
-						event.data?.data?.message?.type === 'encounterResult' &&
-						event.data.data.message.data);
-
-				if (encounterResult) {
-					devvitLogger.log('Encounter result received', {
-						victory: encounterResult.victory,
-						encounterIndex: encounterResult.encounterAction?.encounterIndex,
-						lootCount: encounterResult.encounterLoot?.length,
-					});
-
-					// Update status with encounter progress
-					const encounterIndex = encounterResult.encounterAction?.encounterIndex;
-					const encounterCount = this.missionMetadata?.mission?.encounters?.length || 0;
-					if (encounterIndex !== undefined && encounterCount > 0) {
-						this.broadcastStatus(
-							'Clearing %missionId% encounter %current% of %total%',
-							this.currentPostId || undefined,
-							{
-								current: encounterIndex + 1,
-								total: encounterCount,
-							},
-						);
-					}
-
-					// If this is a victory and has loot, accumulate it
-					if (
-						encounterResult.victory &&
-						encounterResult.encounterLoot &&
-						encounterResult.encounterLoot.length > 0 &&
-						this.currentPostId
-					) {
-						devvitLogger.log('Accumulating encounter loot', {
-							postId: this.currentPostId,
-							encounterIndex: encounterResult.encounterAction?.encounterIndex,
-							loot: encounterResult.encounterLoot,
-						});
-						accumulateMissionLoot(this.currentPostId, encounterResult.encounterLoot).catch(
-							(error) => {
-								devvitLogger.error('Failed to accumulate mission loot', {
-									error: String(error),
-								});
-							},
-						);
-					}
-				}
-
-				// Check for mission completion (missionComplete message)
-				// Support both message structures
-				if (
-					event.data?.data?.message?.type === 'missionComplete' ||
-					(event.data?.type === 'devvit-message' &&
-						event.data?.data?.message?.type === 'missionComplete')
-				) {
-					const postId = event.data.data.message.data?.postId;
-					if (postId) {
-						devvitLogger.log('Mission cleared!', { postId });
-						this.broadcastStatus('Finished mission, waiting');
-
-						// Notify background which will mark as cleared
-						chrome.runtime.sendMessage({
-							type: 'MISSION_COMPLETED',
-							postId,
-						});
-					}
-				}
-			} catch (error) {
-				// Log parsing errors
-				devvitLogger.error('Error parsing message', { error: String(error) });
-			}
-		});
-	}
-
-	/**
-	 * Start the automation loop
-	 */
-	public start(): void {
-		if (this.intervalId) {
-			devvitLogger.log('Already running');
-			return;
-		}
-
-		devvitLogger.log('Starting button-clicking automation');
-		this.config.enabled = true;
-		this.broadcastStatus('Waiting for mission to be ready');
-
-		// Check for buttons every 1500ms (1.5 seconds)
-		// This is a fallback since we're not relying on messages
-		// Increased from 500ms to reduce performance impact and logs
-		this.intervalId = window.setInterval(() => {
-			if (this.config.enabled && !this.isProcessing) {
-				this.processButtons();
-			}
-		}, 1500);
-	}
-
-	/**
-	 * Stop the automation loop
-	 */
-	public stop(): void {
-		devvitLogger.log('Stopping automation');
-		this.config.enabled = false;
-
-		if (this.intervalId) {
-			window.clearInterval(this.intervalId);
-			this.intervalId = null;
-		}
-	}
-
-	/**
-	 * Update configuration
-	 */
-	public updateConfig(config: Partial<GameInstanceAutomationConfig>): void {
-		this.config = { ...this.config, ...config };
-	}
-
-	/**
-	 * Get current state
-	 */
-	public getState(): any {
-		return {
-			enabled: this.config.enabled,
-			isProcessing: this.isProcessing,
-			inCombat: this.inCombat,
-			hasMissionMetadata: !!this.missionMetadata,
-			missionMetadata: this.missionMetadata, // Include full metadata
-			missionDifficulty: this.missionMetadata?.mission?.difficulty,
-			missionEnvironment: this.missionMetadata?.mission?.environment,
-		};
-	}
-
-	/**
-	 * Check if mission is cleared by looking for cleared indicators in the DOM
-	 */
-	private checkMissionCleared(): void {
-		// Use utility function to check DOM
-		const clearedImage = checkMissionClearedInDOM();
-		if (clearedImage) {
-			devvitLogger.log('Mission cleared detected via DOM (cleared image found)');
-
-			// Get postId - prioritize the one we stored when initialData was received
-			const postId = this.currentPostId;
-
-			if (postId) {
-				devvitLogger.log('Mission cleared detected, notifying background', { postId });
-
-				// Notify background which will mark as cleared
-				chrome.runtime.sendMessage({
-					type: 'MISSION_COMPLETED',
-					postId,
-				});
-
-				// DON'T clear currentPostId here - we need it later when clicking Finish button
-				// It will be cleared in tryClickContinue after we trigger navigation
-			} else {
-				devvitLogger.warn('Mission appears cleared but no postId available');
-			}
-		}
-	}
-
-	/**
-	 * Check if player is dead (out of lives)
-	 * Looks for .lives-container with empty hearts
-	 */
-	private checkPlayerDead(): boolean {
-		const livesContainer = document.querySelector('.lives-container');
-		if (!livesContainer) {
-			return false; // No lives container means we're not in a mission or lives UI isn't visible
-		}
-
-		// Check for empty hearts (Heart_Empty.png)
-		const emptyHearts = livesContainer.querySelectorAll('img[src*="Heart_Empty.png"]');
-		const totalHearts = livesContainer.querySelectorAll('.liveheart').length;
-
-		// If we have hearts displayed and they're all empty, player is dead
-		if (totalHearts > 0 && emptyHearts.length === totalHearts) {
-			devvitLogger.log('Player is dead - all hearts empty', {
-				totalHearts,
-				emptyHearts: emptyHearts.length,
-			});
-			return true;
-		}
-
-		// Also check for "Recover in" text which indicates no lives
-		const recoverText = livesContainer.querySelector('.recover-container');
-		if (recoverText && recoverText.textContent?.includes('Recover in')) {
-			devvitLogger.log('Player is dead - recovery timer found', {
-				recoverText: recoverText.textContent,
-			});
-			return true;
-		}
-
-		return false;
-	}
-
-	/**
-	 * Main logic - detect game state first, then click appropriate button
-	 */
-	private async processButtons(): Promise<void> {
-		this.isProcessing = true;
-
-		try {
-			// Check if player is dead (out of lives)
-			if (this.checkPlayerDead()) {
-				devvitLogger.error('Player is dead, stopping automation');
-				this.stop();
-				chrome.runtime.sendMessage({
-					type: 'ERROR_OCCURRED',
-					message: 'Out of lives - player is dead. Automation stopped.',
-				});
-				this.isProcessing = false;
-				return;
-			}
-
-			// Check for mission completion indicators
-			this.checkMissionCleared();
-
-			// Skip if in combat (let the battle play out)
-			if (this.inCombat) {
-				this.isProcessing = false;
-				return;
-			}
-
-			const buttons = this.findAllButtons();
-
-			if (buttons.length === 0) {
-				this.isProcessing = false;
-				return;
-			}
-
-			// STEP 1: Detect game state based on available buttons
-			const gameState = this.detectGameState(buttons);
-
-			// Skip logging for in-progress state (combat happening) to reduce spam
-			if (gameState === 'in_progress') {
-				this.isProcessing = false;
-				return;
-			}
-
-			if (gameState === 'unknown') {
-				devvitLogger.log('Unknown game state, skipping', {
-					buttonClasses: buttons.map((b) => b.className),
-				});
-				this.isProcessing = false;
-				return;
-			}
-
-			// Log actionable states with button info
-			devvitLogger.log('Detected game state', {
-				state: gameState,
-				buttons: buttons.map((b) => `${b.className}: "${b.textContent?.trim()}"`),
-				count: buttons.length,
-			});
-
-			// STEP 2: Click the appropriate button based on detected state
-			const clickedButton = await this.clickForState(gameState, buttons);
-
-			if (clickedButton) {
-				devvitLogger.log('Clicked button', {
-					state: gameState,
-					button: clickedButton,
-				});
-				// Wait before next check
-				await this.delay(this.config.clickDelay);
-			}
-		} catch (error) {
-			devvitLogger.error('Error processing buttons', { error });
-		} finally {
-			this.isProcessing = false;
-		}
-	}
-
-	/**
-	 * Detect current game state based on available buttons
-	 */
-	private detectGameState(buttons: HTMLElement[]): string {
-		const buttonTexts = buttons.map((b) => b.textContent?.trim().toLowerCase() || '');
-		const buttonClasses = buttons.map((b) => b.className);
-
-		// Check for Inn Instance - mission was already completed
-		// Check both navbar tooltip and battle log welcome message
-		const navbarTooltip = document.querySelector('.navbar-tooltip');
-		const hasInnTooltip = navbarTooltip?.textContent?.trim() === 'Find and play missions';
-
-		// Check for "Welcome to the Inn!" text in battle log
-		const battleLogMessages = document.querySelectorAll('.battle-log-message-inner');
-		const hasInnWelcome = Array.from(battleLogMessages).some((msg) =>
-			msg.textContent?.includes('Welcome to the Inn!'),
-		);
-
-		if (hasInnTooltip || hasInnWelcome) {
-			return 'inn';
-		}
-
-		// Check for skip button (intro/dialogue)
-		if (buttonClasses.some((c) => c.includes('skip-button'))) {
-			return 'skip';
-		}
-
-		// Check for mission end button (play next) - mission complete
-		// This should come before 'continue' check to prioritize mission completion
-		// Look for .end-mission-button or button_playnext.png
-		const missionEndFooter = document.querySelector('.mission-end-footer');
-		if (missionEndFooter) {
-			const endButton = missionEndFooter.querySelector('.end-mission-button');
-			if (endButton) {
-				return 'finish';
-			}
-		}
-		// Fallback: check for button_playnext.png image
-		const playNextButton = document.querySelector('img[src*="button_playnext.png"]');
-		if (playNextButton) {
-			return 'finish';
-		}
-
-		// Check for continue button (intermediate screens)
-		if (
-			buttonTexts.some((t) => t === 'continue') ||
-			buttonClasses.some((c) => c.includes('continue-button'))
-		) {
-			return 'continue';
-		}
-
-		// Check for crossroads (Fight/Skip mini boss)
-		if (buttonTexts.includes('fight') && buttonTexts.includes('skip')) {
-			return 'crossroads';
-		}
-
-		// Check for skill bargains (Accept/Decline)
-		if (buttonTexts.includes('accept') && buttonTexts.includes('decline')) {
-			return 'skill_bargain';
-		}
-
-		// Check for ability choices (multiple skill buttons)
-		if (buttonClasses.filter((c) => c.includes('skill-button')).length > 1) {
-			return 'ability_choice';
-		}
-
-		// Check for battle/advance buttons
-		if (buttonClasses.some((c) => c.includes('advance-button'))) {
-			return 'battle';
-		}
-
-		// Check for in-progress state (combat happening, showing volume/settings buttons)
-		if (
-			buttonClasses.some(
-				(c) => c.includes('volume-icon-button') || c.includes('ui-settings-button'),
-			)
-		) {
-			return 'in_progress';
-		}
-
-		return 'unknown';
-	}
-
-	/**
-	 * Click the appropriate button for the detected game state
-	 */
-	private async clickForState(state: string, buttons: HTMLElement[]): Promise<string | null> {
-		switch (state) {
-			case 'skip':
-				return this.tryClickSkip(buttons);
-			case 'finish':
-				return await this.tryClickContinue(buttons); // Handles finish button
-			case 'continue':
-				return await this.tryClickContinue(buttons);
-			case 'crossroads':
-				return this.tryClickCrossroads(buttons);
-			case 'skill_bargain':
-				return this.tryClickSkillBargain(buttons);
-			case 'ability_choice':
-				return this.tryClickAbility(buttons);
-			case 'battle':
-				return this.tryClickBattle(buttons);
-			case 'inn':
-				return await this.handleInnState();
-			default:
-				return null;
-		}
-	}
-
-	/**
-	 * Handle inn state - mission was already completed
-	 * Notify background which will mark it as cleared and find next mission
-	 */
-	private async handleInnState(): Promise<string | null> {
-		devvitLogger.log('Inn detected - mission was already completed');
-
-		// Get postId from URL or stored value
-		let postId = this.currentPostId;
-		if (!postId) {
-			postId = extractPostIdFromUrl(window.location.href);
-			devvitLogger.log('Extracted postId from URL for inn state', { postId });
-		}
-
-		if (postId) {
-			// Notify background that mission is completed
-			// Background will handle marking as cleared and finding next mission
-			chrome.runtime.sendMessage({
-				type: 'MISSION_COMPLETED',
-				postId,
-			});
-
-			devvitLogger.log('MISSION_COMPLETED event sent to background', { postId });
-		} else {
-			devvitLogger.error('Cannot handle inn state - no postId available');
-		}
-
-		return 'inn-handled';
-	}
-
-	/**
-	 * Find all clickable game buttons (matching working userscript pattern)
-	 */
-	private findAllButtons(): HTMLElement[] {
-		const buttons: HTMLElement[] = [];
-
-		// Match the working userscript pattern exactly
-		// Look for: .advance-button, .skill-button, .skip-button
-		const selectors = [
-			'.advance-button',
-			'.skill-button',
-			'.skip-button',
-			'button', // Also include regular buttons
-		];
-
-		for (const selector of selectors) {
-			const elements = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
-			for (const element of elements) {
-				// For advance-button, check if parent wrapper has button-hidden class
-				// If it does, skip this button (it's not clickable yet)
-				if (selector === '.advance-button') {
-					const parent = element.parentElement;
-					if (parent && parent.classList.contains('advance-button-wrapper')) {
-						if (parent.classList.contains('button-hidden')) {
-							continue; // Skip hidden advance buttons
-						}
-					}
-				}
-
-				// Check if element is visible
-				const rect = element.getBoundingClientRect();
-				const isVisible = rect.width > 0 && rect.height > 0;
-
-				if (isVisible && !buttons.includes(element)) {
-					buttons.push(element);
-				}
-			}
-		}
-
-		return buttons;
-	}
-
-	/**
-	 * Try to click skip button
-	 */
-	private tryClickSkip(buttons: HTMLElement[]): string | null {
-		const skipButton = buttons.find((b) => b.classList.contains('skip-button'));
-
-		if (skipButton) {
-			this.clickElement(skipButton);
-			return 'skip-button';
-		}
-
-		return null;
-	}
-
-	/**
-	 * Try to click "Battle" button (or any advance-button)
-	 */
-	private tryClickBattle(buttons: HTMLElement[]): string | null {
-		// Priority 1: Look for "Battle" text
-		let battleButton = buttons.find((b) => b.textContent?.trim().toLowerCase() === 'battle');
-
-		// Priority 2: If no "Battle" text, look for .advance-button class
-		if (!battleButton) {
-			battleButton = buttons.find((b) => b.classList.contains('advance-button'));
-		}
-
-		if (battleButton) {
-			this.clickElement(battleButton);
-			return battleButton.textContent?.trim() || 'advance-button';
-		}
-
-		return null;
-	}
-
-	/**
-	 * Click an element (simple native click like working userscript)
-	 */
-	private clickElement(element: HTMLElement): void {
-		// Just use native click - this is what works in the userscript
-		element.click();
-	}
-
-	/**
-	 * Try to click crossroads mini boss encounter button (Let's Fight / Skip)
-	 */
-	private tryClickCrossroads(buttons: HTMLElement[]): string | null {
-		// Look for "Let's Fight" and "Skip" buttons (crossroads encounter)
-		const fightButton = buttons.find((b) => {
-			const text = b.textContent?.trim().toLowerCase() || '';
-			return text.includes("let's fight") || text.includes('fight');
-		});
-		const skipButton = buttons.find((b) => {
-			const text = b.textContent?.trim().toLowerCase() || '';
-			// Only match "Skip" in crossroads context (not general skip-button)
-			return text === 'skip' && !b.classList.contains('skip-button');
-		});
-
-		// Only process if we have both buttons (it's a crossroads encounter)
-		if (fightButton && skipButton) {
-			if (this.config.crossroadsStrategy === 'fight') {
-				this.clickElement(fightButton);
-				return `Crossroads: ${fightButton.textContent?.trim()} (fight strategy)`;
-			} else {
-				this.clickElement(skipButton);
-				return `Crossroads: ${skipButton.textContent?.trim()} (skip strategy)`;
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Try to click ability button based on tier list (skill-button class)
-	 * Also handles blessing stat choices
-	 */
-	private tryClickAbility(buttons: HTMLElement[]): string | null {
-		// Look for skill buttons
-		const skillButtons = buttons.filter((b) => b.classList.contains('skill-button'));
-
-		if (skillButtons.length === 0) {
-			return null;
-		}
-
-		// Check if this is a blessing encounter (stat choices like "Increase Speed by X%")
-		const isBlessing = skillButtons.some((b) => {
-			const text = b.textContent?.trim() || '';
-			return /Increase (Speed|Attack|Defense|Health|Crit|Dodge) by \d+%/.test(text);
-		});
-
-		if (isBlessing) {
-			// Extract stat names from blessing buttons (e.g., "Speed" from "Increase Speed by 10%")
-			const blessingStats = skillButtons
-				.map((b) => {
-					const text = b.textContent?.trim() || '';
-					const match = text.match(/Increase (\w+) by \d+%/);
-					return match ? match[1] : null;
-				})
-				.filter((stat): stat is string => !!stat);
-
-			if (blessingStats.length > 0) {
-				this.recordDiscoveredBlessingStats(blessingStats);
-			}
-
-			// Handle blessing stat choices based on priority
-			// Safety check: ensure blessingStatPriority is an array
-			const statPriority = Array.isArray(this.config.blessingStatPriority)
-				? this.config.blessingStatPriority
-				: DEFAULT_GIAE_CONFIG.blessingStatPriority;
-
-			// Match blessing stats by partial text (case-insensitive)
-			for (const preferredStat of statPriority) {
-				const blessingButton = skillButtons.find((b) => {
-					const text = (b.textContent?.trim() || '').toLowerCase();
-					const search = preferredStat.toLowerCase();
-					return text.includes(search);
-				});
-
-				if (blessingButton) {
-					this.clickElement(blessingButton);
-					return `Blessing: ${blessingButton.textContent?.trim()}`;
-				}
-			}
-		}
-
-		// Record all ability names we see
-		const abilityNames = skillButtons
-			.map((b) => b.textContent?.trim())
-			.filter((text): text is string => !!text);
-
-		if (abilityNames.length > 0) {
-			this.recordDiscoveredAbilities(abilityNames);
-		}
-
-		// Look for ability names from our tier list
-		// Safety check: ensure abilityTierList is an array
-		const abilityList = Array.isArray(this.config.abilityTierList)
-			? this.config.abilityTierList
-			: DEFAULT_GIAE_CONFIG.abilityTierList;
-
-		// Match abilities by partial text (case-insensitive)
-		for (const preferredAbility of abilityList) {
-			const abilityButton = skillButtons.find((b) => {
-				const text = (b.textContent?.trim() || '').toLowerCase();
-				const search = preferredAbility.toLowerCase();
-				return text.includes(search);
-			});
-
-			if (abilityButton) {
-				this.clickElement(abilityButton);
-				return abilityButton.textContent?.trim() || preferredAbility;
-			}
-		}
-
-		// If no preferred ability found, click the first skill button
-		if (skillButtons.length > 0) {
-			this.clickElement(skillButtons[0]);
-			return skillButtons[0].textContent?.trim() || 'skill-button';
-		}
-
-		return null;
-	}
-
-	/**
-	 * Record discovered abilities to storage for user reference
-	 */
-	private recordDiscoveredAbilities(abilityNames: string[]): void {
-		try {
-			chrome.storage.local.get(['discoveredAbilities'], (result) => {
-				const existing = new Set<string>(result.discoveredAbilities || []);
-				let added = false;
-
-				for (const name of abilityNames) {
-					if (!existing.has(name)) {
-						existing.add(name);
-						added = true;
-					}
-				}
-
-				if (added) {
-					chrome.storage.local.set({ discoveredAbilities: Array.from(existing) });
-				}
-			});
-		} catch (error) {
-			// Silently fail - this is not critical
-			devvitLogger.error('Failed to record discovered abilities', { error: String(error) });
-		}
-	}
-
-	/**
-	 * Record discovered blessing stats to storage for user reference
-	 */
-	private recordDiscoveredBlessingStats(statNames: string[]): void {
-		try {
-			chrome.storage.local.get(['discoveredBlessingStats'], (result) => {
-				const existing = new Set<string>(result.discoveredBlessingStats || []);
-				let added = false;
-
-				for (const name of statNames) {
-					if (!existing.has(name)) {
-						existing.add(name);
-						added = true;
-					}
-				}
-
-				if (added) {
-					chrome.storage.local.set({ discoveredBlessingStats: Array.from(existing) });
-				}
-			});
-		} catch (error) {
-			// Silently fail - this is not critical
-			devvitLogger.error('Failed to record discovered blessing stats', { error: String(error) });
-		}
-	}
-
-	/**
-	 * Try to click skill bargain button (Accept/Decline)
-	 */
-	private tryClickSkillBargain(buttons: HTMLElement[]): string | null {
-		const acceptButton = buttons.find((b) => b.textContent?.trim().toLowerCase() === 'accept');
-		const declineButton = buttons.find((b) => b.textContent?.trim().toLowerCase() === 'decline');
-
-		// Only process if we have both buttons (it's a skill bargain)
-		if (acceptButton && declineButton) {
-			if (this.config.skillBargainStrategy === 'always') {
-				this.clickElement(acceptButton);
-				return 'Accept (always strategy)';
-			} else if (this.config.skillBargainStrategy === 'never') {
-				this.clickElement(declineButton);
-				return 'Decline (never strategy)';
-			} else if (this.config.skillBargainStrategy === 'positive-only') {
-				// For now, default to accept if auto-accept is enabled
-				// TODO: Parse the bargain text to determine if it's positive
-				if (this.config.autoAcceptSkillBargains) {
-					this.clickElement(acceptButton);
-					return 'Accept (positive-only strategy - default accept)';
-				} else {
-					this.clickElement(declineButton);
-					return 'Decline (positive-only strategy - default decline)';
-				}
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Try to click "Continue" or "Finish" button
-	 */
-	private async tryClickContinue(buttons: HTMLElement[]): Promise<string | null> {
-		// Check for mission end button (play next) - mission complete
-		// Look for .end-mission-button with button_playnext.png
-		const missionEndFooter = document.querySelector('.mission-end-footer');
-		let finishButton: HTMLElement | undefined;
-
-		if (missionEndFooter) {
-			const endButton = missionEndFooter.querySelector('.end-mission-button');
-			if (endButton instanceof HTMLElement) {
-				finishButton = endButton;
-			}
-		}
-
-		// Fallback: look for button_playnext.png in any button
-		if (!finishButton) {
-			finishButton = buttons.find((b) => {
-				const img = b.querySelector('img[src*="button_playnext.png"]');
-				return img !== null;
-			});
-		}
-
-		if (finishButton) {
-			this.clickElement(finishButton);
-
-			// Get postId for mission completion
-			let postId = this.currentPostId || this.missionMetadata?.postId;
-
-			// Fallback: try to extract postId from URL if still null
-			if (!postId) {
-				postId = extractPostIdFromUrl(window.location.href);
-				devvitLogger.log('Extracted postId from URL as fallback', { postId });
-			}
-
-			devvitLogger.log('Finish button clicked, checking postId', {
-				currentPostId: this.currentPostId,
-				metadataPostId: this.missionMetadata?.postId,
-				finalPostId: postId,
-			});
-
-			if (postId) {
-				devvitLogger.log('Mission cleared! Clicking Finish/Dismiss button', {
-					postId,
-				});
-
-				// Notify background that mission is completed
-				// Background will mark as cleared and handle finding next mission
-				chrome.runtime.sendMessage({
-					type: 'MISSION_COMPLETED',
-					postId,
-				});
-
-				// Clear the postId now that background will handle navigation
-				this.currentPostId = null;
-			} else {
-				devvitLogger.warn('Finish button clicked but no postId available!', {
-					currentPostId: this.currentPostId,
-					metadataPostId: this.missionMetadata?.postId,
-					hasMissionMetadata: !!this.missionMetadata,
-					url: window.location.href,
-				});
-			}
-
-			this.stop();
-
-			return 'Finish (Mission Complete!)';
-		}
-
-		// Then check for "Continue" button
-		const continueButton = buttons.find((b) => {
-			// Check text content
-			const text = b.textContent?.trim().toLowerCase() || '';
-			if (text === 'continue') return true;
-
-			// Check for continue-button class
-			if (b.classList.contains('continue-button')) return true;
-
-			// Check for img with alt="Continue"
-			const img = b.querySelector('img[alt="Continue"]');
-			if (img) return true;
-
-			return false;
-		});
-
-		if (continueButton) {
-			this.clickElement(continueButton);
-			return 'Continue';
-		}
-
-		return null;
-	}
-
-	/**
-	 * Delay helper
-	 */
-	private delay(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 }

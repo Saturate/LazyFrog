@@ -341,6 +341,11 @@ function handleStateTransition(stateObj: any, context: any): void {
 			broadcastToAllFrames({ type: 'START_MISSION_AUTOMATION' });
 			return;
 		}
+		if (stateObj.matches('gameMission.running')) {
+			// Running state - devvit iframe will report state changes directly via GAME_STATE_UPDATE
+			extensionLogger.log('[StateTransition] Entered running state');
+			return;
+		}
 		if (stateObj.matches('gameMission.completing')) {
 			const retryCount = context.findMissionRetryCount || 0;
 
@@ -812,6 +817,36 @@ async function handleMessage(
 					});
 				}
 
+				sendResponse({ success: true });
+			}
+			break;
+
+		case 'GAME_STATE_UPDATE':
+			{
+				// Devvit iframe reports game state changes
+				const gameState = (message as any).gameState;
+				if (gameState) {
+					const snapshot = getStateMachineSnapshot();
+					if (snapshot && botActor) {
+						// Update context with latest game state
+						snapshot.context.gameState = {
+							postId: gameState.postId,
+							encounterCurrent: gameState.encounterCurrent || 0,
+							encounterTotal: gameState.encounterTotal || 0,
+							lives: gameState.lives || 3,
+							screen: gameState.screen || 'unknown',
+							difficulty: gameState.difficulty,
+						};
+
+						// Broadcast updated state to UI
+						const presentationState = getPresentationStateName(snapshot);
+						broadcastToReddit({
+							type: 'STATE_CHANGED',
+							state: presentationState,
+							context: snapshot.context,
+						});
+					}
+				}
 				sendResponse({ success: true });
 			}
 			break;
