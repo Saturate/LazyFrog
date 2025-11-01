@@ -22,6 +22,16 @@ export interface BotContext {
 	retryCount: number;
 	findMissionRetryCount: number;
 	completionReason: 'stopped' | 'no_missions' | 'error' | null;
+
+	// Game state tracking (encounter progress during mission)
+	gameState?: {
+		postId: string | null;
+		encounterCurrent: number;
+		encounterTotal: number;
+		lives: number;
+		screen: string;
+		difficulty: number | null;
+	};
 }
 
 export type BotEvent =

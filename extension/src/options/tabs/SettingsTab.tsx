@@ -11,7 +11,6 @@ interface DebugSettings {
 	nextMissionsCount: number;
 	debugMode: boolean;
 	showStepByStepControls: boolean;
-	useAutomationV2: boolean;
 }
 
 const SettingsTab: React.FC = () => {
@@ -21,7 +20,6 @@ const SettingsTab: React.FC = () => {
 		nextMissionsCount: 5,
 		debugMode: false,
 		showStepByStepControls: false,
-		useAutomationV2: false,
 	});
 	const [userOptions, setUserOptions] = useState<UserOptions>({});
 
@@ -34,7 +32,6 @@ const SettingsTab: React.FC = () => {
 					nextMissionsCount: result.automationConfig.nextMissionsCount || 5,
 					debugMode: result.automationConfig.debugMode || false,
 					showStepByStepControls: result.automationConfig.showStepByStepControls || false,
-					useAutomationV2: result.automationConfig.useAutomationV2 || false,
 				});
 			}
 			if (result.userOptions) {
@@ -52,7 +49,6 @@ const SettingsTab: React.FC = () => {
 				nextMissionsCount: settings.nextMissionsCount,
 				debugMode: settings.debugMode,
 				showStepByStepControls: settings.showStepByStepControls,
-				useAutomationV2: settings.useAutomationV2,
 			};
 			chrome.storage.local.set({ automationConfig: fullConfig });
 		});
@@ -259,40 +255,6 @@ const SettingsTab: React.FC = () => {
 						}}
 					>
 						Shows step-by-step automation controls in the popup (1. Navigate, 2. Open, 3. Play). Useful for debugging automation flow or manually controlling each step.
-					</p>
-				</div>
-
-				<div className="form-group" style={{ marginTop: '20px' }}>
-					<label
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '8px',
-							cursor: 'pointer',
-						}}
-					>
-						<input
-							type="checkbox"
-							checked={settings.useAutomationV2}
-							onChange={(e) =>
-								setSettings((prev) => ({
-									...prev,
-									useAutomationV2: e.target.checked,
-								}))
-							}
-							style={{ cursor: 'pointer' }}
-						/>
-						<span>🧪 Use V2 Automation Engine (Experimental)</span>
-					</label>
-					<p
-						style={{
-							color: '#a1a1aa',
-							fontSize: '13px',
-							marginTop: '8px',
-							marginLeft: '28px',
-						}}
-					>
-						New automation engine with smarter decision making based on lives remaining. Plays safe when low on lives (skips mini bosses, only accepts positive bargains). <strong style={{ color: '#fbbf24' }}>Reload game page after toggling.</strong>
 					</p>
 				</div>
 			</div>

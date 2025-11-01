@@ -8,7 +8,6 @@ import {
 	DEFAULT_GIAE_CONFIG,
 	GameInstanceAutomationConfig,
 } from '../../automation/gameInstanceAutomation';
-import { GameInstanceAutomationV2 } from '../../automation/v2';
 import { analyzeGamePage, extractGameState, clickButton, getClickableElements } from './utils/dom';
 import { devvitLogger } from '../../utils/logger';
 
@@ -109,9 +108,6 @@ function initializeAutomation(): void {
 	chrome.storage.local.get(['automationConfig'], async (result) => {
 		const config = result.automationConfig || {};
 
-		// Check which version to use
-		const useV2 = config.useAutomationV2 === true;
-
 		// Initialize game instance automation engine
 		const giaeConfig: GameInstanceAutomationConfig = {
 			enabled: false, // Will be enabled when user clicks button
@@ -126,14 +122,8 @@ function initializeAutomation(): void {
 			clickDelay: 300,
 		};
 
-		// Create appropriate engine based on version
-		if (useV2) {
-			devvitLogger.log('🆕 Using V2 automation engine');
-			gameAutomation = new GameInstanceAutomationV2(giaeConfig) as any;
-		} else {
-			devvitLogger.log('Using V1 automation engine');
-			gameAutomation = new GameInstanceAutomationEngine(giaeConfig);
-		}
+		// Create automation engine
+		gameAutomation = new GameInstanceAutomationEngine(giaeConfig);
 
 		devvitLogger.log('Game instance automation engine initialized');
 		devvitLogger.log('Config', { config: giaeConfig });
@@ -280,6 +270,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		case 'STATE_CHANGED':
 			// Ignore state changes - only reddit-content needs these
 			sendResponse({ success: true });
+			break;
+
+		case 'GET_GAME_STATE':
+			// Return current game state for status display
+			if (gameAutomation) {
+				const state = gameAutomation.getGameState();
+				sendResponse({ gameState: state });
+			} else {
+				sendResponse({ gameState: null });
+			}
 			break;
 
 		default:

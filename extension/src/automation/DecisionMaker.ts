@@ -15,13 +15,14 @@ export class DecisionMaker {
 	 * Crossroads: Fight or Skip mini boss
 	 */
 	decideCrossroads(): 'fight' | 'skip' {
+		// TODO: Re-enable play-safe logic when health tracking is ready
 		// If low on lives, always skip
-		if (this.gameState.shouldPlaySafe()) {
-			return 'skip';
-		}
+		// if (this.gameState.shouldPlaySafe()) {
+		// 	return 'skip';
+		// }
 
-		// Otherwise use user config
-		return this.config.crossroadsStrategy || 'skip';
+		// Use user config (default: fight)
+		return this.config.crossroadsStrategy || 'fight';
 	}
 
 	/**
@@ -30,10 +31,11 @@ export class DecisionMaker {
 	decideSkillBargain(bargainText: string): 'accept' | 'decline' {
 		const isPositive = this.isPositiveBargain(bargainText);
 
+		// TODO: Re-enable play-safe logic when health tracking is ready
 		// If low on lives, only accept positive bargains
-		if (this.gameState.shouldPlaySafe()) {
-			return isPositive ? 'accept' : 'decline';
-		}
+		// if (this.gameState.shouldPlaySafe()) {
+		// 	return isPositive ? 'accept' : 'decline';
+		// }
 
 		// Use user strategy
 		const strategy = this.config.skillBargainStrategy || 'positive-only';
