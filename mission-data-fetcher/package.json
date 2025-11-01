@@ -1,0 +1,22 @@
+{
+  "name": "swordandsupper-mission-fetcher",
+  "version": "1.0.0",
+  "description": "Standalone script to fetch SwordAndSupper mission data from Reddit",
+  "type": "module",
+  "main": "fetch-missions.js",
+  "scripts": {
+    "fetch": "node fetch-missions.js",
+    "help": "node fetch-missions.js --help"
+  },
+  "keywords": [
+    "reddit",
+    "swordandsupper",
+    "mission-data",
+    "protobuf"
+  ],
+  "author": "Allan Kimmer Jensen",
+  "license": "MIT",
+  "dependencies": {
+    "@devvit/protos": "^0.12.1"
+  }
+}

@@ -1,0 +1,443 @@
+[
+  {
+    "postId": "t3_1n6sevc",
+    "title": "Hopeful Determination and Cola Float",
+    "difficulty": 4,
+    "minLevel": 201,
+    "maxLevel": 220,
+    "environment": "new_eden",
+    "foodName": "Cola Float",
+    "foodImage": "Drink_Brown.png",
+    "encounters": [
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "darkShaman-0-0",
+            "type": "darkShaman",
+            "level": 0
+          },
+          {
+            "id": "skel2Axe-0-1",
+            "type": "skel2Axe",
+            "level": 0
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "darkShaman-4-0",
+            "type": "darkShaman",
+            "level": -2
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo7-1-0",
+            "type": "robotNo7",
+            "level": 0
+          }
+        ]
+      },
+      {
+        "type": "skillBargain",
+        "positiveEffect": {
+          "id": "",
+          "type": "health",
+          "amount": 0.11
+        },
+        "negativeEffect": {
+          "id": "",
+          "type": "multiplier",
+          "stat": "Dodge",
+          "amount": -0.09
+        }
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "skelAssassin-3-0",
+            "type": "skelAssassin",
+            "level": -2
+          },
+          {
+            "id": "robotNo5-3-1",
+            "type": "robotNo5",
+            "level": -1
+          },
+          {
+            "id": "robotNo5-3-2",
+            "type": "robotNo5",
+            "level": -1
+          }
+        ]
+      },
+      {
+        "type": "skillBargain",
+        "positiveEffect": {
+          "id": "",
+          "type": "multiplier",
+          "stat": "Dodge",
+          "amount": 0.16
+        },
+        "negativeEffect": {
+          "id": "",
+          "type": "health",
+          "amount": -0.2
+        }
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "skel2Axe-2-0",
+            "type": "skel2Axe",
+            "level": -2
+          },
+          {
+            "id": "darkShaman-2-1",
+            "type": "darkShaman",
+            "level": -1
+          }
+        ]
+      },
+      {
+        "type": "treasure",
+        "missionType": "standard",
+        "reward": {
+          "essences": [
+            {
+              "id": "EssenceTangy",
+              "quantity": 2
+            },
+            {
+              "id": "EssenceFresh",
+              "quantity": 1
+            },
+            {
+              "id": "EssenceDecadent",
+              "quantity": 1
+            }
+          ],
+          "tier": 204
+        }
+      }
+    ],
+    "authorWeaponId": "SwordOfRespiteEX",
+    "chef": "chef_foodBot",
+    "cart": "cart1",
+    "rarity": "uncommon",
+    "isInnPost": false
+  },
+  {
+    "postId": "t3_1n6u98y",
+    "title": "In Search of Double Fudge Shake",
+    "difficulty": 4,
+    "minLevel": 201,
+    "maxLevel": 220,
+    "environment": "forbidden_city",
+    "foodName": "Double Fudge Shake",
+    "foodImage": "Milkshake_Chokolate.png",
+    "encounters": [
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo3-3-0",
+            "type": "robotNo3",
+            "level": 2
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo4-2-0",
+            "type": "robotNo4",
+            "level": 0
+          },
+          {
+            "id": "robotNo1-2-1",
+            "type": "robotNo1",
+            "level": 0
+          },
+          {
+            "id": "robotNo1-2-2",
+            "type": "robotNo1",
+            "level": 0
+          }
+        ]
+      },
+      {
+        "type": "abilityChoice",
+        "isEnchanted": false,
+        "optionA": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "LightningEveryHitCount"
+        },
+        "optionB": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "AddRageOnLightning"
+        },
+        "optionC": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "LowHPBoostDefense"
+        }
+      },
+      {
+        "type": "abilityChoice",
+        "isEnchanted": false,
+        "optionA": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "MagicKnifeOnHitCount"
+        },
+        "optionB": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "HealOnMagicKnife"
+        },
+        "optionC": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "GainShieldOnRage"
+        }
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo5-1-0",
+            "type": "robotNo5",
+            "level": 1
+          },
+          {
+            "id": "robotNo7-1-1",
+            "type": "robotNo7",
+            "level": -1
+          }
+        ]
+      },
+      {
+        "type": "investigate",
+        "bonusChance": 0.65,
+        "bonusGold": 217,
+        "failHpPenaltyPct": 0.3
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo5-4-0",
+            "type": "robotNo5",
+            "level": 0
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo4-0-0",
+            "type": "robotNo4",
+            "level": -2
+          }
+        ]
+      },
+      {
+        "type": "treasure",
+        "missionType": "standard",
+        "reward": {
+          "essences": [
+            {
+              "id": "EssenceCreamy",
+              "quantity": 2
+            },
+            {
+              "id": "EssenceDecadent",
+              "quantity": 2
+            }
+          ],
+          "tier": 204
+        }
+      }
+    ],
+    "authorWeaponId": "SwordOfRespiteEX",
+    "chef": "chef_french",
+    "cart": "cart_awning",
+    "rarity": "uncommon",
+    "isInnPost": false
+  },
+  {
+    "postId": "t3_1n6uw67",
+    "title": "Uncertainty and Whole Wheat Sandwich Bread",
+    "difficulty": 5,
+    "minLevel": 201,
+    "maxLevel": 220,
+    "environment": "forbidden_city",
+    "foodName": "Whole Wheat Sandwich Bread",
+    "foodImage": "Bread_Wheat.png",
+    "encounters": [
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo4-2-0",
+            "type": "robotNo4",
+            "level": -2
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo3-0-0",
+            "type": "robotNo3",
+            "level": 0
+          },
+          {
+            "id": "robotNo5-0-1",
+            "type": "robotNo5",
+            "level": 0
+          },
+          {
+            "id": "robotNo1-0-2",
+            "type": "robotNo1",
+            "level": -1
+          }
+        ]
+      },
+      {
+        "type": "abilityChoice",
+        "isEnchanted": false,
+        "optionA": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "AddRageOnHeal"
+        },
+        "optionB": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "MagicKnifeOnHitCount"
+        },
+        "optionC": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "AddRageOnHitCount"
+        }
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo7-1-0",
+            "type": "robotNo7",
+            "level": 0
+          },
+          {
+            "id": "robotNo3-1-1",
+            "type": "robotNo3",
+            "level": 2
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo5-4-0",
+            "type": "robotNo5",
+            "level": -2
+          },
+          {
+            "id": "robotNo4-4-1",
+            "type": "robotNo4",
+            "level": 2
+          },
+          {
+            "id": "robotNo7-4-2",
+            "type": "robotNo7",
+            "level": 2
+          }
+        ]
+      },
+      {
+        "type": "enemy",
+        "enemies": [
+          {
+            "id": "robotNo3-3-0",
+            "type": "robotNo3",
+            "level": 2
+          },
+          {
+            "id": "robotNo2-3-1",
+            "type": "robotNo2",
+            "level": 2
+          }
+        ]
+      },
+      {
+        "type": "abilityChoice",
+        "isEnchanted": false,
+        "optionA": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "HealOnLightning"
+        },
+        "optionB": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "MagicKnifeOnCrit"
+        },
+        "optionC": {
+          "id": "",
+          "type": "ability",
+          "abilityId": "GainShieldOnTurn"
+        }
+      },
+      {
+        "type": "crossroadsFight",
+        "enemies": [
+          {
+            "id": "hollowhorn",
+            "type": "darkGiantHorns",
+            "level": 2
+          }
+        ]
+      },
+      {
+        "type": "treasure",
+        "missionType": "standard",
+        "reward": {
+          "essences": [
+            {
+              "id": "EssenceHearty",
+              "quantity": 2
+            },
+            {
+              "id": "EssenceFluffy",
+              "quantity": 2
+            }
+          ],
+          "tier": 205
+        }
+      }
+    ],
+    "authorWeaponId": "SwordOfRespiteEX",
+    "chef": "chef_cat",
+    "cart": "cart1",
+    "rarity": "uncommon",
+    "isInnPost": false
+  }
+]
