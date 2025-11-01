@@ -79,6 +79,9 @@ export class GameInstanceAutomationEngine {
 						encounters: this.gameState.totalEncounters,
 						difficulty: this.gameState.difficulty,
 					});
+
+					// Report initial state to background
+					this.reportGameState();
 				}
 
 				// encounterResult
@@ -86,12 +89,22 @@ export class GameInstanceAutomationEngine {
 					const result = event.data.data.message.data;
 					const idx = result.encounterAction?.encounterIndex;
 
+					logger.log('encounterResult received', {
+						encounterIndex: idx,
+						currentEncounter: this.gameState.currentEncounter,
+						totalEncounters: this.gameState.totalEncounters,
+					});
+
 					if (idx !== undefined) {
 						this.gameState.onEncounterComplete(idx);
 						logger.log('Encounter complete', {
+							encounterIndex: idx,
 							progress: this.gameState.getProgress(),
 							lives: this.gameState.livesRemaining,
 						});
+
+						// Report state update to background
+						this.reportGameState();
 					}
 				}
 
@@ -159,7 +172,13 @@ export class GameInstanceAutomationEngine {
 
 			// Detect screen
 			const screen = this.detectScreen(buttons);
+			const screenChanged = this.gameState.currentScreen !== screen;
 			this.gameState.currentScreen = screen;
+
+			// Report state update if screen changed
+			if (screenChanged) {
+				this.reportGameState();
+			}
 
 			// Handle screen (if actionable)
 			if (screen !== 'unknown' && screen !== 'in_progress') {
@@ -320,6 +339,19 @@ export class GameInstanceAutomationEngine {
 			playSafe: this.gameState.shouldPlaySafe(),
 			difficulty: this.gameState.difficulty,
 		};
+	}
+
+	// Report game state to background service worker
+	private reportGameState(): void {
+		try {
+			chrome.runtime.sendMessage({
+				type: 'GAME_STATE_UPDATE',
+				gameState: this.getGameState(),
+			});
+		} catch (error) {
+			// Silently fail if background is not available
+			logger.error('Failed to report game state', { error: String(error) });
+		}
 	}
 
 	// Save mission to database

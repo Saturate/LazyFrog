@@ -30,9 +30,6 @@ extensionLogger.info('Starting up', {
 // Create the state machine actor - will be initialized after checking storage
 let botActor: any = null;
 
-// Game state polling interval (for encounter progress)
-let gameStatePollingInterval: ReturnType<typeof setInterval> | null = null;
-
 // Initialize state machine
 function initializeStateMachine() {
 	// Clean up existing actor if it exists
@@ -329,13 +326,6 @@ function handleStateTransition(stateObj: any, context: any): void {
 		idleStateCheckInterval = null;
 	}
 
-	// Clear game state polling when leaving running state
-	if (presentationState !== 'running' && gameStatePollingInterval) {
-		extensionLogger.log('[StateTransition] Clearing game state polling interval');
-		clearInterval(gameStatePollingInterval);
-		gameStatePollingInterval = null;
-	}
-
 	// Nested mission state routing
 	if (stateObj?.matches) {
 		if (stateObj.matches('gameMission.waitingForGame')) {
@@ -352,63 +342,8 @@ function handleStateTransition(stateObj: any, context: any): void {
 			return;
 		}
 		if (stateObj.matches('gameMission.running')) {
-			// Start polling game state for encounter progress
-			if (!gameStatePollingInterval) {
-				extensionLogger.log('[StateTransition] Starting game state polling (every 2.5s)');
-				gameStatePollingInterval = setInterval(async () => {
-					try {
-						// Query game iframe for automation state
-						const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/*' });
-						for (const tab of tabs) {
-							if (tab.id && tab.url?.includes('/comments/')) {
-								// Send message to devvit iframe via content script
-								chrome.tabs.sendMessage(tab.id, {
-									type: 'GET_GAME_STATE',
-								}, (response) => {
-									if (chrome.runtime.lastError) {
-										// Ignore errors (tab might not have content script)
-										return;
-									}
-
-									if (response?.gameState) {
-										// Update state machine context with game state
-										const snapshot = getStateMachineSnapshot();
-										if (snapshot && botActor) {
-											// Store game state in context
-											snapshot.context.gameState = {
-												postId: response.gameState.postId,
-												encounterCurrent: response.gameState.encounterCurrent || 0,
-												encounterTotal: response.gameState.encounterTotal || 0,
-												lives: response.gameState.lives || 3,
-												screen: response.gameState.screen || 'unknown',
-												difficulty: response.gameState.difficulty,
-											};
-
-											// Trigger state change broadcast to update UI
-											const presentationState = getPresentationStateName(snapshot);
-											chrome.tabs.query({}, (tabs) => {
-												tabs.forEach((tab) => {
-													if (tab.id && tab.url?.includes('reddit.com')) {
-														chrome.tabs.sendMessage(tab.id, {
-															type: 'STATE_CHANGED',
-															state: presentationState,
-															context: snapshot.context,
-														});
-													}
-												});
-											});
-										}
-									}
-								});
-							}
-						}
-					} catch (error) {
-						extensionLogger.error('[GameStatePolling] Error polling game state', {
-							error: String(error),
-						});
-					}
-				}, 2500); // Poll every 2.5 seconds
-			}
+			// Running state - devvit iframe will report state changes directly via GAME_STATE_UPDATE
+			extensionLogger.log('[StateTransition] Entered running state');
 			return;
 		}
 		if (stateObj.matches('gameMission.completing')) {
@@ -882,6 +817,36 @@ async function handleMessage(
 					});
 				}
 
+				sendResponse({ success: true });
+			}
+			break;
+
+		case 'GAME_STATE_UPDATE':
+			{
+				// Devvit iframe reports game state changes
+				const gameState = (message as any).gameState;
+				if (gameState) {
+					const snapshot = getStateMachineSnapshot();
+					if (snapshot && botActor) {
+						// Update context with latest game state
+						snapshot.context.gameState = {
+							postId: gameState.postId,
+							encounterCurrent: gameState.encounterCurrent || 0,
+							encounterTotal: gameState.encounterTotal || 0,
+							lives: gameState.lives || 3,
+							screen: gameState.screen || 'unknown',
+							difficulty: gameState.difficulty,
+						};
+
+						// Broadcast updated state to UI
+						const presentationState = getPresentationStateName(snapshot);
+						broadcastToReddit({
+							type: 'STATE_CHANGED',
+							state: presentationState,
+							context: snapshot.context,
+						});
+					}
+				}
 				sendResponse({ success: true });
 			}
 			break;
