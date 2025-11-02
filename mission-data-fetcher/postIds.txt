@@ -1,0 +1,18 @@
+# SwordAndSupper Mission Post IDs
+# One post ID per line
+# Lines starting with # are ignored
+# The t3_ prefix is optional - it will be added automatically
+
+# Example post IDs (from the codebase):
+# t3_1lvdwlq
+# t3_1od3es7
+# t3_1oh01dp
+
+# You can also use post IDs without the t3_ prefix:
+# 1obdqvw
+# 1ocywkz
+
+# Add your post IDs below:
+1n6sevc
+1n6u98y
+1n6uw67
