@@ -83,7 +83,7 @@ export interface EnemyEncounter {
 }
 
 export interface CrossroadsEncounter {
-  type: "crossroads";
+  type: "crossroadsFight";
   enemies: Enemy[];
 }
 

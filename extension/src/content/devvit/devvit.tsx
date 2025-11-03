@@ -145,12 +145,21 @@ function initializeAutomation(): void {
 				// Save the captured mission data to database
 				await gameAutomation.saveMissionToDatabase(postId, username, missionMetadata);
 
-				// IMPORTANT: Also set currentPostId so it's available when mission completes
-				// This is normally set by the message listener, but since we captured it early, we need to set it manually
+				// IMPORTANT: Set both gameAutomation properties AND gameState
+				// This is normally done by the message listener in gameInstanceAutomation.ts
 				gameAutomation.currentPostId = postId;
 				gameAutomation.missionMetadata = missionMetadata;
+				gameAutomation.gameState.setMissionData(missionMetadata, postId);
 
-				devvitLogger.log('Set currentPostId from captured initialData', { postId });
+				// Verify/fallback to storage data (fire and forget)
+				gameAutomation.gameState.loadMissionDataFromStorage(postId).catch((err) => {
+					devvitLogger.error('[devvit.tsx] Failed to load mission data from storage', err);
+				});
+
+				devvitLogger.log('Set mission data from captured initialData', {
+					postId,
+					encounters: gameAutomation.gameState.totalEncounters,
+				});
 			}
 
 			// Clear the captured data
