@@ -226,3 +226,97 @@ Before that there's a "Continue" button
 	</div>
 </div>
 ```
+
+## Blessing
+
+```html
+<div class="ui-panel">
+	<div class="ui-panel-header">A shrine offers a blessing. Choose a boon:</div>
+	<div class="ui-panel-content-skills">
+		<div class="skill-button "><div class="skill-button-label">Increase Speed by 6%</div></div>
+		<div class="skill-button ">
+			<div class="skill-button-label">Increase Dodge Rate by 21%</div>
+		</div>
+	</div>
+</div>
+```
+
+## Skill Bargian
+
+```html
+<div class="ui-panel">
+	<div class="ui-panel-header">
+		The monolith pulses with dark energy and requests a sacrifice. Choose wisely:
+	</div>
+	<div class="ui-panel-content-skills">
+		<div class="skill-button ">
+			<div class="skill-button-label">Restore 19% Health but Decrease Speed by 15%</div>
+		</div>
+		<div class="skill-button "><div class="skill-button-label">Refuse</div></div>
+	</div>
+</div>
+```
+
+## Ability choice (enchanted)
+
+```html
+<div class="ui-panel-vertical">
+	<div class="ui-panel-header">The ENCHANTED ancient machine offers a selection of abilities:</div>
+	<div class="ui-panel-content-skills-vertical">
+		<div class="skill-button "><div class="skill-button-label">Second Wind</div></div>
+		<div class="skill-button "><div class="skill-button-label">Every Other Add Rage</div></div>
+		<div class="skill-button "><div class="skill-button-label">Magic Knife On Attack</div></div>
+	</div>
+</div>
+```
+
+normal:
+
+```html
+<div class="ui-panel-vertical">
+	<div class="ui-panel-header">The ancient machine offers a selection of abilities:</div>
+	<div class="ui-panel-content-skills-vertical">
+		<div class="skill-button "><div class="skill-button-label">Heal On Hit 3</div></div>
+		<div class="skill-button "><div class="skill-button-label">Heal on First Turn</div></div>
+		<div class="skill-button "><div class="skill-button-label">Life Steal On Attack</div></div>
+	</div>
+</div>
+```
+
+## Rarity JS code
+
+```js
+function Xu(R) {
+    switch (R.toLowerCase()) {
+    case "common":
+        return "#9d9d9d";
+    case "uncommon":
+        return "#1eff00";
+    case "rare":
+        return "#0070dd";
+    case "epic":
+        return "#a335ee";
+    case "legendary":
+        return "#ff8000";
+    default:
+        return "#ffffff"
+    }
+}
+
+
+const J6 = {
+    common: "radial-gradient(circle, #617e8a 0%, #3d4f5e 100%)",
+    uncommon: "radial-gradient(circle, #219463 0%, #196f58 100%)",
+    rare: "radial-gradient(circle, #2f94fc 0%, #4a5ce1 100%)",
+    epic: "radial-gradient(circle, #c980fe 0%, #8808ff 100%)",
+    legendary: "radial-gradient(circle, #ffde00 0%, #ffb532 100%)",
+    mythic: "radial-gradient(circle, #eb2f47 0%, #a11828 100%)"
+}
+  , Z6 = {
+    common: "#9baebc",
+    uncommon: "#8ffe78",
+    rare: "#6efdff",
+    epic: "#b962d1",
+    legendary: "#ffffff",
+    m
+```

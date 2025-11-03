@@ -252,9 +252,46 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 		case 'CLICK_GAME_UI':
 			// Background wants us to click the game UI
 			redditLogger.log('[CLICK_GAME_UI] Clicking game UI');
-			clickGameUI().then((success) => {
-				sendResponse({ success });
-			});
+			(async () => {
+				const success = await clickGameUI();
+
+				if (!success) {
+					// Game preview not found - ask background what to do
+					redditLogger.warn('[CLICK_GAME_UI] Game preview failed, asking background for action');
+
+					// Get current mission ID from URL
+					const postIdMatch = window.location.pathname.match(/\/comments\/([a-z0-9]+)\//);
+					const missionId = postIdMatch ? `t3_${postIdMatch[1]}` : null;
+
+					if (missionId) {
+						// Ask background what to do (reload or skip)
+						chrome.runtime.sendMessage(
+							{
+								type: 'GAME_PREVIEW_FAILED',
+								missionId,
+							},
+							(response) => {
+								const action = response?.action;
+
+								if (action === 'reload') {
+									redditLogger.log('[CLICK_GAME_UI] Background says reload, reloading page');
+									window.location.reload();
+								} else if (action === 'skip') {
+									redditLogger.log('[CLICK_GAME_UI] Background says skip mission');
+									// Background already sent MISSION_DELETED, just wait for next navigation
+								}
+
+								sendResponse({ success: false, action });
+							},
+						);
+					} else {
+						redditLogger.error('[CLICK_GAME_UI] Could not extract mission ID from URL');
+						sendResponse({ success: false });
+					}
+				} else {
+					sendResponse({ success: true });
+				}
+			})();
 			return true; // Will respond asynchronously
 			break;
 

@@ -62,6 +62,25 @@ export class DecisionMaker {
 	}
 
 	/**
+	 * Pick best blessing stat from choices
+	 */
+	pickBlessing(blessingStats: string[]): string {
+		// Pick first from priority list
+		for (const preferred of this.config.blessingStatPriority || []) {
+			// Case-insensitive partial match
+			const match = blessingStats.find(
+				(stat) => stat.toLowerCase().includes(preferred.toLowerCase())
+			);
+			if (match) {
+				return match;
+			}
+		}
+
+		// Fallback to first available
+		return blessingStats[0];
+	}
+
+	/**
 	 * Simple heuristic: more + than - means positive
 	 */
 	private isPositiveBargain(text: string): boolean {
