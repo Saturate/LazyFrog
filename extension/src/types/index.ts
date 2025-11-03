@@ -2,24 +2,17 @@
  * Type definitions for Sword & Supper Bot
  */
 
-export interface MissionRecord {
-	postId: string;
-	username?: string;
-	timestamp: number;
-	metadata?: any;
-	difficulty?: number;
-	environment?: string;
-	minLevel?: number;
-	maxLevel?: number;
-	missionTitle?: string;
-	foodName?: string;
-	cleared?: boolean;
-	clearedAt?: number;
-	permalink?: string;
-	totalLoot?: Array<{ id: string; quantity: number }>;
-	disabled?: boolean;
-	title?: string;
-}
+// Re-export shared types from the package
+export type {
+	EncounterType,
+	Encounter,
+	Mission,
+	MissionMetadata,
+	MissionRecord,
+	ExtensionMissionRecord,
+	Environment,
+	Rarity,
+} from '@lazyfrog/types';
 
 export interface Level {
 	title: string;

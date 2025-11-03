@@ -30,6 +30,9 @@ extensionLogger.info('Starting up', {
 // Create the state machine actor - will be initialized after checking storage
 let botActor: any = null;
 
+// Track game preview reload attempts per mission
+const gamePreviewReloadAttempts = new Map<string, number>();
+
 // Initialize state machine
 function initializeStateMachine() {
 	// Clean up existing actor if it exists
@@ -643,6 +646,9 @@ async function handleMessage(
 			// Clear storage
 			chrome.storage.local.remove(['activeBotSession']);
 
+			// Clear reload attempts
+			gamePreviewReloadAttempts.clear();
+
 			// Stop automation in all frames
 			broadcastToAllFrames({ type: 'STOP_MISSION_AUTOMATION' });
 
@@ -777,6 +783,11 @@ async function handleMessage(
 					postId: deletedPostId,
 				});
 
+				// Cleanup reload attempts for this mission
+				if (deletedPostId) {
+					gamePreviewReloadAttempts.delete(deletedPostId);
+				}
+
 				if (deletedPostId) {
 					try {
 						await setMissionDisabled(deletedPostId, true);
@@ -831,10 +842,10 @@ async function handleMessage(
 						// Update context with latest game state
 						snapshot.context.gameState = {
 							postId: gameState.postId,
-							encounterCurrent: gameState.encounterCurrent || 0,
-							encounterTotal: gameState.encounterTotal || 0,
-							lives: gameState.lives || 3,
-							screen: gameState.screen || 'unknown',
+							encounterCurrent: gameState.encounterCurrent ?? 0,
+							encounterTotal: gameState.encounterTotal ?? 0,
+							lives: gameState.lives ?? 3,
+							screen: gameState.screen ?? 'unknown',
 							difficulty: gameState.difficulty,
 						};
 
@@ -851,12 +862,69 @@ async function handleMessage(
 			}
 			break;
 
+		case 'GAME_PREVIEW_FAILED':
+			{
+				const missionId = (message as any).missionId;
+				const attempts = gamePreviewReloadAttempts.get(missionId) || 0;
+
+				if (attempts === 0) {
+					// First failure - reload page
+					extensionLogger.warn('[GamePreview] Failed, attempting reload', { missionId });
+					gamePreviewReloadAttempts.set(missionId, 1);
+					sendResponse({ action: 'reload' });
+				} else {
+					// Second failure - skip mission
+					extensionLogger.error('[GamePreview] Failed after reload, skipping mission', {
+						missionId,
+					});
+					gamePreviewReloadAttempts.delete(missionId);
+
+					// Mark mission as disabled in storage
+					try {
+						await setMissionDisabled(missionId, true);
+						extensionLogger.log('[GamePreview] Mission marked as disabled in storage', {
+							missionId,
+						});
+
+						// Send to state machine to find next mission
+						sendToStateMachine({
+							type: 'MISSION_DELETED',
+							missionId,
+						});
+
+						sendResponse({ action: 'skip' });
+					} catch (error) {
+						// CRITICAL: If we can't disable the mission, stop the bot to prevent infinite loop
+						extensionLogger.error(
+							'[GamePreview] CRITICAL: Failed to disable mission in storage, stopping bot',
+							{
+								missionId,
+								error: String(error),
+							},
+						);
+
+						sendToStateMachine({
+							type: 'ERROR_OCCURRED',
+							message: `Failed to disable broken mission ${missionId}: ${String(error)}`,
+						});
+
+						sendResponse({ action: 'error', error: String(error) });
+					}
+				}
+			}
+			break;
+
 		case 'MISSION_COMPLETED':
 			{
 				const completedPostId = (message as any).postId;
 				extensionLogger.log('MISSION_COMPLETED received', {
 					postId: completedPostId,
 				});
+
+				// Cleanup reload attempts for this mission
+				if (completedPostId) {
+					gamePreviewReloadAttempts.delete(completedPostId);
+				}
 
 				// Mark mission as cleared in storage BEFORE sending to state machine
 				// This prevents race condition where findAndSendNextMission finds the same mission
@@ -938,16 +1006,23 @@ async function handleMessage(
 			break;
 
 		case 'ERROR_OCCURRED':
-			const errorSnapshot = getStateMachineSnapshot();
-			extensionLogger.error('ERROR_OCCURRED, sending to state machine', {
-				errorMessage: (message as any).message || 'Unknown error',
-				currentState: errorSnapshot?.value,
-			});
-			sendToStateMachine({
-				type: 'ERROR_OCCURRED',
-				message: (message as any).message || 'Unknown error',
-			});
-			sendResponse({ success: true });
+			{
+				const errorSnapshot = getStateMachineSnapshot();
+				const errorMessage = (message as any).message || 'Unknown error';
+
+				extensionLogger.error('ERROR_OCCURRED', {
+					errorMessage,
+					currentState: errorSnapshot?.value,
+				});
+
+				// Send error event to state machine
+				sendToStateMachine({
+					type: 'ERROR_OCCURRED',
+					message: errorMessage,
+				});
+
+				sendResponse({ success: true });
+			}
 			break;
 
 		case 'MISSIONS_UPDATED':

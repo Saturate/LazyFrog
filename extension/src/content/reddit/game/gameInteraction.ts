@@ -97,7 +97,7 @@ function findGamePreviewElement(): Element | null {
 /**
  * Wait for the game preview to render in the shadow DOM using polling
  */
-function waitForGamePreview(timeoutMs: number = 20000): Promise<Element | null> {
+function waitForGamePreview(timeoutMs: number = 35000): Promise<Element | null> {
 	return new Promise((resolve) => {
 		const startTime = Date.now();
 		const pollInterval = 500; // Check every 500ms
@@ -227,11 +227,7 @@ export async function clickGameUI(): Promise<boolean> {
 	// Step 1: Wait for game preview to render
 	const gamePreview = await waitForGamePreview();
 	if (!gamePreview) {
-		redditLogger.warn('[clickGameUI] Game preview not found');
-		chrome.runtime.sendMessage({
-			type: 'ERROR_OCCURRED',
-			message: 'Game preview not found',
-		});
+		redditLogger.warn('[clickGameUI] Game preview not found after 35s timeout');
 		return false;
 	}
 
