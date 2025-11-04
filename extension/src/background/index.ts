@@ -1037,12 +1037,6 @@ async function handleMessage(
 			sendResponse({ success: true });
 			break;
 
-		case 'STATUS_UPDATE':
-			// Status updates from content scripts - just acknowledge
-			// These are used for popup UI updates, background doesn't need to process them
-			sendResponse({ success: true });
-			break;
-
 		case 'PING':
 			// Keep-alive ping from content script
 			// Respond with current bot state so content script can verify service worker is alive

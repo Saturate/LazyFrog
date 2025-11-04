@@ -55,17 +55,12 @@ export type MessageType =
 	| 'UPDATE_STATE'
 	| 'LEVEL_COMPLETED'
 	| 'LEVELS_FOUND'
-	| 'GET_LEVELS'
-	| 'START_PROCESSING'
-	| 'STOP_PROCESSING'
-	| 'PLAY_CURRENT_MISSION'
 	| 'NAVIGATE_TO_MISSION'
 	| 'OPEN_MISSION_IFRAME'
 	| 'START_MISSION_AUTOMATION'
 	| 'STOP_MISSION_AUTOMATION'
 	| 'AUTOMATION_READY'
 	| 'START_EMULATE_MODE'
-	| 'STATUS_UPDATE'
 	| 'STATE_CHANGED'
 	| 'CHECK_FOR_GAME_LOADER'
 	| 'CHECK_GAME_DIALOG_STATUS'
@@ -96,11 +91,6 @@ export interface ChromeMessage extends Message {
 	type: MessageType;
 }
 
-export interface GetLevelsMessage extends ChromeMessage {
-	type: 'GET_LEVELS';
-	filters: LevelFilters;
-}
-
 export interface StartBotMessage extends ChromeMessage {
 	type: 'START_BOT';
 }
@@ -108,17 +98,4 @@ export interface StartBotMessage extends ChromeMessage {
 export interface LevelsFoundMessage extends ChromeMessage {
 	type: 'LEVELS_FOUND';
 	levels: Level[];
-}
-
-export interface PlayCurrentMissionMessage extends ChromeMessage {
-	type: 'PLAY_CURRENT_MISSION';
-	config: any; // AutomationConfig
-	filters?: LevelFilters;
-}
-
-export interface StatusUpdateMessage extends ChromeMessage {
-	type: 'STATUS_UPDATE';
-	status: string; // Status text to display
-	missionId?: string; // Optional mission ID
-	encounter?: { current: number; total: number }; // Optional encounter progress
 }
