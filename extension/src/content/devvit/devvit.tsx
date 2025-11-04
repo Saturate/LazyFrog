@@ -8,7 +8,7 @@ import {
 	DEFAULT_GIAE_CONFIG,
 	GameInstanceAutomationConfig,
 } from '../../automation/gameInstanceAutomation';
-import { analyzeGamePage, extractGameState, clickButton, getClickableElements } from './utils/dom';
+import { getClickableElements } from './utils/dom';
 import { devvitLogger } from '../../utils/logger';
 
 // Version and build info (replaced by webpack at build time)
@@ -27,15 +27,17 @@ let gameAutomation: GameInstanceAutomationEngine | null = null;
 // Set up message listener IMMEDIATELY to catch initialData
 // This must be before the game sends the message!
 window.addEventListener('message', (event: MessageEvent) => {
+	devvitLogger.log('📨 message event', event);
+
 	try {
 		// Check for devvit-message with initialData
 		if (event.data?.type === 'devvit-message') {
 			const messageType = event.data?.data?.message?.type;
 
-			devvitLogger.log('📨 devvit-message received (early listener)', {
+			devvitLogger.log('📨 devvit-message received', {
 				messageType,
 				origin: event.origin,
-				hasMessageData: !!event.data?.data?.message?.data,
+				data: event.data?.data?.message?.data || null,
 				timestamp: new Date().toISOString(),
 			});
 
@@ -125,8 +127,7 @@ function initializeAutomation(): void {
 		// Create automation engine
 		gameAutomation = new GameInstanceAutomationEngine(giaeConfig);
 
-		devvitLogger.log('Game instance automation engine initialized');
-		devvitLogger.log('Config', { config: giaeConfig });
+		devvitLogger.log('Game instance automation engine initialized', { config: giaeConfig });
 
 		// Check if we already captured initialData before the automation engine was ready
 		const capturedData = (window as any).__capturedInitialData;
@@ -153,10 +154,10 @@ function initializeAutomation(): void {
 
 				// Verify/fallback to storage data (fire and forget)
 				gameAutomation.gameState.loadMissionDataFromStorage(postId).catch((err) => {
-					devvitLogger.error('[devvit.tsx] Failed to load mission data from storage', err);
+					devvitLogger.error('Failed to load mission data from storage', err);
 				});
 
-				devvitLogger.log('Set mission data from captured initialData', {
+				devvitLogger.debug('Set mission data from captured initialData', {
 					postId,
 					encounters: gameAutomation.gameState.totalEncounters,
 				});
@@ -302,8 +303,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Initial analysis after a delay
 setTimeout(() => {
 	devvitLogger.log('Running initial game analysis');
-	analyzeGamePage();
-	extractGameState();
 
 	// Initialize mission automation
 	initializeAutomation();
