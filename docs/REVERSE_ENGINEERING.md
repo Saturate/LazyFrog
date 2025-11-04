@@ -241,7 +241,7 @@ Before that there's a "Continue" button
 </div>
 ```
 
-## Skill Bargian
+## Skill Bargian (monolith)
 
 ```html
 <div class="ui-panel">

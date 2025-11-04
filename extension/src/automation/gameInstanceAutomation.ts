@@ -187,14 +187,15 @@ export class GameInstanceAutomationEngine {
 			}
 
 			// Handle screen (if actionable)
-			// Note: At index -1 (pre-game), encounterType will be null
-			// and we'll rely on DOM detection, which should work fine
 			if (screen !== 'unknown' && screen !== 'in_progress') {
+				// Log encounter metadata for debugging (but don't use for detection)
+				const encounterType = this.gameState.getCurrentEncounterType();
 				logger.log('Screen', {
 					screen,
 					lives: this.gameState.livesRemaining,
 					playSafe: this.gameState.shouldPlaySafe(),
 					encounter: this.gameState.getProgress(),
+					encounterType, // For debugging - compare with detected screen
 				});
 
 				await this.handleScreen(screen, buttons);
@@ -207,31 +208,9 @@ export class GameInstanceAutomationEngine {
 		}
 	}
 
-	/**
-	 * Advance to next encounter after completing current one
-	 */
-	private advanceEncounter(): void {
-		const previousEncounter = this.gameState.currentEncounter;
-		const nextEncounter = previousEncounter + 1;
-
-		this.gameState.onEncounterComplete(nextEncounter);
-
-		logger.log('Encounter advanced', {
-			from: previousEncounter,
-			to: nextEncounter,
-			progress: this.gameState.getProgress(),
-		});
-
-		// Report state update to background
-		this.reportGameState();
-	}
-
 	private detectScreen(buttons: HTMLElement[]): string {
 		const texts = buttons.map((b) => b.textContent?.trim().toLowerCase() || '');
 		const classes = buttons.map((b) => b.className);
-
-		// Check encounter type from metadata (most reliable)
-		const encounterType = this.gameState.getCurrentEncounterType();
 
 		// Inn check
 		const tooltip = document.querySelector('.navbar-tooltip');
@@ -239,56 +218,40 @@ export class GameInstanceAutomationEngine {
 			return 'inn';
 		}
 
-		// Screen detection
+		// ============================================================================
+		// PURE DOM-BASED SCREEN DETECTION
+		// We don't use metadata for detection because it gets out of sync when we
+		// click buttons and advance the counter before the DOM updates
+		// ============================================================================
+
+		// Skip button (intro/story)
 		if (classes.some((c) => c.includes('skip-button'))) return 'skip';
+
+		// Mission end screen
 		if (document.querySelector('.mission-end-footer')) return 'finish';
 
-		// Crossroads mini-boss detection - primary: encounter type, fallback: button text
-		if (
-			encounterType === 'crossroadsFight' ||
-			(texts.some((t) => t.includes('fight')) && texts.some((t) => t.includes('nope')))
-		) {
-			return 'crossroads';
-		}
-
-		// Check for battle BEFORE bargain to avoid metadata/reality mismatch
-		// If we see an advance button, it's definitely a battle regardless of metadata
+		// Battle screen (advance button)
 		if (classes.some((c) => c.includes('advance-button'))) {
-			// Warn if metadata doesn't match reality (but not for initial battle at index -1)
-			if (this.gameState.currentEncounter !== -1 && encounterType && encounterType !== 'enemy') {
-				logger.warn('Battle screen but metadata says different encounter type!', {
-					encounterType,
-					currentEncounter: this.gameState.currentEncounter,
-					totalEncounters: this.gameState.totalEncounters,
-					nextEncounterType:
-						this.gameState.missionMetadata?.mission?.encounters?.[
-							this.gameState.currentEncounter + 1
-						]?.type,
-				});
-			}
 			return 'battle';
 		}
 
-		// Skill bargain detection - primary: encounter type, fallback: button text
-		const isBargainByMetadata = encounterType === 'skillBargain';
-		const isBargainByDOM =
-			texts.includes('refuse') || (texts.includes('accept') && texts.includes('decline'));
+		// Crossroads mini-boss (has both "fight" and "nope" buttons)
+		if (texts.some((t) => t.includes('fight')) && texts.some((t) => t.includes('nope'))) {
+			return 'crossroads';
+		}
 
-		if (isBargainByMetadata || isBargainByDOM) {
-			logger.log('Bargain detection triggered', {
-				encounterType,
-				isBargainByMetadata,
-				isBargainByDOM,
-				buttonTexts: texts,
-				buttonClasses: classes,
-			});
+		// Skill bargain (has "refuse" or both "accept" and "decline")
+		if (texts.includes('refuse') || (texts.includes('accept') && texts.includes('decline'))) {
 			return 'bargain';
 		}
 
+		// Choice screen (multiple skill buttons - blessing or ability choice)
 		if (classes.filter((c) => c.includes('skill-button')).length > 1) return 'choice';
+
+		// Continue button
 		if (texts.includes('continue')) return 'continue';
 
-		// In progress (only UI buttons)
+		// In progress (only UI buttons visible)
 		if (classes.some((c) => c.includes('volume-icon-button'))) {
 			return 'in_progress';
 		}
@@ -297,17 +260,28 @@ export class GameInstanceAutomationEngine {
 	}
 
 	private async handleScreen(screen: string, buttons: HTMLElement[]): Promise<void> {
-		switch (screen) {
-			case 'skip':
-				// Skip intro - doesn't advance encounter counter
-				this.clickByClass(buttons, 'skip-button');
-				break;
+		let actionTaken = false;
 
-			case 'battle':
-				this.clickByClass(buttons, 'advance-button');
-				// Battle completed, advance encounter
-				this.advanceEncounter();
+		switch (screen) {
+			case 'skip': {
+				// Skip intro/story
+				const skipBtn = buttons.find((b) => b.classList.contains('skip-button'));
+				if (skipBtn) {
+					skipBtn.click();
+					actionTaken = true;
+				}
 				break;
+			}
+
+			case 'battle': {
+				const advanceBtn = buttons.find((b) => b.classList.contains('advance-button'));
+				if (advanceBtn) {
+					logger.log('Clicking advance button');
+					advanceBtn.click();
+					actionTaken = true;
+				}
+				break;
+			}
 
 			case 'crossroads': {
 				const choice = this.decisionMaker.decideCrossroads();
@@ -318,16 +292,14 @@ export class GameInstanceAutomationEngine {
 					const fightBtn = buttons.find((b) => b.textContent?.toLowerCase().includes('fight'));
 					if (fightBtn) {
 						fightBtn.click();
-						// Crossroads completed, advance encounter
-						this.advanceEncounter();
+						actionTaken = true;
 					}
 				} else {
 					// choice === 'skip'
 					const skipBtn = buttons.find((b) => b.textContent?.toLowerCase().includes('nope'));
 					if (skipBtn) {
 						skipBtn.click();
-						// Crossroads completed, advance encounter
-						this.advanceEncounter();
+						actionTaken = true;
 					}
 				}
 				break;
@@ -337,10 +309,17 @@ export class GameInstanceAutomationEngine {
 				// Read bargain text from page
 				const bargainText = document.body.textContent || '';
 				const choice = this.decisionMaker.decideSkillBargain(bargainText);
-				logger.log('Bargain decision', { choice });
+				logger.log('Bargain decision', {
+					choice,
+					bargainText: bargainText.substring(0, 200),
+				});
 
 				// Find skill buttons
 				const skillButtons = buttons.filter((b) => b.classList.contains('skill-button'));
+				logger.log('Bargain buttons found', {
+					count: skillButtons.length,
+					buttons: skillButtons.map((b) => b.textContent?.trim()),
+				});
 
 				if (choice === 'accept') {
 					// Accept: click the bargain button (NOT "Refuse" or "Decline")
@@ -349,20 +328,28 @@ export class GameInstanceAutomationEngine {
 						return text !== 'refuse' && text !== 'decline';
 					});
 					if (acceptBtn) {
+						logger.log('Clicking accept button', { text: acceptBtn.textContent?.trim() });
 						acceptBtn.click();
-						// Bargain completed, advance encounter
-						this.advanceEncounter();
+						actionTaken = true;
 					}
 				} else {
-					// Decline: click "Refuse" or "Decline" button
+					// Decline: click "Refuse" or "Decline" button, or pick last skill button as fallback
 					const declineBtn = skillButtons.find((b) => {
 						const text = b.textContent?.trim().toLowerCase() || '';
 						return text === 'refuse' || text === 'decline';
 					});
 					if (declineBtn) {
+						logger.log('Clicking decline button', { text: declineBtn.textContent?.trim() });
 						declineBtn.click();
-						// Bargain completed, advance encounter
-						this.advanceEncounter();
+						actionTaken = true;
+					} else if (skillButtons.length > 0) {
+						// Fallback: if no explicit decline button (like monolith), click last skill button
+						const fallbackBtn = skillButtons[skillButtons.length - 1];
+						logger.log('No decline button, clicking last skill button as fallback', {
+							text: fallbackBtn.textContent?.trim(),
+						});
+						fallbackBtn.click();
+						actionTaken = true;
 					}
 				}
 				break;
@@ -371,37 +358,25 @@ export class GameInstanceAutomationEngine {
 			case 'choice': {
 				const skillButtons = buttons.filter((b) => b.classList.contains('skill-button'));
 
-				// Determine encounter type using metadata (most reliable)
-				const encounterType = this.gameState.getCurrentEncounterType();
+				// Use DOM to determine blessing vs ability choice
 				const panelHeader = document.querySelector('.ui-panel-header');
 				const headerText = panelHeader?.textContent?.toLowerCase() || '';
 
-				// Check encounter type from metadata
-				const isBlessing = encounterType === 'statsChoice';
-				const isAbility = encounterType === 'abilityChoice';
-
-				// Fallback to DOM inspection if no metadata
-				const isBlessingFallback =
-					!encounterType && (headerText.includes('blessing') || headerText.includes('boon'));
+				// Try to extract blessing stats from button text
+				const blessingStats = skillButtons
+					.map((b) => {
+						const text = b.textContent?.trim() || '';
+						const match = text.match(/Increase (\w+) by \d+%/);
+						return match ? match[1] : null;
+					})
+					.filter((stat): stat is string => !!stat);
 
 				let buttonClicked = false;
 
-				if (isBlessing || isBlessingFallback) {
+				// If we found blessing patterns OR header mentions blessing, it's a blessing choice
+				if (blessingStats.length > 0 || headerText.includes('blessing') || headerText.includes('boon')) {
 					// Handle blessing (statsChoice)
-					logger.log('Blessing detected', {
-						method: isBlessing ? 'metadata' : 'header-fallback',
-						encounterType,
-						headerText,
-					});
-
-					// Extract stat names from blessing buttons (e.g., "Speed" from "Increase Speed by 10%")
-					const blessingStats = skillButtons
-						.map((b) => {
-							const text = b.textContent?.trim() || '';
-							const match = text.match(/Increase (\w+) by \d+%/);
-							return match ? match[1] : null;
-						})
-						.filter((stat): stat is string => !!stat);
+					logger.log('Blessing detected (DOM)', { headerText, blessingStats });
 
 					if (blessingStats.length > 0) {
 						this.recordDiscoveredBlessingStats(blessingStats);
@@ -418,12 +393,8 @@ export class GameInstanceAutomationEngine {
 						}
 					}
 				} else {
-					// Handle ability choices (abilityChoice or unknown)
-					logger.log('Ability choice detected', {
-						method: isAbility ? 'metadata' : 'default',
-						encounterType,
-						headerText,
-					});
+					// Handle ability choices
+					logger.log('Ability choice detected (DOM)', { headerText });
 
 					const abilities = skillButtons.map((b) => b.textContent?.trim() || '');
 
@@ -450,11 +421,7 @@ export class GameInstanceAutomationEngine {
 					buttonClicked = true;
 				}
 
-				// Choice completed (ability or blessing), advance encounter
-				if (buttonClicked) {
-					this.advanceEncounter();
-				}
-
+				actionTaken = buttonClicked;
 				break;
 			}
 
@@ -465,27 +432,36 @@ export class GameInstanceAutomationEngine {
 						b.textContent?.toLowerCase() === 'continue' ||
 						b.classList.contains('end-mission-button'),
 				);
-				if (btn) btn.click();
+				if (btn) {
+					btn.click();
+					actionTaken = true;
+				}
 				break;
 			}
 
 			case 'inn':
-				if (this.gameState.postId) {
-					logger.log('Inn detected, completing mission', {
-						postId: this.gameState.postId,
-					});
-					chrome.runtime.sendMessage({
-						type: 'MISSION_COMPLETED',
-						postId: this.gameState.postId,
-					});
-				}
+				// Mission completion is already handled by the window message listener
+				// (setupMessageListener catches 'missionComplete' event from the game)
+				// We just need to detect the screen but not send duplicate MISSION_COMPLETED messages
+				logger.log('Inn detected (mission complete)', {
+					postId: this.gameState.postId,
+				});
+				actionTaken = true; // No action needed, but we handled it
 				break;
 		}
-	}
 
-	private clickByClass(buttons: HTMLElement[], className: string): void {
-		const btn = buttons.find((b) => b.classList.contains(className));
-		if (btn) btn.click();
+		// Global fallback: if no action was taken, click the first available button
+		if (!actionTaken && buttons.length > 0) {
+			logger.warn('No action taken for screen, clicking first available button as fallback', {
+				screen,
+				buttonCount: buttons.length,
+				firstButton: {
+					text: buttons[0].textContent?.trim(),
+					classes: buttons[0].className,
+				},
+			});
+			buttons[0].click();
+		}
 	}
 
 	private findAllButtons(): HTMLElement[] {
