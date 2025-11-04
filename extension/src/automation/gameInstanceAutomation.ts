@@ -167,7 +167,6 @@ export class GameInstanceAutomationEngine {
 
 	private async processGame(): Promise<void> {
 		this.isProcessing = true;
-		logger.log('[processGame] Detection tick', { enabled: this.config.enabled });
 
 		try {
 			// Proactively load mission data from storage if we have postId but no metadata
