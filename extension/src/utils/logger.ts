@@ -7,7 +7,11 @@ export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 export type LogContext = 'POPUP' | 'EXT' | 'REDDIT' | 'DEVVIT' | 'DEVVIT-GIAE' | string;
 
 // Default number of logs to keep in storage
-export const DEFAULT_MAX_STORED_LOGS = 10000;
+export const DEFAULT_MAX_STORED_LOGS = 5000;
+
+// Batch write settings
+const BATCH_WRITE_INTERVAL = 10000; // 10 seconds
+const BATCH_SIZE_THRESHOLD = 50; // Write when buffer reaches this size
 
 interface LogEntry {
 	timestamp: string;
@@ -29,6 +33,11 @@ interface LoggerConfig {
 export class Logger {
 	private config: LoggerConfig;
 	private parentContext?: string;
+
+	// Static batch write state (shared across all logger instances)
+	private static logBuffer: LogEntry[] = [];
+	private static flushTimer: ReturnType<typeof setTimeout> | null = null;
+	private static isFlushScheduled = false;
 
 	constructor(
 		context: LogContext,
@@ -100,40 +109,85 @@ export class Logger {
 	}
 
 	/**
-	 * Store log entry in chrome.storage
+	 * Flush buffered logs to chrome.storage
+	 * This is called periodically or when buffer reaches threshold
+	 */
+	private static async flushLogsToStorage(): Promise<void> {
+		if (typeof chrome === 'undefined' || !chrome.storage) return;
+		if (Logger.logBuffer.length === 0) return;
+
+		// Clear the timer since we're flushing now
+		if (Logger.flushTimer) {
+			clearTimeout(Logger.flushTimer);
+			Logger.flushTimer = null;
+		}
+		Logger.isFlushScheduled = false;
+
+		// Get logs to flush and clear the buffer
+		const logsToFlush = [...Logger.logBuffer];
+		Logger.logBuffer = [];
+
+		try {
+			// Use Promise-based API for better performance
+			const result = await chrome.storage.local.get(['debugLogs', 'automationConfig']);
+			const existingLogs: LogEntry[] = result.debugLogs || [];
+			const maxLogs = result.automationConfig?.maxStoredLogs ?? DEFAULT_MAX_STORED_LOGS;
+
+			// Append new logs
+			const allLogs = [...existingLogs, ...logsToFlush];
+
+			// Trim to max size (keep most recent logs)
+			if (allLogs.length > maxLogs) {
+				allLogs.splice(0, allLogs.length - maxLogs);
+			}
+
+			// Save back to storage
+			await chrome.storage.local.set({ debugLogs: allLogs });
+		} catch (error) {
+			// If flush fails, put logs back in buffer to try again
+			Logger.logBuffer.unshift(...logsToFlush);
+			console.error('[LF] Failed to flush logs:', error);
+		}
+
+		// Schedule next flush if there are new logs
+		if (Logger.logBuffer.length > 0) {
+			Logger.scheduleFlush();
+		}
+	}
+
+	/**
+	 * Schedule a flush to happen after the interval
+	 */
+	private static scheduleFlush(): void {
+		if (Logger.isFlushScheduled) return;
+
+		Logger.isFlushScheduled = true;
+		Logger.flushTimer = setTimeout(() => {
+			Logger.flushLogsToStorage();
+		}, BATCH_WRITE_INTERVAL);
+	}
+
+	/**
+	 * Store log entry in buffer (will be flushed periodically)
 	 */
 	private storeLog(entry: LogEntry): void {
 		if (!this.config.storeLogs) return;
 		if (typeof chrome === 'undefined' || !chrome.storage) return;
 
 		try {
-			// Use callback-based API for better compatibility
-			chrome.storage.local.get(['debugLogs'], (result) => {
-				if (chrome.runtime.lastError) {
-					console.error('[LF] Failed to get logs:', chrome.runtime.lastError);
-					return;
-				}
+			// Add to buffer
+			Logger.logBuffer.push(entry);
 
-				const logs: LogEntry[] = result.debugLogs || [];
-
-				// Add new log
-				logs.push(entry);
-
-				// Trim to max size (keep most recent logs)
-				if (logs.length > this.config.maxStoredLogs) {
-					logs.splice(0, logs.length - this.config.maxStoredLogs);
-				}
-
-				// Save back to storage
-				chrome.storage.local.set({ debugLogs: logs }, () => {
-					if (chrome.runtime.lastError) {
-						console.error('[LF] Failed to store log:', chrome.runtime.lastError);
-					}
-				});
-			});
+			// Flush immediately if buffer is full
+			if (Logger.logBuffer.length >= BATCH_SIZE_THRESHOLD) {
+				Logger.flushLogsToStorage();
+			} else {
+				// Schedule a flush if not already scheduled
+				Logger.scheduleFlush();
+			}
 		} catch (error) {
 			// Silently fail - don't break the extension if storage fails
-			console.error('[LF] Failed to store log:', error);
+			console.error('[LF] Failed to buffer log:', error);
 		}
 	}
 
@@ -267,6 +321,14 @@ export class Logger {
 			},
 			fullContext,
 		);
+	}
+
+	/**
+	 * Flush all buffered logs to storage immediately
+	 * Call this before extension unload to prevent log loss
+	 */
+	static async flushLogs(): Promise<void> {
+		return Logger.flushLogsToStorage();
 	}
 }
 
