@@ -18,6 +18,7 @@ export interface GameInstanceAutomationConfig {
 	skillBargainStrategy: 'always' | 'positive-only' | 'never';
 	crossroadsStrategy: 'fight' | 'skip'; // Whether to fight or skip mini boss encounters
 	clickDelay: number; // Delay between clicks in ms
+	debugVisuals?: boolean; // Show red outline on buttons that will be clicked
 }
 
 export const DEFAULT_GIAE_CONFIG: GameInstanceAutomationConfig = {
@@ -28,6 +29,7 @@ export const DEFAULT_GIAE_CONFIG: GameInstanceAutomationConfig = {
 	skillBargainStrategy: 'positive-only',
 	crossroadsStrategy: 'fight', // Fight mini bosses by default
 	clickDelay: 1000,
+	debugVisuals: true, // Show visual indicators for debugging
 };
 
 export class GameInstanceAutomationEngine {
@@ -36,6 +38,10 @@ export class GameInstanceAutomationEngine {
 	private decisionMaker: DecisionMaker;
 	private intervalId: number | null = null;
 	private isProcessing = false;
+
+	// Detection intervals
+	private readonly ACTIVE_INTERVAL_MS = 1000; // Fast when bot is running
+	private readonly MONITORING_INTERVAL_MS = 5000; // Slower when just detecting
 
 	// Public properties for compatibility
 	public currentPostId: string | null = null;
@@ -60,6 +66,12 @@ export class GameInstanceAutomationEngine {
 
 		this.setupMessageListener();
 		logger.log('Game automation engine initialized');
+
+		// Start detection interval immediately (even if automation is disabled)
+		// This allows us to always monitor game state for debugging
+		// Start with monitoring interval (slower) since automation is disabled by default
+		this.startInterval(this.MONITORING_INTERVAL_MS);
+		logger.log('Screen detection interval started (monitoring mode)');
 	}
 
 	private setupMessageListener(): void {
@@ -109,21 +121,42 @@ export class GameInstanceAutomationEngine {
 		});
 	}
 
-	start(): void {
-		if (this.intervalId) return;
+	/**
+	 * Helper to start/restart the detection interval with a specific timing
+	 */
+	private startInterval(intervalMs: number): void {
+		// Clear existing interval if any
+		if (this.intervalId) {
+			clearInterval(this.intervalId);
+		}
 
-		this.config.enabled = true;
-		logger.log('Starting automation');
-
+		// Start new interval
 		this.intervalId = window.setInterval(() => {
-			if (this.config.enabled && !this.isProcessing) {
+			if (!this.isProcessing) {
 				this.processGame();
 			}
-		}, 1500);
+		}, intervalMs);
+	}
+
+	start(): void {
+		this.config.enabled = true;
+		logger.log('Starting automation (switching to active mode)');
+		// Switch to faster interval for responsive clicking
+		this.startInterval(this.ACTIVE_INTERVAL_MS);
 	}
 
 	stop(): void {
-		logger.log('Stopping automation');
+		logger.log('Stopping automation (switching to monitoring mode)');
+		this.config.enabled = false;
+		// Switch to slower interval for less spammy logging
+		this.startInterval(this.MONITORING_INTERVAL_MS);
+	}
+
+	/**
+	 * Completely stops detection interval (use when leaving game)
+	 */
+	stopDetection(): void {
+		logger.log('Stopping detection interval');
 		this.config.enabled = false;
 
 		if (this.intervalId) {
@@ -134,6 +167,7 @@ export class GameInstanceAutomationEngine {
 
 	private async processGame(): Promise<void> {
 		this.isProcessing = true;
+		logger.log('[processGame] Detection tick', { enabled: this.config.enabled });
 
 		try {
 			// Proactively load mission data from storage if we have postId but no metadata
@@ -178,6 +212,7 @@ export class GameInstanceAutomationEngine {
 
 			// Detect screen
 			const screen = this.detectScreen(buttons);
+			logger.log('[processGame] Screen detected', { screen });
 			const screenChanged = this.gameState.currentScreen !== screen;
 			this.gameState.currentScreen = screen;
 
@@ -190,16 +225,23 @@ export class GameInstanceAutomationEngine {
 			if (screen !== 'unknown' && screen !== 'in_progress') {
 				// Log encounter metadata for debugging (but don't use for detection)
 				const encounterType = this.gameState.getCurrentEncounterType();
+				const dryRun = !this.config.enabled;
+
 				logger.log('Screen', {
 					screen,
 					lives: this.gameState.livesRemaining,
 					playSafe: this.gameState.shouldPlaySafe(),
 					encounter: this.gameState.getProgress(),
 					encounterType, // For debugging - compare with detected screen
+					mode: dryRun ? 'DRY-RUN' : 'ACTIVE',
 				});
 
-				await this.handleScreen(screen, buttons);
-				await this.delay(this.config.clickDelay || 300);
+				await this.handleScreen(screen, buttons, dryRun);
+
+				// Only delay if we actually performed an action
+				if (!dryRun) {
+					await this.delay(this.config.clickDelay || 300);
+				}
 			}
 		} catch (error) {
 			logger.error('Process error', { error: String(error) });
@@ -230,11 +272,6 @@ export class GameInstanceAutomationEngine {
 		// Mission end screen
 		if (document.querySelector('.mission-end-footer')) return 'finish';
 
-		// Battle screen (advance button)
-		if (classes.some((c) => c.includes('advance-button'))) {
-			return 'battle';
-		}
-
 		// Crossroads mini-boss (has both "fight" and "nope" buttons)
 		if (texts.some((t) => t.includes('fight')) && texts.some((t) => t.includes('nope'))) {
 			return 'crossroads';
@@ -248,10 +285,15 @@ export class GameInstanceAutomationEngine {
 		// Choice screen (multiple skill buttons - blessing or ability choice)
 		if (classes.filter((c) => c.includes('skill-button')).length > 1) return 'choice';
 
+		// Battle screen (advance button) - check BEFORE in_progress
+		if (classes.some((c) => c.includes('advance-button'))) {
+			return 'battle';
+		}
+
 		// Continue button
 		if (texts.includes('continue')) return 'continue';
 
-		// In progress (only UI buttons visible)
+		// In progress (only UI buttons visible) - check LAST as UI buttons always present
 		if (classes.some((c) => c.includes('volume-icon-button'))) {
 			return 'in_progress';
 		}
@@ -259,7 +301,30 @@ export class GameInstanceAutomationEngine {
 		return 'unknown';
 	}
 
-	private async handleScreen(screen: string, buttons: HTMLElement[]): Promise<void> {
+	/**
+	 * Helper to click a button or log dry-run action
+	 */
+	private clickButton(button: HTMLElement, description: string, dryRun: boolean): void {
+		// Add visual debug indicator if enabled
+		if (this.config.debugVisuals) {
+			button.style.outline = '3px solid #ff000052';
+		}
+
+		if (dryRun) {
+			logger.log(`[DRY-RUN] Would click: ${description}`, {
+				buttonText: button.textContent?.trim(),
+				buttonClass: button.className,
+			});
+		} else {
+			button.click();
+		}
+	}
+
+	private async handleScreen(
+		screen: string,
+		buttons: HTMLElement[],
+		dryRun: boolean = false,
+	): Promise<void> {
 		let actionTaken = false;
 
 		switch (screen) {
@@ -267,7 +332,7 @@ export class GameInstanceAutomationEngine {
 				// Skip intro/story
 				const skipBtn = buttons.find((b) => b.classList.contains('skip-button'));
 				if (skipBtn) {
-					skipBtn.click();
+					this.clickButton(skipBtn, 'skip button', dryRun);
 					actionTaken = true;
 				}
 				break;
@@ -276,8 +341,7 @@ export class GameInstanceAutomationEngine {
 			case 'battle': {
 				const advanceBtn = buttons.find((b) => b.classList.contains('advance-button'));
 				if (advanceBtn) {
-					logger.log('Clicking advance button');
-					advanceBtn.click();
+					this.clickButton(advanceBtn, 'advance button', dryRun);
 					actionTaken = true;
 				}
 				break;
@@ -285,20 +349,20 @@ export class GameInstanceAutomationEngine {
 
 			case 'crossroads': {
 				const choice = this.decisionMaker.decideCrossroads();
-				logger.log('Crossroads decision', { choice });
+				logger.log('Crossroads decision', { choice, dryRun });
 
 				// Button text: "Let's Fight!" or "Nope"
 				if (choice === 'fight') {
 					const fightBtn = buttons.find((b) => b.textContent?.toLowerCase().includes('fight'));
 					if (fightBtn) {
-						fightBtn.click();
+						this.clickButton(fightBtn, 'fight button (crossroads)', dryRun);
 						actionTaken = true;
 					}
 				} else {
 					// choice === 'skip'
 					const skipBtn = buttons.find((b) => b.textContent?.toLowerCase().includes('nope'));
 					if (skipBtn) {
-						skipBtn.click();
+						this.clickButton(skipBtn, 'nope button (crossroads)', dryRun);
 						actionTaken = true;
 					}
 				}
@@ -312,6 +376,7 @@ export class GameInstanceAutomationEngine {
 				logger.log('Bargain decision', {
 					choice,
 					bargainText: bargainText.substring(0, 200),
+					dryRun,
 				});
 
 				// Find skill buttons
@@ -328,8 +393,9 @@ export class GameInstanceAutomationEngine {
 						return text !== 'refuse' && text !== 'decline';
 					});
 					if (acceptBtn) {
-						logger.log('Clicking accept button', { text: acceptBtn.textContent?.trim() });
-						acceptBtn.click();
+						if (!dryRun)
+							logger.log('Clicking accept button', { text: acceptBtn.textContent?.trim() });
+						this.clickButton(acceptBtn, 'accept button (bargain)', dryRun);
 						actionTaken = true;
 					}
 				} else {
@@ -339,16 +405,19 @@ export class GameInstanceAutomationEngine {
 						return text === 'refuse' || text === 'decline';
 					});
 					if (declineBtn) {
-						logger.log('Clicking decline button', { text: declineBtn.textContent?.trim() });
-						declineBtn.click();
+						if (!dryRun)
+							logger.log('Clicking decline button', { text: declineBtn.textContent?.trim() });
+						this.clickButton(declineBtn, 'decline button (bargain)', dryRun);
 						actionTaken = true;
 					} else if (skillButtons.length > 0) {
 						// Fallback: if no explicit decline button (like monolith), click last skill button
 						const fallbackBtn = skillButtons[skillButtons.length - 1];
-						logger.log('No decline button, clicking last skill button as fallback', {
-							text: fallbackBtn.textContent?.trim(),
-						});
-						fallbackBtn.click();
+						if (!dryRun) {
+							logger.log('No decline button, clicking last skill button as fallback', {
+								text: fallbackBtn.textContent?.trim(),
+							});
+						}
+						this.clickButton(fallbackBtn, 'last skill button (bargain fallback)', dryRun);
 						actionTaken = true;
 					}
 				}
@@ -374,27 +443,31 @@ export class GameInstanceAutomationEngine {
 				let buttonClicked = false;
 
 				// If we found blessing patterns OR header mentions blessing, it's a blessing choice
-				if (blessingStats.length > 0 || headerText.includes('blessing') || headerText.includes('boon')) {
+				if (
+					blessingStats.length > 0 ||
+					headerText.includes('blessing') ||
+					headerText.includes('boon')
+				) {
 					// Handle blessing (statsChoice)
-					logger.log('Blessing detected (DOM)', { headerText, blessingStats });
+					logger.log('Blessing detected (DOM)', { headerText, blessingStats, dryRun });
 
 					if (blessingStats.length > 0) {
 						this.recordDiscoveredBlessingStats(blessingStats);
 
 						const chosen = this.decisionMaker.pickBlessing(blessingStats);
-						logger.log('Blessing choice', { chosen, available: blessingStats });
+						logger.log('Blessing choice', { chosen, available: blessingStats, dryRun });
 
 						const btn = skillButtons.find((b) =>
 							b.textContent?.toLowerCase().includes(chosen.toLowerCase()),
 						);
 						if (btn) {
-							btn.click();
+							this.clickButton(btn, `blessing: ${chosen}`, dryRun);
 							buttonClicked = true;
 						}
 					}
 				} else {
 					// Handle ability choices
-					logger.log('Ability choice detected (DOM)', { headerText });
+					logger.log('Ability choice detected (DOM)', { headerText, dryRun });
 
 					const abilities = skillButtons.map((b) => b.textContent?.trim() || '');
 
@@ -402,11 +475,11 @@ export class GameInstanceAutomationEngine {
 						this.recordDiscoveredAbilities(abilities);
 
 						const chosen = this.decisionMaker.pickAbility(abilities);
-						logger.log('Ability choice', { chosen, available: abilities });
+						logger.log('Ability choice', { chosen, available: abilities, dryRun });
 
 						const btn = buttons.find((b) => b.textContent?.includes(chosen));
 						if (btn) {
-							btn.click();
+							this.clickButton(btn, `ability: ${chosen}`, dryRun);
 							buttonClicked = true;
 						}
 					}
@@ -414,10 +487,12 @@ export class GameInstanceAutomationEngine {
 
 				// Fallback: if no button was clicked, pick the first skill button
 				if (!buttonClicked && skillButtons.length > 0) {
-					logger.log('No specific choice made, picking first button as fallback', {
-						firstButtonText: skillButtons[0].textContent?.trim(),
-					});
-					skillButtons[0].click();
+					if (!dryRun) {
+						logger.log('No specific choice made, picking first button as fallback', {
+							firstButtonText: skillButtons[0].textContent?.trim(),
+						});
+					}
+					this.clickButton(skillButtons[0], 'first skill button (choice fallback)', dryRun);
 					buttonClicked = true;
 				}
 
@@ -433,7 +508,7 @@ export class GameInstanceAutomationEngine {
 						b.classList.contains('end-mission-button'),
 				);
 				if (btn) {
-					btn.click();
+					this.clickButton(btn, 'continue/finish button', dryRun);
 					actionTaken = true;
 				}
 				break;
@@ -445,6 +520,7 @@ export class GameInstanceAutomationEngine {
 				// We just need to detect the screen but not send duplicate MISSION_COMPLETED messages
 				logger.log('Inn detected (mission complete)', {
 					postId: this.gameState.postId,
+					dryRun,
 				});
 				actionTaken = true; // No action needed, but we handled it
 				break;
@@ -452,15 +528,17 @@ export class GameInstanceAutomationEngine {
 
 		// Global fallback: if no action was taken, click the first available button
 		if (!actionTaken && buttons.length > 0) {
-			logger.warn('No action taken for screen, clicking first available button as fallback', {
-				screen,
-				buttonCount: buttons.length,
-				firstButton: {
-					text: buttons[0].textContent?.trim(),
-					classes: buttons[0].className,
-				},
-			});
-			buttons[0].click();
+			if (!dryRun) {
+				logger.warn('No action taken for screen, clicking first available button as fallback', {
+					screen,
+					buttonCount: buttons.length,
+					firstButton: {
+						text: buttons[0].textContent?.trim(),
+						classes: buttons[0].className,
+					},
+				});
+			}
+			this.clickButton(buttons[0], 'first available button (global fallback)', dryRun);
 		}
 	}
 

@@ -11,6 +11,7 @@ interface DebugSettings {
 	nextMissionsCount: number;
 	debugMode: boolean;
 	showStepByStepControls: boolean;
+	debugVisuals: boolean;
 }
 
 const SettingsTab: React.FC = () => {
@@ -20,6 +21,7 @@ const SettingsTab: React.FC = () => {
 		nextMissionsCount: 5,
 		debugMode: false,
 		showStepByStepControls: false,
+		debugVisuals: true,
 	});
 	const [userOptions, setUserOptions] = useState<UserOptions>({});
 
@@ -32,6 +34,7 @@ const SettingsTab: React.FC = () => {
 					nextMissionsCount: result.automationConfig.nextMissionsCount || 5,
 					debugMode: result.automationConfig.debugMode || false,
 					showStepByStepControls: result.automationConfig.showStepByStepControls || false,
+					debugVisuals: result.automationConfig.debugVisuals !== false, // Default to true
 				});
 			}
 			if (result.userOptions) {
@@ -49,6 +52,7 @@ const SettingsTab: React.FC = () => {
 				nextMissionsCount: settings.nextMissionsCount,
 				debugMode: settings.debugMode,
 				showStepByStepControls: settings.showStepByStepControls,
+				debugVisuals: settings.debugVisuals,
 			};
 			chrome.storage.local.set({ automationConfig: fullConfig });
 		});
@@ -224,7 +228,7 @@ const SettingsTab: React.FC = () => {
 					</p>
 				</div>
 
-				<div className="form-group">
+				<div className="form-group" style={{ marginBottom: '20px' }}>
 					<label
 						style={{
 							display: 'flex',
@@ -255,6 +259,40 @@ const SettingsTab: React.FC = () => {
 						}}
 					>
 						Shows step-by-step automation controls in the popup (1. Navigate, 2. Open, 3. Play). Useful for debugging automation flow or manually controlling each step.
+					</p>
+				</div>
+
+				<div className="form-group">
+					<label
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: '8px',
+							cursor: 'pointer',
+						}}
+					>
+						<input
+							type="checkbox"
+							checked={settings.debugVisuals}
+							onChange={(e) =>
+								setSettings((prev) => ({
+									...prev,
+									debugVisuals: e.target.checked,
+								}))
+							}
+							style={{ cursor: 'pointer' }}
+						/>
+						<span>Show Debug Visual Indicators</span>
+					</label>
+					<p
+						style={{
+							color: '#a1a1aa',
+							fontSize: '13px',
+							marginTop: '8px',
+							marginLeft: '28px',
+						}}
+					>
+						Highlights buttons that the bot wants to click with a red outline. Useful for visually debugging automation decisions and understanding what the bot is doing.
 					</p>
 				</div>
 			</div>

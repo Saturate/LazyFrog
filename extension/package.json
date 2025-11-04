@@ -1,19 +1,21 @@
 {
 	"name": "lazyfrog",
-	"version": "0.15.2",
+	"version": "0.16.0",
 	"description": "Sword & Supper game automation extension with TypeScript and React",
 	"scripts": {
-		"build": "webpack --mode production",
-		"dev": "webpack --mode development --watch",
-		"clean": "rm -rf dist artifacts",
+		"build": "wxt build",
+		"dev": "wxt dev",
+		"build:firefox": "wxt build -b firefox",
+		"zip": "wxt zip",
+		"zip:firefox": "wxt zip -b firefox",
+		"clean": "rm -rf .wxt dist .output",
 		"type-check": "tsc --noEmit",
 		"test": "vitest",
 		"test:ui": "vitest --ui",
 		"test:run": "vitest run",
-		"package": "pnpm run build && pnpm run package:zip && pnpm run copy-to-website",
-		"package:zip": "web-ext build --overwrite-dest && cd artifacts",
-		"copy-to-website": "mkdir -p ../website/public/downloads && cp artifacts/lazyfrog-*.zip ../website/public/downloads/",
-		"start:chrome": "pnpm run build && web-ext run --target chromium --start-url https://www.reddit.com/r/SwordAndSupperGame/"
+		"package": "pnpm run build && pnpm run zip && pnpm run copy-to-website",
+		"copy-to-website": "mkdir -p ../website/public/downloads && cp .output/*-*.zip ../website/public/downloads/",
+		"start:chrome": "wxt dev -b chrome --open https://www.reddit.com/r/SwordAndSupperGame/"
 	},
 	"keywords": [
 		"browser-extension",
@@ -46,20 +48,15 @@
 		"@types/react-dom": "^19.2.2",
 		"@types/webextension-polyfill": "^0.10.7",
 		"@vitest/ui": "^3.2.4",
+		"@wxt-dev/module-react": "^1.1.5",
 		"better-sqlite3": "^12.4.1",
-		"copy-webpack-plugin": "^11.0.0",
-		"css-loader": "^6.8.1",
-		"html-webpack-plugin": "^5.5.4",
 		"jsdom": "^27.0.1",
 		"prettier": "3.6.2",
 		"sqlite3": "^5.1.7",
-		"style-loader": "^3.3.3",
-		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
 		"vitest": "^3.2.4",
 		"web-ext": "^9.0.0",
-		"webpack": "^5.89.0",
-		"webpack-cli": "^5.1.4"
+		"wxt": "^0.20.11"
 	},
 	"packageManager": "pnpm@10.19.0+sha512.c9fc7236e92adf5c8af42fd5bf1612df99c2ceb62f27047032f4720b33f8eacdde311865e91c411f2774f618d82f320808ecb51718bfa82c060c4ba7c76a32b8"
 }
