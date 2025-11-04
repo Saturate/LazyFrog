@@ -180,9 +180,7 @@ const PopupApp: React.FC = () => {
 	// Listen for messages from background
 	useEffect(() => {
 		const messageListener = (message: any) => {
-			if (message.type === 'STATUS_UPDATE') {
-				setStatusText(message.status);
-			} else if (message.type === 'STATE_CHANGED') {
+			if (message.type === 'STATE_CHANGED') {
 				setIsRunning(!['idle', 'error'].includes(message.state));
 				// Update stats when state changes
 				loadStats();
