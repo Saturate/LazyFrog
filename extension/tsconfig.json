@@ -14,7 +14,7 @@
     "strictNullChecks": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "./dist",
-    "types": ["chrome", "node"]
+    "types": ["chrome", "node", "wxt/client"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "extension", "**/*.test.ts", "**/*.test.tsx", "**/__tests__"]

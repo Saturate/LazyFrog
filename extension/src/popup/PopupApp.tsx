@@ -3,15 +3,11 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-	Play,
-	Pause,
-	Settings,
-	Heart,
-} from 'lucide-react';
+import { Play, Pause, Settings, Heart } from 'lucide-react';
 import { getMissionStats } from '../lib/storage/missionStats';
 import { getNextMissions } from '../lib/storage/missionQueries';
-import { MissionRecord } from '@lazyfrog/types'; import { AutomationFilters } from '../lib/storage/storageTypes';
+import { MissionRecord } from '@lazyfrog/types';
+import { AutomationFilters } from '../lib/storage/storageTypes';
 import { getAutomationFilters } from '../lib/storage/getAutomationFilters';
 import { VERSION, getTimeSinceBuild } from '../utils/buildInfo';
 import './popup.css';
@@ -109,13 +105,15 @@ const PopupApp: React.FC = () => {
 		loadStats();
 
 		// Load filters from storage (with defaults initialization)
-		getAutomationFilters().then((loadedFilters) => {
-			setFilters(loadedFilters);
-			setIsInitialLoad(false);
-		}).catch((error) => {
-			console.error('Failed to load filters:', error);
-			setIsInitialLoad(false);
-		});
+		getAutomationFilters()
+			.then((loadedFilters) => {
+				setFilters(loadedFilters);
+				setIsInitialLoad(false);
+			})
+			.catch((error) => {
+				console.error('Failed to load filters:', error);
+				setIsInitialLoad(false);
+			});
 
 		// Load automation config
 		chrome.storage.local.get(['automationConfig'], (result) => {
@@ -321,8 +319,12 @@ const PopupApp: React.FC = () => {
 					showSection={showFilters}
 					onToggle={() => setShowFilters(!showFilters)}
 					onToggleStar={toggleStar}
-					onMinLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, minLevel: level }) : prev)}
-					onMaxLevelChange={(level) => setFilters((prev) => prev ? ({ ...prev, maxLevel: level }) : prev)}
+					onMinLevelChange={(level) =>
+						setFilters((prev) => (prev ? { ...prev, minLevel: level } : prev))
+					}
+					onMaxLevelChange={(level) =>
+						setFilters((prev) => (prev ? { ...prev, maxLevel: level } : prev))
+					}
 				/>
 			)}
 
@@ -355,38 +357,38 @@ const PopupApp: React.FC = () => {
 				MORE
 			</button>
 
-			{/* Sponsor Link */}
-			<div style={{ padding: '8px 16px', textAlign: 'center' }}>
-				<a
-					href="https://github.com/sponsors/Saturate"
-					target="_blank"
-					rel="noopener noreferrer"
-					style={{
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: '6px',
-						color: '#ec4899',
-						fontSize: '12px',
-						textDecoration: 'none',
-						padding: '6px 12px',
-						borderRadius: '6px',
-						transition: 'background-color 0.2s',
-					}}
-					onMouseEnter={(e) => {
-						e.currentTarget.style.backgroundColor = 'rgba(236, 72, 153, 0.1)';
-					}}
-					onMouseLeave={(e) => {
-						e.currentTarget.style.backgroundColor = 'transparent';
-					}}
-				>
-					<Heart size={12} fill="#ec4899" />
-					<span>Support Development</span>
-				</a>
-			</div>
-
 			{/* Footer */}
 			<div className="footer">
 				<span>v{VERSION}</span>
+				{/* Sponsor Link */}
+
+				<span>
+					<a
+						href="https://github.com/sponsors/Saturate"
+						target="_blank"
+						rel="noopener noreferrer"
+						style={{
+							display: 'inline-flex',
+							alignItems: 'center',
+							gap: '6px',
+							color: '#ec4899',
+							fontSize: '12px',
+							textDecoration: 'none',
+							padding: '6px 12px',
+							borderRadius: '6px',
+							transition: 'background-color 0.2s',
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.backgroundColor = 'rgba(236, 72, 153, 0.1)';
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.backgroundColor = 'transparent';
+						}}
+					>
+						<Heart size={12} fill="#ec4899" />
+						<span>Support</span>
+					</a>
+				</span>
 				<span>Built: {buildAge}</span>
 			</div>
 		</div>

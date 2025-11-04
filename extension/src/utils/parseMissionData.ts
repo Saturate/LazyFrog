@@ -45,7 +45,6 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 		// Extract mission data from state hooks
 		if (json.state) {
 			// Debug: Log state keys to see what's available
-			const stateKeys = Object.keys(json.state);
 			redditLogger.debug(`Decoded UIResponse for ${postId}:`, json);
 
 			// Look for mission data in useState-12 (or similar)

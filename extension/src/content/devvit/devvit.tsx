@@ -122,6 +122,7 @@ function initializeAutomation(): void {
 			skillBargainStrategy: config.skillBargainStrategy || DEFAULT_GIAE_CONFIG.skillBargainStrategy,
 			crossroadsStrategy: config.crossroadsStrategy || DEFAULT_GIAE_CONFIG.crossroadsStrategy,
 			clickDelay: 300,
+			debugVisuals: config.debugVisuals !== undefined ? config.debugVisuals : DEFAULT_GIAE_CONFIG.debugVisuals,
 		};
 
 		// Create automation engine
@@ -224,6 +225,7 @@ function updateAutomationConfig(config: any): void {
 		autoAcceptSkillBargains: config.autoAcceptSkillBargains,
 		skillBargainStrategy: config.skillBargainStrategy,
 		crossroadsStrategy: config.crossroadsStrategy,
+		debugVisuals: config.debugVisuals,
 	};
 
 	gameAutomation.updateConfig(giaeConfig);

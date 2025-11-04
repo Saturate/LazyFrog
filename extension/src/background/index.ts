@@ -33,6 +33,10 @@ let botActor: any = null;
 // Track game preview reload attempts per mission
 const gamePreviewReloadAttempts = new Map<string, number>();
 
+// Track game iframe for targeted messaging
+let gameFrameId: number | undefined = undefined;
+let gameTabId: number | undefined = undefined;
+
 // Initialize state machine
 function initializeStateMachine() {
 	// Clean up existing actor if it exists
@@ -495,46 +499,54 @@ function broadcastToAllFrames(message: any): void {
 }
 
 /**
+ * Send message to the game iframe only
+ * Returns a promise that resolves with the response or rejects if the game frame isn't tracked
+ */
+function sendToGameFrame(message: any): Promise<any> {
+	return new Promise((resolve, reject) => {
+		if (gameFrameId === undefined || gameTabId === undefined) {
+			reject(new Error('Game frame not tracked yet'));
+			return;
+		}
+
+		chrome.tabs.sendMessage(
+			gameTabId,
+			message,
+			{ frameId: gameFrameId },
+			(response) => {
+				if (chrome.runtime.lastError) {
+					reject(new Error(chrome.runtime.lastError.message));
+				} else {
+					resolve(response);
+				}
+			}
+		);
+	});
+}
+
+/**
  * Check if automation engine is ready in devvit iframe
  * Returns a promise that resolves to true if automation is ready, false otherwise
  */
 async function checkAutomationReady(): Promise<boolean> {
-	return new Promise((resolve) => {
-		// Query Reddit tabs
-		chrome.tabs.query({ url: 'https://www.reddit.com/*' }, (tabs) => {
-			if (tabs.length === 0 || !tabs[0].id) {
-				// No Reddit tab found
-				extensionLogger.log('[checkAutomationReady] No Reddit tab found');
-				resolve(false);
-				return;
-			}
+	try {
+		// Send CHECK_AUTOMATION_STATUS to the game iframe only
+		const response = await sendToGameFrame({ type: 'CHECK_AUTOMATION_STATUS' });
 
-			// Send CHECK_AUTOMATION_STATUS to all frames
-			chrome.tabs.sendMessage(
-				tabs[0].id,
-				{ type: 'CHECK_AUTOMATION_STATUS' },
-				{ frameId: undefined }, // All frames
-				(response) => {
-					if (chrome.runtime.lastError) {
-						// No devvit frame or error occurred
-						extensionLogger.log('[checkAutomationReady] Error or no devvit frame', {
-							error: chrome.runtime.lastError.message,
-						});
-						resolve(false);
-						return;
-					}
-
-					const isReady = response?.isReady || false;
-					extensionLogger.log('[checkAutomationReady] Automation status check result', {
-						isReady,
-						state: response?.state,
-					});
-
-					resolve(isReady);
-				},
-			);
+		const isReady = response?.isReady || false;
+		extensionLogger.log('[checkAutomationReady] Automation status check result', {
+			isReady,
+			state: response?.state,
 		});
-	});
+
+		return isReady;
+	} catch (error) {
+		// Game frame not tracked or error occurred
+		extensionLogger.log('[checkAutomationReady] Error or game frame not tracked', {
+			error: String(error),
+		});
+		return false;
+	}
 }
 
 // Listen for messages from popup and content scripts
@@ -751,6 +763,12 @@ async function handleMessage(
 
 		case 'AUTOMATION_READY':
 			extensionLogger.log('AUTOMATION_READY, sending AUTOMATION_STARTED to state machine');
+
+			// Track the game iframe's frameId and tabId for targeted messaging
+			gameFrameId = sender.frameId;
+			gameTabId = sender.tab?.id;
+			extensionLogger.log('Tracked game frame', { gameFrameId, gameTabId });
+
 			sendToStateMachine({ type: 'AUTOMATION_STARTED' });
 
 			// EVENT-DRIVEN SOLUTION: Re-broadcast START_MISSION_AUTOMATION if bot is running

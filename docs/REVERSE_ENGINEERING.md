@@ -320,3 +320,40 @@ const J6 = {
     legendary: "#ffffff",
     m
 ```
+
+## Reddit Loading Preview
+
+When reddit is loading the preview it looks like this:
+
+```html
+<div class="dark">
+	<div
+		class="box-border overflow-hidden relative shrink-0 flex flex-col p-0 items-stretch border-0 rounded-dx-sm pointer-events-none [&amp;&gt;:not(.pointer-events-none)]:pointer-events-auto"
+		style="height: 512px; min-height: 512px; max-height: 512px; overflow: hidden;"
+		data-block-type="stack"
+		data-stack-type="vstack"
+	>
+		<div
+			class="box-border overflow-hidden relative shrink-0 dx-bg-color flex flex-col p-0 justify-center items-center border-0 rounded-none pointer-events-auto"
+			style="width: 100%; height: 100%; --dx-bg-color-light: #000000; --dx-bg-color-dark: #000000; padding-bottom: 8px;"
+			data-block-type="stack"
+			data-stack-type="vstack"
+		>
+			<div
+				aria-description=""
+				class="box-border m-0 relative shrink-0 bg-center bg-no-repeat bg-contain"
+				style="background-image: url('https://i.redd.it/v9ds28z4uh0f1.png'); width: 150px; height: 140px;"
+				data-block-type="image"
+			>
+				<img src="https://i.redd.it/v9ds28z4uh0f1.png" class="w-100 h-100" style="display: none" />
+			</div>
+			<span
+				class="box-border overflow-hidden relative shrink-0 dx-text-color text-16 text-start font-normal select-auto text-ellipsis whitespace-nowrap"
+				style="top: 8px; --dx-text-color-light: neutral-content; --dx-text-color-dark: neutral-content;"
+				data-block-type="text"
+				>Loading ...</span
+			>
+		</div>
+	</div>
+</div>
+```
