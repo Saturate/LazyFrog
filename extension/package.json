@@ -14,7 +14,7 @@
 		"test:ui": "vitest --ui",
 		"test:run": "vitest run",
 		"package": "pnpm run build && pnpm run zip && pnpm run copy-to-website",
-		"copy-to-website": "mkdir -p ../website/public/downloads && cp .output/*-*.zip ../website/public/downloads/",
+		"copy-to-website": "mkdir -p ../website/public/downloads && cp dist/*.zip ../website/public/downloads/",
 		"start:chrome": "wxt dev -b chrome --open https://www.reddit.com/r/SwordAndSupperGame/"
 	},
 	"keywords": [
