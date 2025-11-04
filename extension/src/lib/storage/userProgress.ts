@@ -89,8 +89,45 @@ export async function markMissionCleared(postId: string): Promise<void> {
 		userProgress.cleared.push(postId);
 	}
 
-	// Record clear timestamp
-	userProgress.clearedAt[postId] = Date.now();
+	// Record clear timestamp (duration will be filled in by server sync)
+	userProgress.clearedAt[postId] = {
+		timestamp: Date.now(),
+		duration: undefined,
+	};
+
+	// Update multi-user structure
+	multiUserData[username] = userProgress;
+
+	// Save back to storage
+	await setMultiUserProgress(multiUserData);
+}
+
+/**
+ * Sync cleared missions data from server
+ * Server data is source of truth - updates local data with server timestamps and durations
+ */
+export async function syncClearedMissionsFromServer(
+	clearedMissions: Record<string, { cleared_timestamp: number; duration: number }>,
+): Promise<void> {
+	const username = await getCurrentRedditUser();
+	const multiUserData = await getMultiUserProgress();
+
+	// Get or create user's progress
+	const userProgress = multiUserData[username] || createEmptyProgressData();
+
+	// Update with server data
+	for (const [postId, serverData] of Object.entries(clearedMissions)) {
+		// Add to cleared array if not already there
+		if (!userProgress.cleared.includes(postId)) {
+			userProgress.cleared.push(postId);
+		}
+
+		// Update with server timestamp and duration (server is source of truth)
+		userProgress.clearedAt[postId] = {
+			timestamp: serverData.cleared_timestamp,
+			duration: serverData.duration,
+		};
+	}
 
 	// Update multi-user structure
 	multiUserData[username] = userProgress;
@@ -192,14 +229,29 @@ export async function exportUserProgress(): Promise<string> {
  * Validate that the imported data has the required UserProgressData structure
  */
 function isValidUserProgressData(data: any): data is UserProgressData {
-	return (
-		data &&
-		typeof data === 'object' &&
-		Array.isArray(data.cleared) &&
-		Array.isArray(data.disabled) &&
-		typeof data.clearedAt === 'object' &&
-		typeof data.loot === 'object'
-	);
+	if (
+		!data ||
+		typeof data !== 'object' ||
+		!Array.isArray(data.cleared) ||
+		!Array.isArray(data.disabled) ||
+		typeof data.clearedAt !== 'object' ||
+		typeof data.loot !== 'object'
+	) {
+		return false;
+	}
+
+	// Validate clearedAt structure - each entry should have timestamp and optional duration
+	for (const [postId, clearData] of Object.entries(data.clearedAt)) {
+		if (
+			typeof clearData !== 'object' ||
+			clearData === null ||
+			typeof (clearData as any).timestamp !== 'number'
+		) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 /**
