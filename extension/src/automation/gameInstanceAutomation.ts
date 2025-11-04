@@ -392,8 +392,9 @@ export class GameInstanceAutomationEngine {
 						return text !== 'refuse' && text !== 'decline';
 					});
 					if (acceptBtn) {
-						if (!dryRun)
+						if (!dryRun) {
 							logger.log('Clicking accept button', { text: acceptBtn.textContent?.trim() });
+						}
 						this.clickButton(acceptBtn, 'accept button (bargain)', dryRun);
 						actionTaken = true;
 					}
