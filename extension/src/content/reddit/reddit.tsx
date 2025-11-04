@@ -83,15 +83,21 @@ function injectMissionDataFetcher(): void {
 		missionDataFetcherInjected = true;
 	};
 	script.onerror = (error) => {
-		redditLogger.error('[injectMissionDataFetcher] Failed to load script', { error: String(error) });
+		redditLogger.error('[injectMissionDataFetcher] Failed to load script', {
+			error: String(error),
+		});
 	};
 
 	const target = document.head || document.documentElement;
 	if (target) {
 		target.appendChild(script);
-		redditLogger.log('[injectMissionDataFetcher] Script tag appended to DOM', { targetTag: target.tagName });
+		redditLogger.log('[injectMissionDataFetcher] Script tag appended to DOM', {
+			targetTag: target.tagName,
+		});
 	} else {
-		redditLogger.error('[injectMissionDataFetcher] No document.head or documentElement available for injection');
+		redditLogger.error(
+			'[injectMissionDataFetcher] No document.head or documentElement available for injection',
+		);
 	}
 }
 
@@ -189,11 +195,6 @@ chrome.storage.local.get(['activeBotSession'], (result) => {
 
 // Listen for messages from background script and popup
 chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
-	redditLogger.log('Received Chrome message', {
-		type: message.type,
-		message,
-	});
-
 	switch (message.type) {
 		// ============================================================================
 		// Commands from background service worker
@@ -697,7 +698,9 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 				// Build proper protobuf request using @devvit/protos and send to injected script
 				(async () => {
 					try {
-						const { UIRequest, UIResponse } = await import('@devvit/protos/types/devvit/ui/block_kit/v1beta/ui.js');
+						const { UIRequest, UIResponse } = await import(
+							'@devvit/protos/types/devvit/ui/block_kit/v1beta/ui.js'
+						);
 
 						// Create UIRequest
 						const request: any = { props: { postId }, state: {}, events: [] };
@@ -724,7 +727,13 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 						// Set up response listener
 						const responseListener = async (event: Event) => {
 							const customEvent = event as CustomEvent;
-							const { requestId: responseRequestId, postId: responsePostId, success, arrayBuffer, error } = customEvent.detail;
+							const {
+								requestId: responseRequestId,
+								postId: responsePostId,
+								success,
+								arrayBuffer,
+								error,
+							} = customEvent.detail;
 
 							if (responseRequestId !== requestId) return;
 
@@ -748,14 +757,16 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 												if (stateValue && typeof stateValue === 'object') {
 													if (stateValue.mission) {
 														const m = stateValue.mission;
-														if (m.difficulty !== undefined) data.difficulty = Math.round(m.difficulty);
+														if (m.difficulty !== undefined)
+															data.difficulty = Math.round(m.difficulty);
 														if (m.minLevel !== undefined) data.minLevel = Math.round(m.minLevel);
 														if (m.maxLevel !== undefined) data.maxLevel = Math.round(m.maxLevel);
 														if (m.environment) data.environment = m.environment;
 														if (m.foodName) data.foodName = m.foodName;
 														if (m.encounters) data.encounters = m.encounters;
 													}
-													if (stateValue.isInnPost !== undefined) data.isInnPost = stateValue.isInnPost;
+													if (stateValue.isInnPost !== undefined)
+														data.isInnPost = stateValue.isInnPost;
 													if (stateValue.authorName) data.authorName = stateValue.authorName;
 													if (stateValue.title) data.title = stateValue.title;
 												}
@@ -771,8 +782,13 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 										sendResponse({ success: false, error: 'No mission data found in response' });
 									}
 								} catch (parseError) {
-									redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] Parse failed', { error: parseError });
-									sendResponse({ success: false, error: 'Failed to decode response: ' + String(parseError) });
+									redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] Parse failed', {
+										error: parseError,
+									});
+									sendResponse({
+										success: false,
+										error: 'Failed to decode response: ' + String(parseError),
+									});
 								}
 							} else {
 								sendResponse({ success: false, error: error || 'Fetch failed' });
@@ -782,15 +798,16 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 						window.addEventListener('autosupper:fetch-mission-response', responseListener);
 
 						// Send request with built body
-						window.dispatchEvent(new CustomEvent('autosupper:fetch-mission-request', {
-							detail: { postId, requestId, requestBody: Array.from(requestBody) }
-						}));
+						window.dispatchEvent(
+							new CustomEvent('autosupper:fetch-mission-request', {
+								detail: { postId, requestId, requestBody: Array.from(requestBody) },
+							}),
+						);
 
 						setTimeout(() => {
 							window.removeEventListener('autosupper:fetch-mission-response', responseListener);
 							sendResponse({ success: false, error: 'Request timeout' });
 						}, 30000);
-
 					} catch (error) {
 						redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] Build failed', { error });
 						sendResponse({ success: false, error: 'Failed to build request: ' + String(error) });
@@ -800,6 +817,10 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 			return true;
 
 		default:
+			redditLogger.warn('Received unknown message type', {
+				type: message.type,
+				message,
+			});
 			sendResponse({ error: 'Unknown message type' });
 	}
 
