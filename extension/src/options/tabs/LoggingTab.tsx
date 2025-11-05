@@ -227,7 +227,7 @@ const LoggingTab: React.FC = () => {
 							<input
 								type="number"
 								min="1000"
-								max="50000"
+								max="20000"
 								step="1000"
 								value={settings.maxStoredLogs}
 								onChange={(e) =>
