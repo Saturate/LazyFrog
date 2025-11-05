@@ -60,6 +60,9 @@ export default function DownloadsPage() {
                       Version
                     </th>
                     <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Browser
+                    </th>
+                    <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">
                       Size
                     </th>
                     <th className="text-right py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">
@@ -69,10 +72,10 @@ export default function DownloadsPage() {
                 </thead>
                 <tbody>
                   {releases.map((release) => {
-                    const isLatest = release.version === latestVersion;
+                    const isLatest = release.version === latestVersion && release.browser === 'chrome';
                     return (
                       <tr
-                        key={release.version}
+                        key={release.filename}
                         className="border-b border-gray-100 dark:border-zinc-700 last:border-0 hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors"
                       >
                         <td className="py-4 px-6">
@@ -87,6 +90,11 @@ export default function DownloadsPage() {
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-gray-700 dark:text-gray-300 text-sm font-medium capitalize">
+                            {release.browser}
+                          </span>
                         </td>
                         <td className="py-4 px-6">
                           <span className="text-gray-600 dark:text-gray-400 text-sm">

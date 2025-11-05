@@ -20,10 +20,14 @@ export function getLatestDownload() {
     const files = fs.readdirSync(downloadsDir);
     for (const file of files) {
       if (!file.endsWith(".zip")) continue;
-      const m = file.match(/lazyfrog-(\d+\.\d+\.\d+)\.zip$/);
+      // Support both old format (lazyfrog-X.Y.Z.zip) and new format (lazyfrog-X.Y.Z-browser.zip)
+      const m = file.match(/lazyfrog-(\d+\.\d+\.\d+)(?:-(\w+))?\.zip$/);
       if (!m) continue;
       const version = m[1];
-      if (!newest || compareVersions(version, newest.version) > 0) {
+      const browser = m[2] || 'chrome'; // Default to chrome for old format
+      // Prefer chrome builds when comparing same versions
+      if (!newest || compareVersions(version, newest.version) > 0 ||
+          (compareVersions(version, newest.version) === 0 && browser === 'chrome')) {
         newest = { filename: file, version };
       }
     }
@@ -32,7 +36,7 @@ export function getLatestDownload() {
   }
   if (!newest) {
     return {
-      href: "/downloads/lazyfrog-0.10.0.zip",
+      href: "/downloads/lazyfrog-0.10.0-chrome.zip",
       version: "0.10.0",
     };
   }

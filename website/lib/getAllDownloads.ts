@@ -3,6 +3,7 @@ import path from "path";
 
 export interface DownloadRelease {
   version: string;
+  browser: string; // e.g., "chrome", "firefox"
   filename: string;
   href: string;
   fileSize: number;
@@ -42,10 +43,12 @@ export function getAllDownloads(): DownloadRelease[] {
     for (const file of files) {
       if (!file.endsWith(".zip")) continue;
 
-      const match = file.match(/lazyfrog-(\d+\.\d+\.\d+)\.zip$/);
+      // Support both old format (lazyfrog-X.Y.Z.zip) and new format (lazyfrog-X.Y.Z-browser.zip)
+      const match = file.match(/lazyfrog-(\d+\.\d+\.\d+)(?:-(\w+))?\.zip$/);
       if (!match) continue;
 
       const version = match[1];
+      const browser = match[2] || 'chrome'; // Default to chrome for old format
       const filePath = path.join(downloadsDir, file);
 
       // Get file size
@@ -59,6 +62,7 @@ export function getAllDownloads(): DownloadRelease[] {
 
       releases.push({
         version,
+        browser,
         filename: file,
         href: `/downloads/${file}`,
         fileSize,
@@ -69,8 +73,13 @@ export function getAllDownloads(): DownloadRelease[] {
     return [];
   }
 
-  // Sort by version (newest first)
-  releases.sort((a, b) => compareVersions(b.version, a.version));
+  // Sort by version (newest first), then by browser name
+  releases.sort((a, b) => {
+    const versionCmp = compareVersions(b.version, a.version);
+    if (versionCmp !== 0) return versionCmp;
+    // If same version, sort by browser alphabetically
+    return a.browser.localeCompare(b.browser);
+  });
 
   return releases;
 }
