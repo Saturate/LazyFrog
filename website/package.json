@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@devvit/protos": "^0.12.1",
     "@lazyfrog/types": "workspace:*",
     "@lazyfrog/ui": "workspace:*",
     "@tanstack/react-table": "^8.21.3",

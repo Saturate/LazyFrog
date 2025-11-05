@@ -12,8 +12,8 @@ export interface UserProgressData {
 	cleared: string[];
 	/** Array of disabled mission post IDs */
 	disabled: string[];
-	/** Map of post ID to clear timestamp */
-	clearedAt: Record<string, number>;
+	/** Map of post ID to clear data (timestamp and optional duration) */
+	clearedAt: Record<string, { timestamp: number; duration?: number }>;
 	/** Map of post ID to loot collected */
 	loot: Record<string, Array<{ id: string; quantity: number }>>;
 }

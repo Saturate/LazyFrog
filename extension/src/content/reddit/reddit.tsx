@@ -20,6 +20,7 @@ import { redditLogger } from '../../utils/logger';
 import { getNextUnclearedMission } from '../../lib/storage/missionQueries';
 import { checkMissionClearedInDOM } from '../../lib/storage/domUtils';
 import { markMissionCleared } from '../../lib/storage/missions';
+import { syncClearedMissionsFromServer } from '../../lib/storage/userProgress';
 
 // Utility functions
 import { safeSendMessage } from './utils/messaging';
@@ -612,8 +613,26 @@ chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendRespon
 														data.isInnPost = stateValue.isInnPost;
 													if (stateValue.authorName) data.authorName = stateValue.authorName;
 													if (stateValue.title) data.title = stateValue.title;
+													// Extract clearedMissions data from server
+													if (stateValue.clearedMissions) {
+														data.clearedMissions = stateValue.clearedMissions;
+													}
 												}
 											}
+										}
+									}
+
+									// Sync cleared missions from server if available
+									if (data.clearedMissions) {
+										try {
+											await syncClearedMissionsFromServer(data.clearedMissions);
+											redditLogger.log('[FETCH_MISSION_DATA_FROM_PAGE] Synced cleared missions', {
+												count: Object.keys(data.clearedMissions).length,
+											});
+										} catch (syncError) {
+											redditLogger.error('[FETCH_MISSION_DATA_FROM_PAGE] Failed to sync cleared missions', {
+												error: syncError,
+											});
 										}
 									}
 

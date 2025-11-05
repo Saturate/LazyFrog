@@ -20,6 +20,7 @@ export interface MissionData {
 	cart?: string;
 	rarity?: string;
 	type?: string;
+	clearedMissions?: Record<string, { cleared_timestamp: number; duration: number }>;
 }
 
 /**
@@ -113,6 +114,14 @@ export function parseMissionData(arrayBuffer: ArrayBuffer, postId: string): Miss
 								encounters: stateValue.encounters,
 							});
 						}
+
+					// Check if this is the clearedMissions state hook
+					if (stateValue.clearedMissions && typeof stateValue.clearedMissions === 'object') {
+						data.clearedMissions = stateValue.clearedMissions;
+						redditLogger.log(`Found ${Object.keys(stateValue.clearedMissions).length} cleared missions in ${key}`, {
+							sample: Object.keys(stateValue.clearedMissions).slice(0, 5),
+						});
+					}
 					}
 				}
 			}

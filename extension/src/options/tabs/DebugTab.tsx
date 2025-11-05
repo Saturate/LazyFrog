@@ -5,9 +5,12 @@
 
 import React, { useState } from 'react';
 import { Code, Play, Copy, Check } from 'lucide-react';
+import { parseMissionData } from '../../utils/parseMissionData';
 
 const DebugTab: React.FC = () => {
-	const [input, setInput] = useState('https://www.reddit.com/r/SwordAndSupperGame/comments/1okp2mg/in_search_of_playable_pies/');
+	const [input, setInput] = useState(
+		'https://www.reddit.com/r/SwordAndSupperGame/comments/1okp2mg/in_search_of_playable_pies/',
+	);
 	const [isLoading, setIsLoading] = useState(false);
 	const [result, setResult] = useState<any>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -90,7 +93,7 @@ const DebugTab: React.FC = () => {
 				}
 
 				// Give content script a moment to inject and initialize
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 				setError(null); // Clear the opening message
 			}
 
@@ -102,7 +105,9 @@ const DebugTab: React.FC = () => {
 				{ type: 'FETCH_MISSION_DATA', postId, tabId: redditTab.id! },
 				(response: any) => {
 					if (chrome.runtime.lastError) {
-						setError(`Failed to communicate with background worker: ${chrome.runtime.lastError.message}`);
+						setError(
+							`Failed to communicate with background worker: ${chrome.runtime.lastError.message}`,
+						);
 						setIsLoading(false);
 						return;
 					}
@@ -110,10 +115,13 @@ const DebugTab: React.FC = () => {
 					if (response?.success && response.data) {
 						setResult(response.data);
 					} else {
-						setError(response?.error || 'Failed to fetch mission data. Make sure you are logged into Reddit.');
+						setError(
+							response?.error ||
+								'Failed to fetch mission data. Make sure you are logged into Reddit.',
+						);
 					}
 					setIsLoading(false);
-				}
+				},
 			);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -135,9 +143,12 @@ const DebugTab: React.FC = () => {
 
 	return (
 		<div>
-			<div className="card" style={{ marginBottom: '24px' }}>
+			<div className="card">
 				<h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px' }}>
-					<Code size={20} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '8px' }} />
+					<Code
+						size={20}
+						style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '8px' }}
+					/>
 					Mission Data Fetcher
 				</h2>
 				<p style={{ color: '#a3a3a3', marginBottom: '24px', fontSize: '14px' }}>
@@ -146,7 +157,9 @@ const DebugTab: React.FC = () => {
 
 				{/* Input */}
 				<div style={{ marginBottom: '16px' }}>
-					<label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
+					<label
+						style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}
+					>
 						Post ID or URL
 					</label>
 					<input
@@ -209,12 +222,45 @@ const DebugTab: React.FC = () => {
 						<strong>Error:</strong> {error}
 					</div>
 				)}
+
+				{/* Protobuf Decoder Link */}
+				<div
+					style={{
+						marginTop: '24px',
+						padding: '12px',
+						background: '#14532d',
+						border: '1px solid #166534',
+						borderRadius: '8px',
+						fontSize: '14px',
+					}}
+				>
+					<strong style={{ color: '#86efac' }}>Need to decode protobuf requests/responses?</strong>
+					<p style={{ marginTop: '4px', color: '#bbf7d0', fontSize: '13px' }}>
+						Visit the{' '}
+						<a
+							href="https://lazyfrog.xyz/protobuf"
+							target="_blank"
+							rel="noopener noreferrer"
+							style={{ color: '#86efac', textDecoration: 'underline' }}
+						>
+							Protobuf Decoder
+						</a>{' '}
+						on the LazyFrog website to decode requests, responses, and HAR files.
+					</p>
+				</div>
 			</div>
 
 			{/* Result */}
 			{result && (
-				<div className="card">
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+				<div className="card" style={{ marginTop: '24px' }}>
+					<div
+						style={{
+							display: 'flex',
+							justifyContent: 'space-between',
+							alignItems: 'center',
+							marginBottom: '16px',
+						}}
+					>
 						<h3 style={{ fontSize: '18px', fontWeight: '600' }}>Result</h3>
 						<button
 							onClick={handleCopy}
@@ -271,7 +317,9 @@ const DebugTab: React.FC = () => {
 						<div style={{ marginTop: '8px', color: '#bbf7d0', fontSize: '13px' }}>
 							{result.difficulty && <div>Difficulty: {result.difficulty} stars</div>}
 							{result.minLevel && result.maxLevel && (
-								<div>Level Range: {result.minLevel} - {result.maxLevel}</div>
+								<div>
+									Level Range: {result.minLevel} - {result.maxLevel}
+								</div>
 							)}
 							{result.environment && <div>Environment: {result.environment}</div>}
 							{result.encounters && <div>Encounters: {result.encounters.length}</div>}
