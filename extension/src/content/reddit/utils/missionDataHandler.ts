@@ -8,6 +8,7 @@ import { saveMission } from '../../../lib/storage/missions';
 import { parseMissionData, MissionData } from '../../../utils/parseMissionData';
 import { safeSendMessage } from './messaging';
 import { convertMissionDataToRecord, isCompleteMissionData } from '../../../utils/missionDataConverter';
+import { syncClearedMissionsFromServer } from '../../../lib/storage/userProgress';
 
 /**
  * Save mission data from API response
@@ -127,6 +128,25 @@ export function installMissionDataHandler(): void {
 					);
 
 					await handleMissionCompletionFromData(data.postId);
+				}
+
+				// Auto-sync cleared missions from server if available
+				if (data.clearedMissions && Object.keys(data.clearedMissions).length > 0) {
+					try {
+						await syncClearedMissionsFromServer(data.clearedMissions);
+						redditLogger.log(
+							'[missionDataHandler] Synced cleared missions from server',
+							{
+								postId: data.postId,
+								count: Object.keys(data.clearedMissions).length,
+							},
+						);
+					} catch (error) {
+						redditLogger.error('[missionDataHandler] Failed to sync cleared missions', {
+							error: error instanceof Error ? error.message : String(error),
+							postId: data.postId,
+						});
+					}
 				}
 			}
 		}
