@@ -17,7 +17,6 @@ export interface GameInstanceAutomationConfig {
 	autoAcceptSkillBargains: boolean;
 	skillBargainStrategy: 'always' | 'positive-only' | 'never';
 	crossroadsStrategy: 'fight' | 'skip'; // Whether to fight or skip mini boss encounters
-	creatorBonusPreference: 'coin' | 'attack' | 'first'; // Which creator bonus to select
 	clickDelay: number; // Delay between clicks in ms
 	debugVisuals?: boolean; // Show red outline on buttons that will be clicked
 }
@@ -29,7 +28,6 @@ export const DEFAULT_GIAE_CONFIG: GameInstanceAutomationConfig = {
 	autoAcceptSkillBargains: true,
 	skillBargainStrategy: 'positive-only',
 	crossroadsStrategy: 'fight', // Fight mini bosses by default
-	creatorBonusPreference: 'coin', // Default to coin earn rate bonus
 	clickDelay: 1000,
 	debugVisuals: true, // Show visual indicators for debugging
 };
@@ -283,23 +281,8 @@ export class GameInstanceAutomationEngine {
 			return 'bargain';
 		}
 
-
-		// Creator bonus (panel header with "Choose a bonus" and buttons with "Creator Bonus:" prefix)
-		if (classes.filter((c) => c.includes('skill-button')).length > 1) {
-			const panelHeader = document.querySelector('.ui-panel-header');
-			const headerText = panelHeader?.textContent?.toLowerCase() || '';
-			const hasCreatorBonusButtons = buttons.some((b) => {
-				const text = b.textContent?.toLowerCase() || '';
-				return text.includes('creator bonus:');
-			});
-
-			if (headerText.includes('choose a bonus') || hasCreatorBonusButtons) {
-				return 'creatorBonus';
-			}
-
-			// Generic choice screen (blessing or ability choice)
-			return 'choice';
-		}
+		// Choice screen (multiple skill buttons - blessing or ability choice)
+		if (classes.filter((c) => c.includes('skill-button')).length > 1) return 'choice';
 
 		// Battle screen (advance button) - check BEFORE in_progress
 		if (classes.some((c) => c.includes('advance-button'))) {
@@ -516,26 +499,6 @@ export class GameInstanceAutomationEngine {
 				actionTaken = buttonClicked;
 				break;
 			}
-
-		case 'creatorBonus': {
-			const skillButtons = buttons.filter((b) => b.classList.contains('skill-button'));
-			const bonusOptions = skillButtons.map((b) => b.textContent?.trim() || ''  );
-
-			const chosen = this.decisionMaker.decideCreatorBonus(bonusOptions);
-			logger.log('Creator bonus decision', {
-				chosen,
-				available: bonusOptions,
-				preference: this.config.creatorBonusPreference,
-				dryRun,
-			});
-
-			const btn = skillButtons.find((b) => b.textContent?.includes(chosen));
-			if (btn) {
-				this.clickButton(btn, `creator bonus: ${chosen}`, dryRun);
-				actionTaken = true;
-			}
-			break;
-		}
 
 			case 'continue':
 			case 'finish': {

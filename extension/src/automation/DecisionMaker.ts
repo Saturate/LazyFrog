@@ -81,6 +81,36 @@ export class DecisionMaker {
 	}
 
 	/**
+	 * Pick creator bonus based on user preference
+	 */
+	decideCreatorBonus(bonusOptions: string[]): string {
+		const preference = this.config.creatorBonusPreference || 'coin';
+
+		// If preference is 'first', just return the first option
+		if (preference === 'first') {
+			return bonusOptions[0];
+		}
+
+		// Try to match preference
+		if (preference === 'coin') {
+			const coinOption = bonusOptions.find((opt) => {
+				const text = opt.toLowerCase();
+				return text.includes('coin') || text.includes('gold') || text.includes('earn rate');
+			});
+			if (coinOption) return coinOption;
+		} else if (preference === 'attack') {
+			const attackOption = bonusOptions.find((opt) => {
+				const text = opt.toLowerCase();
+				return text.includes('attack') && !text.includes('earn rate');
+			});
+			if (attackOption) return attackOption;
+		}
+
+		// Fallback to first option
+		return bonusOptions[0];
+	}
+
+	/**
 	 * Simple heuristic: more + than - means positive
 	 */
 	private isPositiveBargain(text: string): boolean {

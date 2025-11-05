@@ -11,6 +11,7 @@ interface AutomationConfig {
   blessingStatPriority: string[];
   skillBargainStrategy: 'always' | 'positive-only' | 'never';
   crossroadsStrategy: 'fight' | 'skip';
+  creatorBonusPreference: 'coin' | 'attack' | 'first';
 }
 
 const AutomationTab: React.FC = () => {
@@ -19,6 +20,7 @@ const AutomationTab: React.FC = () => {
     blessingStatPriority: [],
     skillBargainStrategy: 'positive-only',
     crossroadsStrategy: 'fight',
+    creatorBonusPreference: 'coin',
   });
   const [discoveredAbilities, setDiscoveredAbilities] = useState<string[]>([]);
   const [discoveredBlessingStats, setDiscoveredBlessingStats] = useState<string[]>([]);
@@ -32,6 +34,7 @@ const AutomationTab: React.FC = () => {
           blessingStatPriority: result.automationConfig.blessingStatPriority || [],
           skillBargainStrategy: result.automationConfig.skillBargainStrategy || 'positive-only',
           crossroadsStrategy: result.automationConfig.crossroadsStrategy || 'fight',
+          creatorBonusPreference: result.automationConfig.creatorBonusPreference || 'coin',
         });
       }
       setDiscoveredAbilities(result.discoveredAbilities || []);
@@ -48,6 +51,7 @@ const AutomationTab: React.FC = () => {
         blessingStatPriority: config.blessingStatPriority,
         skillBargainStrategy: config.skillBargainStrategy,
         crossroadsStrategy: config.crossroadsStrategy,
+        creatorBonusPreference: config.creatorBonusPreference,
       };
       chrome.storage.local.set({ automationConfig: fullConfig });
     });
@@ -123,6 +127,21 @@ const AutomationTab: React.FC = () => {
           >
             <option value="fight">Fight Miniboss</option>
             <option value="skip">Skip Miniboss</option>
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Creator Bonus Preference:</label>
+          <p style={{ color: '#a1a1aa', fontSize: '13px', marginTop: '4px', marginBottom: '8px' }}>
+            Which bonus to select when you're the mission creator.
+          </p>
+          <select
+            value={config.creatorBonusPreference}
+            onChange={(e) => setConfig(prev => ({ ...prev, creatorBonusPreference: e.target.value as any }))}
+          >
+            <option value="coin">Coin Earn Rate (Gold)</option>
+            <option value="attack">Attack Bonus</option>
+            <option value="first">First Available</option>
           </select>
         </div>
       </div>
