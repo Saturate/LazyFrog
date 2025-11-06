@@ -63,6 +63,7 @@ export interface AbilityChoiceEncounter {
   isEnchanted: boolean;
   optionA: Effect;
   optionB: Effect;
+  optionC?: Effect; // Optional third choice
 }
 
 export interface Enemy {
