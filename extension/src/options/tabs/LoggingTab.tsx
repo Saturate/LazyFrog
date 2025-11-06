@@ -90,7 +90,7 @@ const LoggingTab: React.FC = () => {
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
 		} catch (error) {
-			alert(`Failed to export logs: ${error}`);
+			alert(`Failed to export logs: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	};
 
