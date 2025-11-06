@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Trash2, Upload, Download, CheckCircle, Bug } from 'lucide-react';
 import { UserOptions } from '../../lib/storage/storageTypes';
+import CompleteBackupCard from '../components/CompleteBackupCard';
 
 interface DebugSettings {
 	showNextMissions: boolean;
@@ -440,6 +441,8 @@ const SettingsTab: React.FC = () => {
 					onChange={handleFileSelected}
 				/>
 			</div>
+
+			<CompleteBackupCard />
 
 			<div className="card">
 				<h2>
