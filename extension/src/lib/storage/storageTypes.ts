@@ -40,6 +40,7 @@ export interface UserOptions {
 	autoAcceptSkillBargains?: boolean;
 	skillBargainStrategy?: 'always' | 'positive-only' | 'never';
 	crossroadsStrategy?: 'fight' | 'skip';
+	creatorBonusPreference?: 'coin' | 'attack' | 'first';
 	autoStartMissions?: boolean;
 	showNotifications?: boolean;
 	debugMode?: boolean;

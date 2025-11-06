@@ -17,7 +17,8 @@ export type EncounterType =
   | "skillBargain"
   | "abilityChoice"
   | "enemy"
-  | "crossroadsFight";
+  | "crossroadsFight"
+  | "creatorBonus";
 
 export type StatType =
   | "Attack"
@@ -87,13 +88,19 @@ export interface CrossroadsEncounter {
   enemies: Enemy[];
 }
 
+export interface CreatorBonusEncounter {
+  type: "creatorBonus";
+  bonusOptions?: string[]; // e.g., ["coin", "attack", "xp"]
+}
+
 export type Encounter =
   | InvestigateEncounter
   | StatsChoiceEncounter
   | SkillBargainEncounter
   | AbilityChoiceEncounter
   | EnemyEncounter
-  | CrossroadsEncounter;
+  | CrossroadsEncounter
+  | CreatorBonusEncounter;
 
 export type Environment =
   | "haunted_forest"
@@ -233,4 +240,5 @@ export const ENCOUNTER_LABELS: Record<EncounterType, string> = {
   abilityChoice: "Ability Choice",
   enemy: "Battle",
   crossroadsFight: "Crossroads (Miniboss)",
+  creatorBonus: "Creator Bonus",
 };
