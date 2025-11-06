@@ -45,8 +45,14 @@ export async function exportAllData(): Promise<string> {
 			// Get current username and extension version
 			Promise.all([
 				getCurrentRedditUser(),
-				chrome.runtime.getManifest()
+				Promise.resolve(chrome.runtime.getManifest())
 			]).then(([username, manifest]) => {
+				// Validate manifest version
+				if (!manifest.version) {
+					reject(new Error('Extension manifest is missing version field'));
+					return;
+				}
+
 				const backup: CompleteBackupData = {
 					version: '1.0',
 					extVersion: manifest.version,
@@ -65,7 +71,7 @@ export async function exportAllData(): Promise<string> {
 				};
 
 				resolve(JSON.stringify(backup, null, 2));
-			});
+			}).catch(reject);
 		});
 	});
 }

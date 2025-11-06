@@ -25,7 +25,7 @@ const CompleteBackupCard: React.FC = () => {
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
 		} catch (error) {
-			alert(`Failed to export all data: ${error}`);
+			alert(`Failed to export all data: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	};
 
@@ -55,7 +55,7 @@ const CompleteBackupCard: React.FC = () => {
 			await importAllData(text);
 			alert('All data imported successfully! Please reload the extension for changes to take effect.');
 		} catch (error) {
-			alert(`Failed to import all data: ${error}`);
+			alert(`Failed to import all data: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
 		// Reset file input

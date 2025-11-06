@@ -119,7 +119,7 @@ const SettingsTab: React.FC = () => {
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
 		} catch (error) {
-			alert(`Failed to export user progress: ${error}`);
+			alert(`Failed to export user progress: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	};
 
@@ -137,7 +137,7 @@ const SettingsTab: React.FC = () => {
 			await importUserProgress(text);
 			alert('User progress imported successfully!');
 		} catch (error) {
-			alert(`Failed to import user progress: ${error}`);
+			alert(`Failed to import user progress: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
 		// Reset file input
