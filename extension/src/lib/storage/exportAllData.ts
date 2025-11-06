@@ -4,13 +4,13 @@
 
 import type { MissionsDatabase } from '@lazyfrog/types';
 import type {
-	STORAGE_KEYS,
 	MultiUserProgressDatabase,
 	UserOptions,
 	AutomationFilters,
 	RedditAPICache,
 } from './storageTypes';
 import type { GameInstanceAutomationConfig } from '../../automation/gameInstanceAutomation';
+import { STORAGE_KEYS } from './storageTypes';
 import { getCurrentRedditUser } from '../reddit/userDetection';
 
 export interface CompleteBackupData {
