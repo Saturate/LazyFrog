@@ -2,7 +2,15 @@
  * Export and import all extension data for complete backup/restore
  */
 
-import { STORAGE_KEYS } from './storageTypes';
+import type { MissionsDatabase } from '@lazyfrog/types';
+import type {
+	STORAGE_KEYS,
+	MultiUserProgressDatabase,
+	UserOptions,
+	AutomationFilters,
+	RedditAPICache,
+} from './storageTypes';
+import type { GameInstanceAutomationConfig } from '../../automation/gameInstanceAutomation';
 import { getCurrentRedditUser } from '../reddit/userDetection';
 
 export interface CompleteBackupData {
@@ -11,14 +19,14 @@ export interface CompleteBackupData {
 	exportDate: number;
 	username: string; // Username at time of export (for reference)
 	data: {
-		missions?: any;
-		userProgress?: any;
-		userOptions?: any;
-		automationFilters?: any;
-		automationConfig?: any;
-		discoveredAbilities?: any;
-		discoveredBlessingStats?: any;
-		redditApiCache?: any;
+		missions?: MissionsDatabase;
+		userProgress?: MultiUserProgressDatabase;
+		userOptions?: UserOptions;
+		automationFilters?: AutomationFilters;
+		automationConfig?: GameInstanceAutomationConfig;
+		discoveredAbilities?: string[];
+		discoveredBlessingStats?: string[];
+		redditApiCache?: RedditAPICache[];
 	};
 }
 
